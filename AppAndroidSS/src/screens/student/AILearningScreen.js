@@ -1,0 +1,2527 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Animated as RNAnimated,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import Toast from 'react-native-toast-message';
+import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MainLayout from '../../components/ui/MainLayout';
+import EmptyState from '../../components/ui/EmptyState';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import AppButton from '../../components/ui/AppButton';
+import { useData } from '../../context/DataContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { aiTutorAPI, API_BASE } from '../../services/apiClient';
+import DiagramCanvas from '../../components/DiagramCanvas';
+import VoiceQAOverlay from '../../components/VoiceQAOverlay';
+import MarkdownText from '../../components/ui/MarkdownText';
+import { getSidebarItems } from '../../utils/sidebarItems';
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+const AILearningScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { theme, isDark } = useTheme();
+  const { user } = useAuth();
+  const { width, height: windowHeight } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const sidebarItems = getSidebarItems(user?.role);
+  const handleNavigate = (routeName) => {
+    if (routeName === 'CertificateVerify') {
+      navigation.navigate(routeName, { fromStudent: true });
+    } else {
+      navigation.navigate(routeName);
+    }
+  };
+  const { courseId, topicId } = route.params || {};
+  const { courses, checkEnrollment, fetchCourses } = useData();
+  const course = courses.find((item) => item.id === courseId);
+  const topic = course?.topics?.find((item) => item.id === topicId);
+
+  const [loading, setLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [lecture, setLecture] = useState(null);
+  const [session, setSession] = useState(null);
+  const [currentChunk, setCurrentChunk] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [question, setQuestion] = useState('');
+  const [showQuestionPanel, setShowQuestionPanel] = useState(false);
+  const [activeToolPanel, setActiveToolPanel] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [voiceMode, setVoiceMode] = useState(Platform.OS === 'web');
+  const [isRecording, setIsRecording] = useState(false);
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
+  const [lectureCompleted, setLectureCompleted] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showTopicsSidebar, setShowTopicsSidebar] = useState(false);
+  const [revealedFlashcards, setRevealedFlashcards] = useState({});
+  const [teachingProgress, setTeachingProgress] = useState(0);
+  const [quizPreview, setQuizPreview] = useState(null);
+  const [quizPreviewLoading, setQuizPreviewLoading] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
+  const [studentNotes, setStudentNotes] = useState('');
+  const [notesSavedAt, setNotesSavedAt] = useState(null);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [diagramStep, setDiagramStep] = useState(-1);
+  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(false);
+  const [isSpeakingChunk, setIsSpeakingChunk] = useState(false);
+  const [showLiveText, setShowLiveText] = useState(false);
+  const [showVoiceQA, setShowVoiceQA] = useState(false);
+
+  const chatScrollRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const playbackRef = useRef(null);
+  const audioRef = useRef(null);
+  const utteranceRef = useRef(null);
+  const handRaiseTimeoutRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const mediaChunksRef = useRef([]);
+  const pulseAnim = useRef(new RNAnimated.Value(1)).current;
+  const diagramTimersRef = useRef([]);
+  const baseHost = API_BASE.replace(/\/api$/, '');
+  const isMobile = width < 768;
+
+  // Auto-scroll chat to bottom on new messages
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [chatMessages.length, submittingQuestion]);
+
+  const orderedChunks = useMemo(() => {
+    return (lecture?.sections || []).slice().sort((a, b) => {
+      if (a.sectionIndex === b.sectionIndex) {
+        return a.chunkIndex - b.chunkIndex;
+      }
+      return a.sectionIndex - b.sectionIndex;
+    });
+  }, [lecture]);
+
+  const currentIndex = useMemo(() => {
+    if (!currentChunk) return 0;
+    const index = orderedChunks.findIndex((item) => item.id === currentChunk.id);
+    return index >= 0 ? index : 0;
+  }, [orderedChunks, currentChunk]);
+
+  const progress = orderedChunks.length ? Math.min(100, Math.round(((currentIndex + (lectureCompleted ? 1 : 0)) / orderedChunks.length) * 100)) : 0;
+  const currentVisual = (lecture?.visualSuggestions || []).find((item) => item.sectionIndex === currentChunk?.sectionIndex);
+  const currentSlides = (lecture?.slideOutlines || []).filter((slide) => slide.slideIndex === currentChunk?.sectionIndex);
+  const totalChunks = orderedChunks.length || 1;
+  const currentSlide = currentSlides[0];
+  const currentDelivery = currentChunk?.delivery || null;
+  const panelContent = currentDelivery?.panel_content || {};
+  const teachingPlan = currentDelivery?.teaching_plan || currentChunk?.teachingPlan || {};
+  const classroomMode = currentDelivery?.classroom_mode || 'narration_only';
+  const classroomModeLabel = currentDelivery?.classroom_mode_label || 'Narration only';
+  const boardContent = currentDelivery?.board_content || panelContent.boardContent || null;
+  const supportPanel = currentDelivery?.support_panel || panelContent.supportPanel || null;
+  const narrationSegments = currentDelivery?.narration_segments || [];
+  const currentNarration = currentDelivery?.narration_text || currentChunk?.spokenExplanation || currentChunk?.text || '';
+  const transitionText = currentDelivery?.transition_text || panelContent.transitionIn || '';
+  const checkpointText = currentDelivery?.checkpoint_text || panelContent.checkpointQuestion || currentChunk?.checkpointQuestion || '';
+  const reinforcementPoints = panelContent.reinforcementPoints || teachingPlan.reinforcement_points || [];
+  const confusionPoints = panelContent.likelyConfusionPoints || teachingPlan.likely_confusion_points || [];
+  const teachingStyleLabel = currentDelivery?.teaching_style_label || panelContent.teachingStyleLabel || 'Brief explanation';
+  const conceptTypeLabel = teachingPlan?.concept_type ? teachingPlan.concept_type.replace(/-/g, ' ') : 'conceptual';
+  const recommendedDurationMs = ((currentDelivery?.recommended_duration_seconds || currentChunk?.estimatedDurationSeconds || 0) > 0
+    ? (currentDelivery?.recommended_duration_seconds || currentChunk?.estimatedDurationSeconds) * 1000
+    : 0);
+  const currentModeLabel = currentDelivery?.current_mode_label || (showQuestionPanel ? 'Answering your question' : voiceMode ? 'Explaining' : 'Teaching in text mode');
+  const formatLectureDuration = (minutes) => {
+    const value = Number(minutes);
+    if (!Number.isFinite(value) || value <= 0) return '';
+    if (value < 60) return `${value} min lecture`;
+
+    const hours = Math.floor(value / 60);
+    const remainingMinutes = value % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m lecture` : `${hours}h lecture`;
+  };
+  const lectureDurationLabel = formatLectureDuration(lecture?.estimatedDurationMinutes);
+  const isDrawerOpen = Boolean(activeToolPanel);
+  const studentName = user?.name || user?.fullName || user?.email?.split('@')[0] || 'student';
+  const notesStorageKey = lecture?.id && topicId ? `@skillsphere:lecture-notes:${user?.id || 'guest'}:${topicId}:${lecture.id}` : null;
+  const tutorStatus = lectureCompleted
+    ? { label: 'Lecture complete', detail: 'Open the stored quiz when you are ready to continue.', tone: '#10b981' }
+    : showQuestionPanel
+      ? { label: 'Paused for your question', detail: submittingQuestion ? 'AI Tutor is preparing a contextual answer.' : 'Ask for clarification, then resume from this exact chunk.', tone: '#f59e0b' }
+      : isPlaying
+        ? { label: currentModeLabel, detail: transitionText || (currentDelivery?.next_action ? `Sequence: ${(currentDelivery.teaching_sequence || []).join(' -> ')}.` : (voiceMode ? 'Voice delivery is active for this section.' : 'Stored lecture chunks are advancing in text mode.')), tone: '#3b82f6' }
+        : { label: 'Ready to resume', detail: 'Resume when you are ready for the next chunk.', tone: '#6366f1' };
+
+  useEffect(() => {
+    const pulse = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(pulseAnim, { toValue: 1.08, duration: 900, useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: USE_NATIVE_DRIVER }),
+      ])
+    );
+    if (voiceMode) pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim, voiceMode]);
+
+  useEffect(() => {
+    loadLecture();
+    return () => {
+      stopPlayback();
+      stopRecognition();
+    };
+  }, [topicId, voiceMode]);
+
+  useEffect(() => {
+    setRevealedFlashcards({});
+  }, [lecture?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadStoredNotes = async () => {
+      if (!notesStorageKey) {
+        setStudentNotes('');
+        setNotesSavedAt(null);
+        return;
+      }
+
+      try {
+        const stored = await AsyncStorage.getItem(notesStorageKey);
+        if (!cancelled && stored) {
+          const parsed = JSON.parse(stored);
+          setStudentNotes(parsed?.text || '');
+          setNotesSavedAt(parsed?.savedAt || null);
+        } else if (!cancelled) {
+          setStudentNotes('');
+          setNotesSavedAt(null);
+        }
+      } catch (_) {
+        if (!cancelled) {
+          setStudentNotes('');
+          setNotesSavedAt(null);
+        }
+      }
+    };
+
+    loadStoredNotes();
+    return () => {
+      cancelled = true;
+    };
+  }, [notesStorageKey]);
+
+  useEffect(() => {
+    if (activeToolPanel !== 'quiz' || !lecture?.id) {
+      return;
+    }
+
+    let cancelled = false;
+    const loadQuizPreview = async () => {
+      setQuizPreviewLoading(true);
+      try {
+        const response = await aiTutorAPI.getQuiz(lecture.id);
+        if (!cancelled && response.success) {
+          setQuizPreview(response.quiz || null);
+        }
+      } catch (_) {
+        if (!cancelled) {
+          setQuizPreview(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setQuizPreviewLoading(false);
+        }
+      }
+    };
+
+    loadQuizPreview();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeToolPanel, lecture?.id]);
+
+  useEffect(() => {
+    if (session && currentChunk && isPlaying && !showQuestionPanel && !lectureCompleted) {
+      playChunk();
+    } else {
+      stopPlayback();
+    }
+
+    return () => stopPlayback();
+  }, [session?.id, currentChunk?.id, isPlaying, showQuestionPanel, lectureCompleted, voiceMode]);
+
+  useEffect(() => {
+    setTeachingProgress(0);
+    diagramTimersRef.current.forEach(clearTimeout);
+    diagramTimersRef.current = [];
+    // Show diagram immediately if the chunk has one — don't wait for playback
+    if (currentChunk?.diagramData?.nodes?.length) {
+      setDiagramStep(0);
+    } else {
+      setDiagramStep(-1);
+    }
+  }, [currentChunk?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (handRaiseTimeoutRef.current) {
+        clearTimeout(handRaiseTimeoutRef.current);
+        handRaiseTimeoutRef.current = null;
+      }
+      mediaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      mediaChunksRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentChunk || !isPlaying || showQuestionPanel || lectureCompleted) {
+      return undefined;
+    }
+
+    const duration = recommendedDurationMs || Math.min(12000, Math.max(3600, currentNarration.length * 28));
+    const startedAt = Date.now();
+
+    // Poll at 80ms — if audio element is playing, sync from its real position
+    // otherwise fall back to wall-clock timer
+    const timer = setInterval(() => {
+      const audio = audioRef.current;
+      if (audio && !audio.paused && audio.duration > 0) {
+        // Precise sync: use actual audio playback position
+        setTeachingProgress(Math.min(1, audio.currentTime / audio.duration));
+      } else {
+        // Fallback: time-based progress (no audio, or audio not loaded yet)
+        const nextProgress = Math.min(1, (Date.now() - startedAt) / duration);
+        setTeachingProgress(nextProgress);
+        if (nextProgress >= 1) clearInterval(timer);
+      }
+    }, 80);
+
+    return () => clearInterval(timer);
+  }, [currentChunk?.id, isPlaying, showQuestionPanel, lectureCompleted, recommendedDurationMs, currentNarration]);
+
+  const stopPlayback = () => {
+    if (playbackRef.current) {
+      clearTimeout(playbackRef.current);
+      playbackRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause?.();
+      audioRef.current = null;
+    }
+    // Detach events before cancelling so stale onend/onerror don't fire scheduleNext
+    if (utteranceRef.current) {
+      utteranceRef.current.onend = null;
+      utteranceRef.current.onerror = null;
+      utteranceRef.current.onboundary = null;
+      utteranceRef.current = null;
+    }
+    if (Platform.OS === 'web' && window?.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    diagramTimersRef.current.forEach(clearTimeout);
+    diagramTimersRef.current = [];
+  };
+
+  // Reveal diagram nodes one by one as narrator speaks
+  const scheduleDiagramSteps = (narration, diagramData, totalDurationMs) => {
+    const nodes = diagramData?.nodes;
+    if (!nodes?.length) return;
+
+    diagramTimersRef.current.forEach(clearTimeout);
+    diagramTimersRef.current = [];
+
+    setDiagramStep(-1);
+
+    // Spread reveals across 85% of narration duration so last node appears before end
+    const usableDuration = totalDurationMs * 0.85;
+
+    nodes.forEach((_, i) => {
+      let delayMs;
+      if (i === 0) {
+        // First node appears almost immediately when voice starts
+        delayMs = 300;
+      } else {
+        // Remaining nodes spread evenly
+        delayMs = Math.round((i / (nodes.length - 1 || 1)) * usableDuration);
+        delayMs = Math.max(delayMs, 300);
+      }
+      const t = setTimeout(() => setDiagramStep(i), delayMs);
+      diagramTimersRef.current.push(t);
+    });
+  };
+
+  const stopRecognition = () => {
+    recognitionRef.current?.stop?.();
+    recognitionRef.current = null;
+    setIsRecording(false);
+  };
+
+  const cleanupMediaRecorder = () => {
+    mediaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    mediaChunksRef.current = [];
+    setIsRecording(false);
+  };
+
+  const loadLecture = async () => {
+    setLoading(true);
+    stopPlayback();
+    stopRecognition();
+
+    try {
+      const enrollment = await checkEnrollment(courseId);
+      if (!enrollment.success || !enrollment.enrolled) {
+        setIsEnrolled(false);
+        navigation.navigate('CourseDetail', { courseId });
+        return;
+      }
+
+      setIsEnrolled(true);
+      const response = await aiTutorAPI.startSession(topicId, { voiceModeEnabled: voiceMode });
+      if (!response.success) {
+        throw new Error(response.error || 'Unable to start tutor session');
+      }
+
+      let nextLecture = response.lecture;
+      if (response.lecture?.id && !(response.lecture.flashcards || []).length) {
+        try {
+          const flashcardResponse = await aiTutorAPI.getFlashcards(response.lecture.id);
+          if (flashcardResponse.success) {
+            nextLecture = {
+              ...response.lecture,
+              flashcards: flashcardResponse.flashcards || [],
+            };
+          }
+        } catch (_) {
+        }
+      }
+
+      setLecture(nextLecture);
+      setSession(response.session);
+      setCurrentChunk(response.chunk);
+      setLectureCompleted(response.session?.status === 'lecture_completed');
+      setChatMessages((response.session?.messages || []).map((message) => ({
+        type: message.sender === 'user' ? 'user' : 'ai',
+        text: message.content,
+      })));
+    } catch (error) {
+      setLecture(null);
+      setSession(null);
+      setCurrentChunk(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Lecture Unavailable',
+        text2: error.message || 'Unable to load this AI lecture package.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const speakChunk = async (text) => {
+    if (!text || !autoSpeakEnabled) return;
+    setIsSpeakingChunk(true);
+    try {
+      const res = await aiTutorAPI.speakText({ text: text.slice(0, 800), voice: 'nova' });
+      if (res.audioUrl && Platform.OS === 'web') {
+        const audio = new Audio(res.audioUrl);
+        audio.onended = () => setIsSpeakingChunk(false);
+        audio.onerror = () => setIsSpeakingChunk(false);
+        audio.play();
+      } else {
+        setIsSpeakingChunk(false);
+      }
+    } catch (e) {
+      setIsSpeakingChunk(false);
+    }
+  };
+
+  const scheduleNext = (delay) => {
+    if (!session?.id) {
+      return;
+    }
+
+    stopPlayback();
+    playbackRef.current = setTimeout(async () => {
+      try {
+        const response = await aiTutorAPI.getNextChunk(session.id);
+        if (response.lectureCompleted || !response.chunk) {
+          setLectureCompleted(true);
+          setIsPlaying(false);
+          setShowCompleteDialog(true);
+          await fetchCourses();
+          return;
+        }
+
+        setSession(response.session);
+        setCurrentChunk(response.chunk);
+        if (autoSpeakEnabled && !voiceMode) {
+          speakChunk(response.chunk?.spokenExplanation || response.chunk?.text || '');
+        }
+      } catch (error) {
+        setIsPlaying(false);
+        Toast.show({
+          type: 'error',
+          text1: 'Playback Paused',
+          text2: error.message || 'Unable to continue the lecture.',
+        });
+      }
+    }, delay);
+  };
+
+  const playChunk = async () => {
+    if (!currentNarration) return;
+
+    const diagramData = currentChunk?.diagramData;
+    const fallbackDelay = Math.min(12000, Math.max(3600, currentNarration.length * 28));
+    const estimatedDuration = recommendedDurationMs || fallbackDelay;
+
+    if (!voiceMode) {
+      if (diagramData?.nodes?.length) {
+        scheduleDiagramSteps(currentNarration, diagramData, estimatedDuration);
+      }
+      scheduleNext(estimatedDuration);
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      try {
+        const audioResponse = await aiTutorAPI.speakText({
+          lectureId: lecture?.id,
+          sessionId: session?.id,
+          assetType: 'lecture_chunk',
+          text: currentNarration,
+        });
+
+        if (audioResponse?.asset?.urlPath) {
+          const audio = new Audio(`${baseHost}${audioResponse.asset.urlPath}`);
+          audioRef.current = audio;
+          audio.onloadedmetadata = () => {
+            if (diagramData?.nodes?.length) {
+              const durationMs = (audio.duration || estimatedDuration / 1000) * 1000;
+              scheduleDiagramSteps(currentNarration, diagramData, durationMs);
+            }
+          };
+          audio.onended = () => scheduleNext(600);
+          audio.onerror = () => scheduleNext(4000);
+          if (diagramData?.nodes?.length) {
+            // Schedule based on estimated duration as fallback while audio loads
+            scheduleDiagramSteps(currentNarration, diagramData, estimatedDuration);
+          }
+          await audio.play();
+          return;
+        }
+      } catch (_) {
+      }
+
+      if (window?.speechSynthesis) {
+        if (diagramData?.nodes?.length) {
+          scheduleDiagramSteps(currentNarration, diagramData, estimatedDuration);
+        }
+        const utterance = new SpeechSynthesisUtterance(currentNarration);
+        // Keep a ref so Chrome doesn't GC the utterance before its events fire
+        utteranceRef.current = utterance;
+        // Word-boundary event: sync text reveal to exact spoken word position
+        utterance.onboundary = (event) => {
+          if (event.name === 'word' && currentNarration.length > 0) {
+            setTeachingProgress(Math.min(1, event.charIndex / currentNarration.length));
+          }
+        };
+        utterance.onend = () => { utteranceRef.current = null; setTeachingProgress(1); scheduleNext(600); };
+        utterance.onerror = () => { utteranceRef.current = null; scheduleNext(4000); };
+        window.speechSynthesis.cancel();
+        // Small delay after cancel avoids Chrome's "interrupted" error
+        setTimeout(() => { if (utteranceRef.current === utterance) window.speechSynthesis.speak(utterance); }, 80);
+        return;
+      }
+    }
+
+    if (diagramData?.nodes?.length) {
+      scheduleDiagramSteps(currentNarration, diagramData, estimatedDuration);
+    }
+    scheduleNext(estimatedDuration);
+  };
+
+  const pauseLectureSession = async () => {
+    if (!session || !isPlaying) {
+      return true;
+    }
+
+    const response = await aiTutorAPI.pauseSession(session.id);
+    if (!response.success) {
+      throw new Error(response.error || 'Unable to pause tutor session');
+    }
+
+    stopPlayback();
+    setIsPlaying(false);
+    return true;
+  };
+
+  // Instantly stops local TTS/audio without a server round-trip (used by Voice Q&A)
+  const pauseLecturePlayback = () => {
+    stopPlayback();
+    setIsPlaying(false);
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    if (audioRef.current) {
+      try { audioRef.current.pause(); } catch (_) {}
+      audioRef.current = null;
+    }
+  };
+
+  const resumeLectureSession = async () => {
+    if (!session || isPlaying) {
+      return true;
+    }
+
+    const response = await aiTutorAPI.resumeSession(session.id);
+    if (!response.success) {
+      throw new Error(response.error || 'Unable to resume tutor session');
+    }
+
+    setSession(response.session);
+    setCurrentChunk(response.chunk);
+    setShowQuestionPanel(false);
+    setActiveToolPanel(null);
+    setIsPlaying(true);
+    return true;
+  };
+
+  const togglePause = async () => {
+    if (!session) return;
+
+    try {
+      if (isPlaying) {
+        await pauseLectureSession();
+      } else {
+        await resumeLectureSession();
+      }
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Session Error',
+        text2: error.message || 'Unable to update tutor state.',
+      });
+    }
+  };
+
+  const submitLectureQuestion = async (rawPrompt) => {
+    const prompt = `${rawPrompt || ''}`.trim();
+    if (!prompt || !session) return;
+    if (handRaiseTimeoutRef.current) {
+      clearTimeout(handRaiseTimeoutRef.current);
+      handRaiseTimeoutRef.current = null;
+    }
+    setQuestion('');
+    setSubmittingQuestion(true);
+    setChatMessages((prev) => [...prev, { type: 'user', text: prompt }]);
+
+    try {
+      const response = await aiTutorAPI.askQuestion(session.id, prompt);
+      if (!response.success || !response.aiMessage?.content) {
+        throw new Error(response.error || 'I could not answer that question right now.');
+      }
+      setChatMessages((prev) => [...prev, { type: 'ai', text: response.aiMessage.content }]);
+      setHandRaised(false);
+      setTimeout(() => {
+        resumeLectureSession().catch(() => {});
+      }, 2200);
+    } catch (error) {
+      setChatMessages((prev) => [...prev, { type: 'ai', text: error.message || 'I could not answer that question right now.' }]);
+    } finally {
+      setSubmittingQuestion(false);
+    }
+  };
+
+  const askQuestion = async () => {
+    await submitLectureQuestion(question);
+  };
+
+  const startVoiceInput = async () => {
+    if (session && isPlaying) {
+      await openQuestionPanel();
+    } else {
+      setShowQuestionPanel(true);
+    }
+
+    if (Platform.OS !== 'web') {
+      Toast.show({
+        type: 'info',
+        text1: 'Voice Input',
+        text2: 'Voice input currently works on web browsers with microphone access.',
+      });
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (isRecording) {
+      if (recognitionRef.current) {
+        stopRecognition();
+      } else if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      return;
+    }
+
+    if (!SpeechRecognition) {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        Toast.show({
+          type: 'error',
+          text1: 'Not Supported',
+          text2: 'This browser does not support live mic capture for lecture questions.',
+        });
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        mediaChunksRef.current = [];
+
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+        recorder.onstart = () => setIsRecording(true);
+        recorder.ondataavailable = (event) => {
+          if (event.data?.size) {
+            mediaChunksRef.current.push(event.data);
+          }
+        };
+        recorder.onerror = () => cleanupMediaRecorder();
+        recorder.onstop = async () => {
+          try {
+            const audioBlob = new Blob(mediaChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+            if (!audioBlob.size) {
+              cleanupMediaRecorder();
+              return;
+            }
+
+            const extension = (recorder.mimeType || 'audio/webm').includes('ogg') ? 'ogg' : 'webm';
+            const formData = new FormData();
+            formData.append('audio', audioBlob, `lecture-question.${extension}`);
+
+            const response = await aiTutorAPI.transcribeAudio(formData);
+            const transcript = `${response?.transcript || ''}`.trim();
+            if (transcript) {
+              setQuestion(transcript);
+              submitLectureQuestion(transcript).catch(() => {});
+            } else {
+              Toast.show({
+                type: 'info',
+                text1: 'No Speech Detected',
+                text2: 'Please try speaking a little closer to the microphone.',
+              });
+            }
+          } catch (error) {
+            Toast.show({
+              type: 'error',
+              text1: 'Mic Upload Failed',
+              text2: error.message || 'Unable to transcribe your lecture question right now.',
+            });
+          } finally {
+            cleanupMediaRecorder();
+          }
+        };
+        recorder.start();
+        Toast.show({
+          type: 'info',
+          text1: 'Recording Started',
+          text2: 'Speak your lecture question, then tap the mic again to submit.',
+        });
+        return;
+      } catch (error) {
+        Toast.show({
+          type: 'error',
+          text1: 'Microphone Unavailable',
+          text2: error.message || 'Unable to access microphone permissions.',
+        });
+        return;
+      }
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results || [])
+        .map((result) => result?.[0]?.transcript || '')
+        .join(' ')
+        .trim();
+      const finalResult = event.results?.[event.results.length - 1];
+      setQuestion(transcript);
+      setShowQuestionPanel(true);
+      if (finalResult?.isFinal && transcript) {
+        setIsRecording(false);
+        submitLectureQuestion(transcript).catch(() => {});
+      }
+    };
+    recognition.onend = () => setIsRecording(false);
+    recognition.onerror = () => setIsRecording(false);
+    recognition.start();
+  };
+
+  const exportFlashcards = () => {
+    const cards = lecture?.flashcards || [];
+    if (!cards.length || Platform.OS !== 'web') {
+      Toast.show({
+        type: 'info',
+        text1: 'Export Unavailable',
+        text2: cards.length ? 'Flashcard export is available on web.' : 'No flashcards available for this lecture.',
+      });
+      return;
+    }
+
+    const courseName = course?.name || 'Course';
+    const topicTitle = topic?.title || lecture?.title || 'Topic';
+    const cardsHtml = cards.map((card, i) => `
+      <div class="card">
+        <div class="front"><span class="label">Q${i + 1}</span><p>${String(card.frontText).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>
+        <div class="back"><span class="label">Answer</span><p>${String(card.backText).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>
+      </div>`).join('');
+
+    const primary = theme.colors.primary;
+    const html = `<!DOCTYPE html><html><head><title>${courseName} – ${topicTitle} – Flashcards</title>
+      <style>
+        body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#1a1a1a}
+        h1{font-size:26px;color:${primary};margin-bottom:4px}
+        h2{font-size:18px;color:#374151;font-weight:600;margin-top:0;margin-bottom:4px}
+        .divider{border:none;border-top:2px solid ${primary};margin:12px 0 20px}
+        .meta{color:#6b7280;font-size:13px;margin-bottom:24px}
+        .card{border:1px solid #e5e7eb;border-radius:12px;margin-bottom:16px;overflow:hidden;page-break-inside:avoid}
+        .front{padding:16px;background:#f8fafc}
+        .back{padding:16px;background:#eef2ff;border-top:1px solid #e5e7eb}
+        .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:${primary};display:block;margin-bottom:6px}
+        p{margin:0;font-size:15px;line-height:1.6}
+      </style></head><body>
+      <h1>${courseName}</h1>
+      <h2>${topicTitle}</h2>
+      <hr class="divider"/>
+      <p class="meta">${cards.length} flashcards · Exported on ${new Date().toLocaleDateString()}</p>
+      ${cardsHtml}
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.print();
+  };
+
+  const exportNotesPDF = () => {
+    if (!studentNotes.trim() || Platform.OS !== 'web') {
+      Toast.show({
+        type: 'info',
+        text1: 'Export Unavailable',
+        text2: studentNotes.trim() ? 'Notes export is available on web.' : 'No notes to export yet.',
+      });
+      return;
+    }
+
+    const courseName = course?.name || 'Course';
+    const topicTitle = topic?.title || lecture?.title || 'Topic';
+    const primary = theme.colors.primary;
+    const html = `<!DOCTYPE html><html><head><title>${courseName} – ${topicTitle} – Notes</title>
+      <style>
+        body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#1a1a1a}
+        h1{font-size:26px;color:${primary};margin-bottom:4px}
+        h2{font-size:18px;color:#374151;font-weight:600;margin-top:0;margin-bottom:4px}
+        .divider{border:none;border-top:2px solid ${primary};margin:12px 0 20px}
+        .meta{color:#6b7280;font-size:13px;margin-bottom:24px}
+        pre{white-space:pre-wrap;font-family:inherit;font-size:15px;line-height:1.7;margin:0}
+      </style></head><body>
+      <h1>${courseName}</h1>
+      <h2>${topicTitle}</h2>
+      <hr class="divider"/>
+      <p class="meta">Class Notes · Exported on ${new Date().toLocaleDateString()}</p>
+      <pre>${studentNotes.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.print();
+  };
+
+  const goToNextChunk = async () => {
+    if (!session?.id || lectureCompleted) return;
+
+    stopPlayback();
+    setIsPlaying(false);
+
+    try {
+      const response = await aiTutorAPI.getNextChunk(session.id);
+      if (response.lectureCompleted || !response.chunk) {
+        setLectureCompleted(true);
+        setShowCompleteDialog(true);
+        await fetchCourses();
+        return;
+      }
+
+      setSession(response.session);
+      setCurrentChunk(response.chunk);
+      setShowQuestionPanel(false);
+      setIsPlaying(true);
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Next Chunk Unavailable',
+        text2: error.message || 'Unable to advance to the next lecture chunk.',
+      });
+    }
+  };
+
+  const openQuestionPanel = async () => {
+    if (!session || !isPlaying) {
+      setShowQuestionPanel(true);
+      setActiveToolPanel('chat');
+      return;
+    }
+
+    await togglePause();
+  };
+
+  const closeToolPanel = () => {
+    if (activeToolPanel === 'chat') {
+      setShowQuestionPanel(false);
+    }
+    setActiveToolPanel(null);
+  };
+
+  const openToolPanel = async (panel) => {
+    if (panel === 'chat') {
+      await openQuestionPanel();
+      return;
+    }
+
+    setActiveToolPanel((current) => (current === panel ? null : panel));
+    if (showQuestionPanel) {
+      setShowQuestionPanel(false);
+    }
+  };
+
+  const scheduleAutoResumeAfterRaiseHand = () => {
+    if (handRaiseTimeoutRef.current) {
+      clearTimeout(handRaiseTimeoutRef.current);
+    }
+
+    handRaiseTimeoutRef.current = setTimeout(async () => {
+      if (question.trim() || submittingQuestion || !showQuestionPanel) {
+        return;
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          type: 'ai',
+          text: `No problem ${studentName}, I will continue the lecture from the same point now.`,
+        },
+      ]);
+      setHandRaised(false);
+
+      try {
+        await resumeLectureSession();
+      } catch (_) {
+      }
+    }, 10000);
+  };
+
+  const handleRaiseHand = () => {
+    pauseLecturePlayback();
+    setHandRaised(true);
+    setShowVoiceQA(true);
+  };
+
+  const toggleFlashcardReveal = (cardId) => {
+    setRevealedFlashcards((prev) => ({
+      ...prev,
+      [cardId]: !prev[cardId],
+    }));
+  };
+
+  const saveStudentNotes = async () => {
+    if (!notesStorageKey) {
+      return;
+    }
+
+    setSavingNotes(true);
+    const savedAt = new Date().toISOString();
+
+    try {
+      await AsyncStorage.setItem(notesStorageKey, JSON.stringify({
+        text: studentNotes,
+        savedAt,
+      }));
+      setNotesSavedAt(savedAt);
+      Toast.show({
+        type: 'success',
+        text1: 'Notes Saved',
+        text2: 'Your lecture notes are saved on this device.',
+      });
+    } catch (_) {
+      Toast.show({
+        type: 'error',
+        text1: 'Save Failed',
+        text2: 'Unable to save notes on this device right now.',
+      });
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const openQuiz = () => {
+    if (!lecture?.id) {
+      Toast.show({
+        type: 'error',
+        text1: 'Quiz Unavailable',
+        text2: 'This lecture package is missing its quiz reference.',
+      });
+      return;
+    }
+
+    if (!lectureCompleted) {
+      Toast.show({
+        type: 'info',
+        text1: 'Finish the Lecture',
+        text2: 'Complete the lecture before opening the quiz.',
+      });
+      return;
+    }
+
+    navigation.navigate('Quiz', { courseId, topicId, lectureId: lecture.id });
+  };
+
+  const restartLecture = async () => {
+    if (!session?.id) {
+      return;
+    }
+
+    try {
+      stopPlayback();
+      stopRecognition();
+      setShowCompleteDialog(false);
+      const response = await aiTutorAPI.restartSession(session.id);
+      if (!response.success) {
+        throw new Error(response.error || 'Unable to restart this lecture');
+      }
+
+      setSession(response.session);
+      setLecture(response.lecture || lecture);
+      setCurrentChunk(response.chunk);
+      setLectureCompleted(false);
+      setShowQuestionPanel(false);
+      setActiveToolPanel(null);
+      setIsPlaying(true);
+      setTeachingProgress(0);
+      Toast.show({
+        type: 'success',
+        text1: 'Lecture Restarted',
+        text2: 'Starting again from the first chunk.',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Restart Failed',
+        text2: error.message || 'Unable to restart this lecture right now.',
+      });
+    }
+  };
+
+  const renderSidebar = () => (
+    <View style={styles.sidebar}>
+      <Text style={[styles.sidebarTitle, { color: theme.colors.textPrimary }]}>Course Progress</Text>
+      <ScrollView>
+        {(course?.topics || []).map((item) => {
+          const isCurrent = item.id === topicId;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.sidebarItem, isCurrent && { borderLeftColor: theme.colors.primary, backgroundColor: theme.colors.primary + '10' }]}
+              disabled={item.status === 'locked'}
+              onPress={() => navigation.replace('Learning', { courseId, topicId: item.id })}
+            >
+              <Text style={[styles.sidebarItemText, { color: item.status === 'locked' ? theme.colors.textTertiary : theme.colors.textPrimary }]}>
+                {item.title}
+              </Text>
+              {isCurrent && !!lectureDurationLabel && (
+                <Text style={[styles.sidebarItemDuration, { color: theme.colors.textSecondary }]}>{lectureDurationLabel}</Text>
+              )}
+              <Text style={[styles.sidebarItemStatus, { color: item.completed ? '#10B981' : isCurrent ? theme.colors.primary : theme.colors.textTertiary }]}>
+                {item.completed ? 'Done' : item.status === 'locked' ? 'Locked' : isCurrent ? `${progress}%` : 'Ready'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+
+  const getProgressiveItems = (items, minimum = 1) => {
+    const list = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (!list.length) return [];
+    return list.slice(0, Math.min(list.length, Math.max(minimum, Math.ceil(list.length * Math.max(teachingProgress, 0.18)))));
+  };
+
+  const getVisibleNarration = () => {
+    if (!currentNarration) return '';
+    const words = currentNarration.split(/\s+/).filter(Boolean);
+    if (!isPlaying) return words.join(' '); // show full text when paused
+    // Use floor (not ceil) so word appears only when actually spoken
+    const visibleWordCount = Math.min(words.length, Math.max(1, Math.floor(words.length * teachingProgress) + 1));
+    return words.slice(0, visibleWordCount).join(' ');
+  };
+
+  const liveNarration = getVisibleNarration();
+
+  const renderVisualDock = () => {
+    const slideBullets = (currentSlide?.bullets || []).slice(0, 4);
+    const visualTitle = currentVisual?.title || currentVisual?.visualType || currentChunk?.title || 'Lesson Visual';
+    const visualMode = (currentVisual?.visualMode || panelContent.visualType || 'slide').toLowerCase();
+    const modeLabel = { diagram: 'Diagram', flowchart: 'Flowchart', whiteboard: 'Whiteboard', slide: 'Slide', comparison_table: 'Comparison', mixed: 'Mixed', none: 'Visual' }[visualMode] || 'Visual';
+    const modeColor = { diagram: '#8b5cf6', flowchart: '#3b82f6', whiteboard: '#10b981', slide: '#f59e0b', comparison_table: '#06b6d4', mixed: '#ec4899' }[visualMode] || '#6366f1';
+
+    return (
+      <View style={styles.boardVisualRail}>
+        {/* LIVE VISUAL card */}
+        <View style={[styles.boardSideCard, { borderColor: `${modeColor}40` }]}>
+          <View style={styles.railCardHeader}>
+            <View style={[styles.railDot, { backgroundColor: modeColor }]} />
+            <Text style={[styles.boardSideEyebrow, { color: modeColor, marginBottom: 0 }]}>Live Visual</Text>
+            <View style={[styles.railModeBadge, { backgroundColor: `${modeColor}22`, borderColor: `${modeColor}44` }]}>
+              <Text style={[styles.railModeBadgeText, { color: modeColor }]}>{modeLabel}</Text>
+            </View>
+          </View>
+          <Text style={styles.boardSideTitle} numberOfLines={2}>{visualTitle}</Text>
+        </View>
+
+        {!!slideBullets.length && (
+          <View style={styles.boardSideCard}>
+            <View style={styles.railCardHeader}>
+              <View style={[styles.railDot, { backgroundColor: '#60a5fa' }]} />
+              <Text style={[styles.boardSideEyebrow, { color: '#60a5fa', marginBottom: 0 }]}>Key Points</Text>
+            </View>
+            {slideBullets.map((bullet, index) => (
+              <View key={`${bullet}-${index}`} style={styles.railBulletRow}>
+                <View style={styles.railBulletDot} />
+                <Text style={styles.boardSideBullet} numberOfLines={2}>{bullet}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {!!checkpointText && (
+          <View style={[styles.boardSideCard, styles.boardCheckpointCard]}>
+            <View style={styles.railCardHeader}>
+              <View style={[styles.railDot, { backgroundColor: '#fb923c' }]} />
+              <Text style={[styles.boardSideEyebrow, { color: '#fb923c', marginBottom: 0 }]}>Checkpoint</Text>
+            </View>
+            <Text style={styles.boardCheckpointText} numberOfLines={5}>{checkpointText}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderBoardSurface = () => {
+    const diagramData = currentChunk?.diagramData;
+
+    if (diagramData?.nodes?.length && diagramStep >= 0) {
+      return (
+        <View style={styles.diagramWrap}>
+          <DiagramCanvas
+            diagramData={diagramData}
+            currentStep={diagramStep}
+            isDark={isDark}
+            width={isMobile ? (width - 80) : Math.min(480, width - 260)}
+          />
+          {!!currentChunk.visualCaption && (
+            <Text style={styles.diagramCaption}>{currentChunk.visualCaption}</Text>
+          )}
+        </View>
+      );
+    }
+
+    if (!boardContent) {
+      // Plain text — render as a readable whiteboard paragraph
+      const bodyText = currentChunk.learningObjective || currentChunk.summary || '';
+      const sentences = bodyText.split(/(?<=[.!?])\s+/).filter(Boolean);
+      return (
+        <View style={styles.plainTextBlock}>
+          {sentences.map((sentence, i) => (
+            <Text key={i} style={styles.plainTextLine}>{sentence}</Text>
+          ))}
+        </View>
+      );
+    }
+
+    if (boardContent.type === 'flowchart') {
+      return getProgressiveItems(boardContent.steps).map((step, index) => (
+        <View key={step.id || index} style={styles.flowStep}>
+          <View style={[styles.flowStepBadge, { backgroundColor: theme.colors.primary }]}>
+            <Text style={styles.flowStepBadgeText}>{index + 1}</Text>
+          </View>
+          <Text style={styles.flowStepText}>{step.label}</Text>
+        </View>
+      ));
+    }
+
+    if (boardContent.type === 'comparison_table') {
+      return (
+        <View style={[styles.boardTable, { borderColor: theme.colors.border }]}>
+          {getProgressiveItems(boardContent.rows).map((row, index) => (
+            <View key={`${row.left}-${index}`} style={[styles.boardTableRow, { borderBottomColor: theme.colors.border }]}>
+              <Text style={styles.boardTableTitle}>{row.left}</Text>
+              <Text style={[styles.boardTableBody, { color: '#cbd5e1' }]}>{row.right}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    if (boardContent.type === 'diagram') {
+      return (
+        <View style={styles.nodeWrap}>
+          {getProgressiveItems(boardContent.nodes).map((node, index) => (
+            <View key={node.id || index} style={[styles.liveNodeCard, { borderColor: 'rgba(255,255,255,0.12)' }]}>
+              <Text style={styles.liveNodeText}>{node.label}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    if (boardContent.type === 'code') {
+      const lang = (boardContent.snippetLanguage || 'text').toLowerCase();
+      const lines = `${boardContent.snippet || ''}`.split(/\r?\n/);
+      const visibleLines = getProgressiveItems(lines, Math.min(2, lines.length || 1));
+      return (
+        <View style={styles.terminalWrap}>
+          {/* Terminal chrome */}
+          <View style={styles.terminalBar}>
+            <View style={[styles.terminalDot, { backgroundColor: '#ff5f57' }]} />
+            <View style={[styles.terminalDot, { backgroundColor: '#febc2e' }]} />
+            <View style={[styles.terminalDot, { backgroundColor: '#28c840' }]} />
+            <Text style={styles.terminalLangLabel}>{lang}</Text>
+          </View>
+          {/* Code lines with line numbers */}
+          <View style={styles.terminalBody}>
+            {visibleLines.map((line, i) => (
+              <View key={i} style={styles.terminalLine}>
+                <Text style={styles.terminalLineNum}>{i + 1}</Text>
+                <Text style={styles.terminalLineCode}>{line}</Text>
+              </View>
+            ))}
+          </View>
+          {!!boardContent.snippetExplanation && (
+            <View style={styles.terminalFooter}>
+              <Text style={styles.terminalFooterIcon}>ℹ</Text>
+              <Text style={styles.terminalFooterText}>{boardContent.snippetExplanation}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    if (boardContent.type === 'checkpoint') {
+      return <Text style={styles.boardQuestion}>{boardContent.question}</Text>;
+    }
+
+    if (boardContent.type === 'slide_summary' || boardContent.type === 'recap') {
+      return (
+        <View style={styles.chalkNoteBlock}>
+          {getProgressiveItems(boardContent.bullets).map((bullet, index) => (
+            <View key={`${bullet}-${index}`} style={styles.chalkBulletRow}>
+              <Text style={styles.chalkBulletArrow}>▸</Text>
+              <Text style={styles.chalkBulletText}>{bullet}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    if (boardContent.type === 'whiteboard_notes' || boardContent.type === 'narration') {
+      return (
+        <View style={styles.chalkNoteBlock}>
+          {getProgressiveItems(boardContent.notes).map((note, index) => (
+            <View key={`${note}-${index}`} style={styles.chalkBulletRow}>
+              <Text style={styles.chalkBulletArrow}>▸</Text>
+              <Text style={styles.chalkBulletText}>{note}</Text>
+            </View>
+          ))}
+          {!!boardContent.emphasis && <Text style={styles.chalkEmphasis}>{boardContent.emphasis}</Text>}
+        </View>
+      );
+    }
+
+    const fallbackText = currentChunk.learningObjective || currentChunk.summary || '';
+    const sentences = fallbackText.split(/(?<=[.!?])\s+/).filter(Boolean);
+    return (
+      <View style={styles.plainTextBlock}>
+        {sentences.map((sentence, i) => (
+          <Text key={i} style={styles.plainTextLine}>{sentence}</Text>
+        ))}
+      </View>
+    );
+  };
+
+  const renderSupportPanel = () => {
+    if (!supportPanel) {
+      return null;
+    }
+
+    const accent = supportPanel.type === 'checkpoint'
+      ? '#f59e0b'
+      : supportPanel.type === 'watch_for_this'
+        ? '#ef4444'
+        : '#06b6d4';
+
+    return (
+      <View style={[styles.supportCard, { backgroundColor: isDark ? '#101827' : '#ffffff', borderColor: `${accent}55` }]}>
+        <Text style={[styles.supportLabel, { color: accent }]}>{supportPanel.title}</Text>
+        <Text style={[styles.supportText, { color: theme.colors.textPrimary }]}>{supportPanel.text}</Text>
+      </View>
+    );
+  };
+
+  const renderStageInsights = () => {
+    const visibleReinforcement = getProgressiveItems(reinforcementPoints, 2);
+    const visibleConfusion = getProgressiveItems(confusionPoints, 1);
+
+    if (!visibleReinforcement.length && !visibleConfusion.length && !supportPanel) {
+      return null;
+    }
+
+    return (
+      <View style={styles.stageInsightsGrid}>
+        {!!supportPanel && renderSupportPanel()}
+        {!!visibleReinforcement.length && (
+          <View style={[styles.insightCard, { backgroundColor: isDark ? '#101827' : '#f8fafc', borderColor: isDark ? 'rgba(59,130,246,0.18)' : '#bfdbfe' }]}>
+            <Text style={[styles.insightLabel, { color: '#60a5fa' }]}>Key explanation points</Text>
+            {visibleReinforcement.map((point, index) => (
+              <Text key={`${point}-${index}`} style={[styles.insightText, { color: theme.colors.textPrimary }]}>- {point}</Text>
+            ))}
+          </View>
+        )}
+        {!!visibleConfusion.length && (
+          <View style={[styles.insightCard, { backgroundColor: isDark ? '#1a1408' : '#fff7ed', borderColor: isDark ? 'rgba(245,158,11,0.18)' : '#fdba74' }]}>
+            <Text style={[styles.insightLabel, { color: '#f59e0b' }]}>Watch for this</Text>
+            {visibleConfusion.map((point, index) => (
+              <Text key={`${point}-${index}`} style={[styles.insightText, { color: theme.colors.textPrimary }]}>- {point}</Text>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // ─── Sidebar panel renderers (LearningScreen style) ───────────────────────
+
+  const renderChatSidePanel = () => (
+    <View style={styles.aiPanelContainer}>
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="chatbubble-ellipses" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>AI Chat</Text>
+          <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+            {showQuestionPanel ? 'Lecture paused — ask away' : 'Ask about this lecture'}
+          </Text>
+        </View>
+        <View style={[styles.aiOnlineDot, { backgroundColor: theme.colors.success }]} />
+      </View>
+
+      <ScrollView
+        ref={chatScrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.aiPanelMessages, chatMessages.length === 0 && !submittingQuestion && styles.aiPanelMessagesEmpty]}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: false })}
+      >
+        {chatMessages.length === 0 && !submittingQuestion ? (
+          <View style={styles.aiPanelEmpty}>
+            <View style={[styles.aiPanelEmptyIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+              <Icon name="chatbubble-ellipses-outline" size={28} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.aiPanelEmptyTitle, { color: theme.colors.textPrimary }]}>Ask your AI Tutor</Text>
+            <Text style={[styles.aiPanelEmptySub, { color: theme.colors.textTertiary }]}>Questions about this lecture answered instantly</Text>
+          </View>
+        ) : (
+          chatMessages.map((message, index) => (
+            <View key={`msg-${index}`} style={[styles.aiChatRow, message.type === 'user' ? styles.aiChatRowUser : styles.aiChatRowAI]}>
+              {message.type !== 'user' && (
+                <View style={[styles.aiChatAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+                  <Icon name="sparkles" size={12} color={theme.colors.primary} />
+                </View>
+              )}
+              <View style={[styles.aiChatBubble,
+                message.type === 'user'
+                  ? { backgroundColor: theme.colors.primary, borderBottomRightRadius: 4 }
+                  : { backgroundColor: isDark ? '#2f2f2f' : '#f4f4f8', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e8e8f0', borderBottomLeftRadius: 4 },
+              ]}>
+                {message.type === 'user'
+                  ? <Text style={[styles.aiChatText, { color: '#fff' }]}>{message.text}</Text>
+                  : <MarkdownText textColor={theme.colors.textPrimary}>{message.text}</MarkdownText>
+                }
+              </View>
+            </View>
+          ))
+        )}
+        {submittingQuestion && (
+          <View style={[styles.aiChatRow, styles.aiChatRowAI]}>
+            <View style={[styles.aiChatAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+              <Icon name="sparkles" size={12} color={theme.colors.primary} />
+            </View>
+            <View style={[styles.aiChatBubble, { backgroundColor: isDark ? '#2f2f2f' : '#f4f4f8', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e8e8f0', paddingVertical: 14, borderBottomLeftRadius: 4 }]}>
+              <View style={styles.aiTypingRow}>
+                <View style={[styles.aiTypingDot, { backgroundColor: theme.colors.primary }]} />
+                <View style={[styles.aiTypingDot, { backgroundColor: theme.colors.primary, opacity: 0.55 }]} />
+                <View style={[styles.aiTypingDot, { backgroundColor: theme.colors.primary, opacity: 0.25 }]} />
+              </View>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      <View style={[styles.aiPanelInputArea, { backgroundColor: isDark ? theme.colors.background : '#fff', borderTopColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelInputBox, { backgroundColor: isDark ? '#2f2f2f' : theme.colors.backgroundSecondary, borderColor: theme.colors.border }]}>
+          <TextInput
+            style={[styles.aiPanelInput, { color: theme.colors.textPrimary }]}
+            value={question}
+            onChangeText={setQuestion}
+            placeholder={isRecording ? 'Listening…' : 'Ask about this lecture…'}
+            placeholderTextColor={isRecording ? theme.colors.error : theme.colors.textTertiary}
+            multiline
+            maxLength={500}
+            onSubmitEditing={askQuestion}
+          />
+          <View style={styles.aiPanelInputBtns}>
+            <TouchableOpacity style={styles.aiIconBtn} onPress={startVoiceInput}>
+              <Icon name={isRecording ? 'stop-circle' : 'mic-outline'} size={20} color={isRecording ? theme.colors.error : theme.colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.aiSendBtn, { backgroundColor: question.trim() && !submittingQuestion ? theme.colors.primary : (isDark ? '#444' : '#d4d4d4') }]}
+              onPress={askQuestion}
+              disabled={!question.trim() || submittingQuestion}
+            >
+              {submittingQuestion
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Icon name="arrow-up" size={16} color={question.trim() ? '#fff' : (isDark ? '#888' : '#aaa')} />
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderFlashcardsSidePanel = () => (
+    <View style={styles.aiPanelContainer}>
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="albums" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>Flashcards</Text>
+          <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]}>{(lecture?.flashcards || []).length} cards</Text>
+        </View>
+      </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.aiPanelMessages} showsVerticalScrollIndicator={false}>
+        {(lecture?.flashcards || []).length === 0 ? (
+          <View style={styles.aiPanelEmpty}>
+            <View style={[styles.aiPanelEmptyIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+              <Icon name="albums-outline" size={28} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.aiPanelEmptyTitle, { color: theme.colors.textPrimary }]}>No flashcards yet</Text>
+            <Text style={[styles.aiPanelEmptySub, { color: theme.colors.textTertiary }]}>Flashcards will appear after the lecture loads</Text>
+          </View>
+        ) : (
+          (lecture.flashcards || []).map((card, index) => {
+            const cardId = card.id || index;
+            const revealed = Boolean(revealedFlashcards[cardId]);
+            return (
+              <TouchableOpacity key={cardId} activeOpacity={0.9} onPress={() => toggleFlashcardReveal(cardId)}
+                style={[styles.aiFlashcard, { borderColor: theme.colors.border, backgroundColor: isDark ? '#101827' : '#f8fafc' }]}>
+                <View style={styles.aiFlashcardHeader}>
+                  <Text style={[styles.aiFlashcardLabel, { color: theme.colors.primary }]}>{revealed ? 'Answer' : 'Prompt'}</Text>
+                  <Text style={[styles.aiFlashcardHint, { color: theme.colors.textTertiary }]}>{revealed ? 'Tap to hide' : 'Tap to reveal'}</Text>
+                </View>
+                <Text style={[styles.aiFlashcardText, { color: theme.colors.textPrimary }]}>{revealed ? card.backText : card.frontText}</Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </ScrollView>
+      <View style={[styles.aiPanelFooter, { borderTopColor: theme.colors.border, backgroundColor: isDark ? theme.colors.background : '#fff' }]}>
+        <TouchableOpacity style={[styles.aiFooterBtn, { backgroundColor: theme.colors.primary }]} onPress={exportFlashcards}>
+          <Icon name="download-outline" size={16} color="#fff" />
+          <Text style={styles.aiFooterBtnText}>Export Flashcards</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderNotesSidePanel = () => (
+    <View style={styles.aiPanelContainer}>
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="document-text" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>Class Notes</Text>
+          <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>{lecture?.title}</Text>
+        </View>
+      </View>
+      <TextInput
+        style={[styles.aiNotesEditor, { color: theme.colors.textPrimary, backgroundColor: isDark ? '#0b1220' : '#f8fafc', borderColor: theme.colors.border }]}
+        value={studentNotes}
+        onChangeText={setStudentNotes}
+        multiline
+        textAlignVertical="top"
+        placeholder="Write your class notes here..."
+        placeholderTextColor={theme.colors.textTertiary}
+      />
+      <View style={[styles.aiPanelFooter, { borderTopColor: theme.colors.border, backgroundColor: isDark ? theme.colors.background : '#fff', flexWrap: 'wrap', gap: 8 }]}>
+        <Text style={[styles.aiNotesSaved, { color: theme.colors.textTertiary, flex: 1, minWidth: 80 }]}>
+          {notesSavedAt ? `Saved ${new Date(notesSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not saved yet'}
+        </Text>
+        <TouchableOpacity style={[styles.aiFooterBtn, { backgroundColor: '#10b981' }]} onPress={exportNotesPDF}>
+          <Icon name="download-outline" size={16} color="#fff" />
+          <Text style={styles.aiFooterBtnText}>Export PDF</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.aiFooterBtn, { backgroundColor: theme.colors.primary }]} onPress={saveStudentNotes} disabled={savingNotes}>
+          <Icon name="save-outline" size={16} color="#fff" />
+          <Text style={styles.aiFooterBtnText}>{savingNotes ? 'Saving…' : 'Save Notes'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderMoreSidePanel = () => (
+    <View style={styles.aiPanelContainer}>
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="ellipsis-horizontal" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>More Options</Text>
+          <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]}>Quick classroom utilities</Text>
+        </View>
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.aiPanelMessages, { gap: 12 }]} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          style={[styles.moreCard, { backgroundColor: '#0f766e' }]}
+          onPress={restartLecture}
+        >
+          <Icon name="refresh" size={24} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.moreCardTitle}>Restart Lecture</Text>
+            <Text style={styles.moreCardSub}>Start this lecture from the beginning.</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.moreCard, { backgroundColor: '#3b82f6' }]}
+          onPress={exportFlashcards}
+        >
+          <Icon name="download-outline" size={24} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.moreCardTitle}>Export Flashcards</Text>
+            <Text style={styles.moreCardSub}>Download revision flashcards as PDF.</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.moreCard, { backgroundColor: voiceMode ? '#4f46e5' : '#475569' }]}
+          onPress={() => setVoiceMode((prev) => !prev)}
+        >
+          <MaterialIcon name={voiceMode ? 'volume-high' : 'volume-off'} size={24} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.moreCardTitle}>{voiceMode ? 'Voice On' : 'Voice Off'}</Text>
+            <Text style={styles.moreCardSub}>Switch between voice and text delivery.</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.moreCard, { backgroundColor: handRaised ? '#f59e0b' : '#334155' }]}
+          onPress={handleRaiseHand}
+        >
+          <MaterialIcon name="hand-wave-outline" size={24} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.moreCardTitle}>{handRaised ? 'Hand Raised' : 'Raise Hand'}</Text>
+            <Text style={styles.moreCardSub}>Pause the lecture and ask a question.</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.moreCard, { backgroundColor: '#1d4ed8' }]}
+          onPress={openQuiz}
+        >
+          <Icon name="help-circle-outline" size={24} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.moreCardTitle}>Open Quiz</Text>
+            <Text style={styles.moreCardSub}>{lectureCompleted ? 'Ready to attempt.' : 'Complete the lecture first to unlock.'}</Text>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
+  // ─── Legacy tool panel (kept for any fallback) ─────────────────────────────
+  const renderToolPanel = () => {
+    if (!activeToolPanel) {
+      return null;
+    }
+
+    if (activeToolPanel === 'chat') {
+      return (
+        <View style={[styles.toolPanelCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: isDark ? 'rgba(148,163,184,0.12)' : theme.colors.border }]}>
+          <View style={styles.toolPanelHeader}>
+            <View>
+              <Text style={[styles.toolPanelTitle, { color: theme.colors.textPrimary }]}>AI Chat</Text>
+              <Text style={[styles.toolPanelSubtitle, { color: theme.colors.textSecondary }]}>Ask about the current chunk without losing your place.</Text>
+            </View>
+            <TouchableOpacity onPress={closeToolPanel} accessibilityRole="button" accessibilityLabel="Close AI chat panel">
+              <Icon name="close" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.chatScroll} contentContainerStyle={styles.chatScrollContent} showsVerticalScrollIndicator={false}>
+            {!chatMessages.length && !submittingQuestion && (
+              <View style={[styles.chatEmptyState, { borderColor: theme.colors.border }]}>
+                <MaterialIcon name="chat-processing-outline" size={20} color={theme.colors.primary} />
+                <Text style={[styles.chatEmptyTitle, { color: theme.colors.textPrimary }]}>Ask about this lecture point</Text>
+                <Text style={[styles.chatEmptyText, { color: theme.colors.textSecondary }]}>The AI Tutor answers from the active lecture context and lets you continue smoothly.</Text>
+              </View>
+            )}
+            {chatMessages.map((message, index) => (
+              <View key={`${message.type}-${index}`} style={[styles.chatBubble, message.type === 'user' ? styles.chatBubbleUser : [styles.chatBubbleAi, { borderColor: theme.colors.border }]]}>
+                <Text style={[styles.chatRole, { color: message.type === 'user' ? 'rgba(255,255,255,0.75)' : theme.colors.primary }]}>{message.type === 'user' ? 'You' : 'AI Tutor'}</Text>
+                {message.type === 'user'
+                  ? <Text style={{ color: '#fff', lineHeight: 21 }}>{message.text}</Text>
+                  : <MarkdownText textColor={theme.colors.textPrimary}>{message.text}</MarkdownText>
+                }
+              </View>
+            ))}
+            {submittingQuestion && (
+              <View style={[styles.chatBubble, styles.chatBubbleAi, { borderColor: theme.colors.border }]}>
+                <Text style={[styles.chatRole, { color: theme.colors.primary }]}>AI Tutor</Text>
+                <Text style={{ color: theme.colors.textSecondary }}>Preparing a contextual explanation...</Text>
+              </View>
+            )}
+          </ScrollView>
+          <View style={[styles.inputRow, { borderColor: theme.colors.border, backgroundColor: isDark ? '#0f172a' : '#f8fafc' }]}>
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: isRecording ? theme.colors.error : theme.colors.primary }]} onPress={startVoiceInput} accessibilityRole="button" accessibilityLabel="Start voice input">
+              <Icon name={isRecording ? 'stop' : 'mic'} size={18} color="#fff" />
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, {
+                color: theme.colors.textPrimary,
+                backgroundColor: isDark ? '#1f2937' : '#f1f5f9',
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+              }]}
+              value={question}
+              onChangeText={setQuestion}
+              onSubmitEditing={askQuestion}
+              placeholder={isRecording ? 'Listening...' : 'Type your question...'}
+              placeholderTextColor={theme.colors.textTertiary}
+              multiline
+            />
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.colors.primary }]} onPress={askQuestion} disabled={submittingQuestion} accessibilityRole="button" accessibilityLabel="Send AI question">
+              {submittingQuestion ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={18} color="#fff" />}
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    if (activeToolPanel === 'notes') {
+      return (
+        <View style={[styles.toolPanelCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: isDark ? 'rgba(148,163,184,0.12)' : theme.colors.border }]}>
+          <View style={styles.toolPanelHeader}>
+            <View>
+              <Text style={[styles.toolPanelTitle, { color: theme.colors.textPrimary }]}>Class Notepad</Text>
+              <Text style={[styles.toolPanelSubtitle, { color: theme.colors.textSecondary }]}>Write your own notes during class and save them on this device.</Text>
+            </View>
+            <TouchableOpacity onPress={closeToolPanel} accessibilityRole="button" accessibilityLabel="Close notes panel">
+              <Icon name="close" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.notesReferenceCard, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: theme.colors.border }]}>
+            <Text style={[styles.notesReferenceTitle, { color: theme.colors.textPrimary }]} numberOfLines={2}>{lecture.title}</Text>
+            <Text style={[styles.notesReferenceMeta, { color: theme.colors.textSecondary }]} numberOfLines={3}>
+              {panelContent.learningObjective || currentChunk.learningObjective || lecture.summary}
+            </Text>
+          </View>
+          <TextInput
+            style={[styles.notesEditor, { color: theme.colors.textPrimary, backgroundColor: isDark ? '#0b1220' : '#f8fafc', borderColor: theme.colors.border }]}
+            value={studentNotes}
+            onChangeText={setStudentNotes}
+            multiline
+            textAlignVertical="top"
+            placeholder="Write your class notes here..."
+            placeholderTextColor={theme.colors.textTertiary}
+          />
+          <View style={styles.notesFooterRow}>
+            <Text style={[styles.notesSavedLabel, { color: theme.colors.textSecondary }]}>
+              {notesSavedAt ? `Saved ${new Date(notesSavedAt).toLocaleString()}` : 'Not saved yet'}
+            </Text>
+            <AppButton title={savingNotes ? 'Saving...' : 'Save Notes'} onPress={saveStudentNotes} variant="primary" disabled={savingNotes} />
+          </View>
+        </View>
+      );
+    }
+
+    if (activeToolPanel === 'flashcards') {
+      return (
+        <View style={[styles.toolPanelCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: isDark ? 'rgba(148,163,184,0.12)' : theme.colors.border }]}>
+          <View style={styles.toolPanelHeader}>
+            <View>
+              <Text style={[styles.toolPanelTitle, { color: theme.colors.textPrimary }]}>Flashcards</Text>
+              <Text style={[styles.toolPanelSubtitle, { color: theme.colors.textSecondary }]}>Review core prompts and reveal answers when ready.</Text>
+            </View>
+            <TouchableOpacity onPress={closeToolPanel} accessibilityRole="button" accessibilityLabel="Close flashcards panel">
+              <Icon name="close" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.toolPanelScrollContent}>
+            {(lecture.flashcards || []).map((card, index) => {
+              const cardId = card.id || index;
+              const revealed = Boolean(revealedFlashcards[cardId]);
+              return (
+                <TouchableOpacity key={cardId} activeOpacity={0.92} onPress={() => toggleFlashcardReveal(cardId)} style={[styles.flashcard, { borderColor: theme.colors.border, backgroundColor: isDark ? '#101827' : '#f8fafc' }]}>
+                  <View style={styles.flashcardHeader}>
+                    <Text style={[styles.flashcardLabel, { color: theme.colors.primary }]}>{revealed ? 'Answer' : 'Prompt'}</Text>
+                    <Text style={[styles.flashcardHint, { color: theme.colors.textTertiary }]}>{revealed ? 'Tap to hide' : 'Tap to reveal'}</Text>
+                  </View>
+                  <Text style={[styles.flashcardFront, { color: theme.colors.textPrimary }]}>{revealed ? card.backText : card.frontText}</Text>
+                  <View style={[styles.flashcardDivider, { backgroundColor: theme.colors.border }]} />
+                  <Text style={[styles.flashcardMeta, { color: theme.colors.textSecondary }]}>{revealed ? 'Use this answer to confirm your recall.' : 'Try answering from memory before revealing the back.'}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <AppButton title="Export Flashcards" onPress={exportFlashcards} variant="outline" />
+        </View>
+      );
+    }
+
+    if (activeToolPanel === 'quiz') {
+      const questions = quizPreview?.questions || [];
+      return (
+        <View style={[styles.toolPanelCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: isDark ? 'rgba(148,163,184,0.12)' : theme.colors.border }]}>
+          <View style={styles.toolPanelHeader}>
+            <View>
+              <Text style={[styles.toolPanelTitle, { color: theme.colors.textPrimary }]}>Quiz Panel</Text>
+              <Text style={[styles.toolPanelSubtitle, { color: theme.colors.textSecondary }]}>Preview readiness before opening the full quiz flow.</Text>
+            </View>
+            <TouchableOpacity onPress={closeToolPanel} accessibilityRole="button" accessibilityLabel="Close quiz panel">
+              <Icon name="close" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.quizPreviewCard, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: theme.colors.border }]}>
+            <Text style={[styles.quizPreviewLabel, { color: theme.colors.textSecondary }]}>Quiz status</Text>
+            <Text style={[styles.quizPreviewValue, { color: theme.colors.textPrimary }]}>{lectureCompleted ? 'Ready to attempt' : 'Locked until lecture completion'}</Text>
+            <Text style={[styles.quizPreviewMeta, { color: theme.colors.textSecondary }]}>
+              {lectureCompleted ? 'Finish with the stored lecture and move straight into the graded quiz.' : 'Complete this lecture first to unlock the next topic through the quiz.'}
+            </Text>
+          </View>
+          {quizPreviewLoading ? (
+            <View style={styles.quizLoadingWrap}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.toolPanelSubtitle, { color: theme.colors.textSecondary }]}>Loading quiz preview...</Text>
+            </View>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.toolPanelScrollContent}>
+              {!!quizPreview?.instructions && <Text style={[styles.notesBody, { color: theme.colors.textSecondary }]}>{quizPreview.instructions}</Text>}
+              {questions.slice(0, 3).map((item, index) => (
+                <View key={item.id || index} style={[styles.quizQuestionPreview, { borderColor: theme.colors.border }]}>
+                  <Text style={[styles.quizQuestionIndex, { color: theme.colors.primary }]}>Question {index + 1}</Text>
+                  <Text style={[styles.quizQuestionText, { color: theme.colors.textPrimary }]}>{item.prompt}</Text>
+                </View>
+              ))}
+              {!questions.length && (
+                <Text style={[styles.notesBody, { color: theme.colors.textSecondary }]}>No preview questions are available yet for this lecture package.</Text>
+              )}
+            </ScrollView>
+          )}
+          <AppButton title="Open Full Quiz" onPress={openQuiz} variant="primary" disabled={!lectureCompleted} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.toolPanelCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: isDark ? 'rgba(148,163,184,0.12)' : theme.colors.border }]}>
+        <View style={styles.toolPanelHeader}>
+          <View>
+            <Text style={[styles.toolPanelTitle, { color: theme.colors.textPrimary }]}>Essentials</Text>
+            <Text style={[styles.toolPanelSubtitle, { color: theme.colors.textSecondary }]}>Quick classroom utilities and lecture actions.</Text>
+          </View>
+          <TouchableOpacity onPress={closeToolPanel} accessibilityRole="button" accessibilityLabel="Close essentials panel">
+            <Icon name="close" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.essentialsGrid}>
+          <TouchableOpacity style={[styles.essentialsCard, { backgroundColor: '#0f766e' }]} onPress={restartLecture}>
+            <Icon name="refresh" size={18} color="#fff" />
+            <Text style={styles.essentialsTitle}>Restart</Text>
+            <Text style={styles.essentialsMeta}>Start this lecture from the beginning.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.essentialsCard, { backgroundColor: '#3b82f6' }]} onPress={exportFlashcards}>
+            <Icon name="download" size={18} color="#fff" />
+            <Text style={styles.essentialsTitle}>Export</Text>
+            <Text style={styles.essentialsMeta}>Download revision flashcards.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.essentialsCard, { backgroundColor: voiceMode ? '#4f46e5' : '#475569' }]} onPress={() => setVoiceMode((prev) => !prev)}>
+            <MaterialIcon name={voiceMode ? 'volume-high' : 'volume-off'} size={18} color="#fff" />
+            <Text style={styles.essentialsTitle}>{voiceMode ? 'Voice On' : 'Voice Off'}</Text>
+            <Text style={styles.essentialsMeta}>Switch spoken delivery mode.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.essentialsCard, { backgroundColor: handRaised ? '#f59e0b' : '#334155' }]} onPress={handleRaiseHand}>
+            <MaterialIcon name="hand-wave-outline" size={18} color="#fff" />
+            <Text style={styles.essentialsTitle}>{handRaised ? 'Hand Raised' : 'Raise Hand'}</Text>
+            <Text style={styles.essentialsMeta}>Mark attention for the current topic.</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  if (!course || !topic) {
+    return (
+      <MainLayout showSidebar={false} showHeader={true} showBack={true}>
+        <View style={styles.centered}>
+          <EmptyState icon="alert-circle-outline" title="Topic not found" subtitle="The topic you're looking for doesn't exist." />
+        </View>
+      </MainLayout>
+    );
+  }
+
+  if (loading) {
+    return (
+      <MainLayout showSidebar={false} showHeader={true} showBack={true}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading AI lecture package...</Text>
+        </View>
+      </MainLayout>
+    );
+  }
+
+  if (!isEnrolled) {
+    return (
+      <MainLayout showSidebar={false} showHeader={true} showBack={true}>
+        <View style={styles.centered}>
+          <EmptyState icon="lock-closed-outline" title="Not Enrolled" subtitle="You need to enroll in this course to access lectures." />
+        </View>
+      </MainLayout>
+    );
+  }
+
+  if (!lecture || !currentChunk) {
+    return (
+      <MainLayout showSidebar={false} showHeader={true} showBack={true}>
+        <View style={styles.centered}>
+          <EmptyState icon="sparkles-outline" title="Lecture Not Ready" subtitle="This topic does not have a generated lecture package yet." />
+        </View>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout
+      showSidebar={true}
+      sidebarItems={sidebarItems}
+      activeRoute="EnrolledCourses"
+      onNavigate={handleNavigate}
+      showHeader={true}
+      customSidebar={renderSidebar()}
+      customSidebarVisible={showTopicsSidebar}
+      onCustomSidebarToggle={setShowTopicsSidebar}
+      customMenuIcon="book-open-variant"
+      hideHeaderToggle={true}
+    >
+      <View
+        style={[
+          styles.mainContent,
+          {
+            backgroundColor: isDark ? '#0f0f1a' : theme.colors.background,
+            height: windowHeight - 64,
+          },
+        ]}
+      >
+        {/* ── Icon Rail ── */}
+        <View style={[styles.iconRail, {
+          backgroundColor: isDark ? '#0d0d1f' : '#1e293b',
+          borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)',
+        }]}>
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'topics' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => openToolPanel('topics')}
+            accessibilityLabel="Open topics"
+            activeOpacity={0.7}
+          >
+            <MaterialIcon
+              name="book-open-variant"
+              size={24}
+              color={activeToolPanel === 'topics' ? theme.colors.primary : '#fff'}
+            />
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'topics' ? theme.colors.primary : '#fff' }]}>Topics</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, !isPlaying && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={togglePause}
+            accessibilityLabel={isPlaying ? 'Pause lecture' : 'Resume lecture'}
+            activeOpacity={0.7}
+          >
+            <Icon name={isPlaying ? 'pause' : 'play'} size={24} color={!isPlaying ? theme.colors.primary : '#fff'} />
+            <Text style={[styles.railLabel, { color: !isPlaying ? theme.colors.primary : '#fff' }]}>
+              {isPlaying ? 'Pause' : 'Resume'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, handRaised && { backgroundColor: '#f59e0b22', borderColor: '#f59e0b50' }]}
+            onPress={handleRaiseHand}
+            accessibilityLabel={handRaised ? 'Lower hand' : 'Raise hand'}
+            activeOpacity={0.7}
+          >
+            <Icon name="hand-left-outline" size={24} color={handRaised ? '#f59e0b' : '#fff'} />
+            <Text style={[styles.railLabel, { color: handRaised ? '#f59e0b' : '#fff', textAlign: 'center' }]}>{'Ask\nQuestion'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'chat' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => openToolPanel('chat')}
+            accessibilityLabel="Open AI chat"
+            activeOpacity={0.7}
+          >
+            <Icon name={activeToolPanel === 'chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={activeToolPanel === 'chat' ? theme.colors.primary : '#fff'} />
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'chat' ? theme.colors.primary : '#fff', textAlign: 'center' }]}>{'AI\nAssistant'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'flashcards' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => openToolPanel('flashcards')}
+            accessibilityLabel="Open flashcards"
+            activeOpacity={0.7}
+          >
+            <Icon name={activeToolPanel === 'flashcards' ? 'albums' : 'albums-outline'} size={24} color={activeToolPanel === 'flashcards' ? theme.colors.primary : '#fff'} />
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'flashcards' ? theme.colors.primary : '#fff' }]}>Cards</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'notes' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => openToolPanel('notes')}
+            accessibilityLabel="Open notes"
+            activeOpacity={0.7}
+          >
+            <Icon name={activeToolPanel === 'notes' ? 'document-text' : 'document-text-outline'} size={24} color={activeToolPanel === 'notes' ? theme.colors.primary : '#fff'} />
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'notes' ? theme.colors.primary : '#fff' }]}>Notes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, showLiveText && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => setShowLiveText(v => !v)}
+            accessibilityLabel={showLiveText ? 'Hide live text' : 'Show live text'}
+            activeOpacity={0.7}
+          >
+            <MaterialIcon name={showLiveText ? 'subtitles' : 'subtitles-outline'} size={24} color={showLiveText ? theme.colors.primary : '#fff'} />
+            <Text style={[styles.railLabel, { color: showLiveText ? theme.colors.primary : '#fff' }]}>Subtitles</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'more' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => openToolPanel('more')}
+            accessibilityLabel="More options"
+            activeOpacity={0.7}
+          >
+            <Icon name="ellipsis-horizontal" size={24} color={activeToolPanel === 'more' ? theme.colors.primary : '#fff'} />
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'more' ? theme.colors.primary : '#fff' }]}>More</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Slide Panel ── */}
+        {activeToolPanel && ['topics', 'chat', 'flashcards', 'notes', 'more'].includes(activeToolPanel) && (
+          <View
+            style={[
+              styles.aiSlidePanel,
+              {
+                backgroundColor: isDark ? '#12122a' : theme.colors.surface,
+                borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : theme.colors.border,
+              },
+            ]}
+          >
+            {activeToolPanel === 'topics' && renderSidebar()}
+            {activeToolPanel === 'chat' && renderChatSidePanel()}
+            {activeToolPanel === 'flashcards' && renderFlashcardsSidePanel()}
+            {activeToolPanel === 'notes' && renderNotesSidePanel()}
+            {activeToolPanel === 'more' && renderMoreSidePanel()}
+          </View>
+        )}
+
+        {/* ── Main Learning Area ── */}
+        <View style={styles.aiLearningArea}>
+          {/* Progress header */}
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabel}>
+              <Icon name="trending-up" size={16} color={theme.colors.primary} />
+              <Text style={[styles.progressText, { color: theme.colors.textSecondary }]}>
+                Chunk {Math.min(currentIndex + 1, totalChunks)} of {totalChunks}
+              </Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFillGreen, { width: `${progress}%` }]} />
+              </View>
+            </View>
+            <Text style={[styles.progressPercent, { color: theme.colors.primary }]}>{progress}%</Text>
+          </View>
+
+          {/* Virtual whiteboard — fills all remaining space */}
+          <View style={[styles.stageWhiteboardNew, { flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
+            <View style={styles.stageBoardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardHeaderText}>Live Lecture Stage</Text>
+                <Text style={styles.stageBoardSubtext} numberOfLines={1}>
+                  {panelContent.learningObjective || currentChunk.learningObjective || currentChunk.summary}
+                </Text>
+              </View>
+              <View style={styles.stageBoardHeaderActions}>
+                <TouchableOpacity
+                  style={[styles.stageMiniControl, autoSpeakEnabled && { backgroundColor: 'rgba(99,102,241,0.3)' }, !autoSpeakEnabled && { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                  onPress={() => setAutoSpeakEnabled(v => !v)}
+                >
+                  <Icon name={autoSpeakEnabled ? 'volume-high' : 'volume-mute-outline'} size={16} color={autoSpeakEnabled ? '#a5b4fc' : '#fff'} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.stageMiniControl, { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                  onPress={togglePause}
+                >
+                  <Icon name={isPlaying ? 'pause' : 'play'} size={16} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.stageMiniControl, { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                  onPress={goToNextChunk}
+                  disabled={lectureCompleted}
+                >
+                  <Icon name="play-skip-forward" size={16} color={lectureCompleted ? '#64748b' : '#fff'} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={styles.whiteboardTitle} numberOfLines={1}>{boardContent?.title || currentChunk.title}</Text>
+
+            <View style={[styles.boardSurface, { flex: 1 }, isMobile && styles.boardSurfaceStack]}>
+              <View style={styles.boardPrimaryColumn}>
+                {renderBoardSurface()}
+              </View>
+              {!isMobile && renderVisualDock()}
+            </View>
+          </View>
+
+          {/* Subtitles dock — hidden by default, toggled via rail Text button */}
+          {showLiveText && (
+            <View style={[styles.subtitleDock, { backgroundColor: isDark ? '#12122a' : '#eef2ff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.12)' }]}>
+              <View style={styles.subtitlesHeader}>
+                <View style={styles.subtitleDockTitleWrap}>
+                  <MaterialIcon name="subtitles-outline" size={14} color={theme.colors.primary} />
+                  <Text style={[styles.subtitlesTitle, { color: theme.colors.textPrimary }]}>Live Teaching Text</Text>
+                </View>
+                <Text style={styles.modeBadge}>{voiceMode ? 'VOICE ON' : 'TEXT MODE'}</Text>
+              </View>
+              <Text style={[styles.subtitleDockText, { color: theme.colors.textPrimary }]} numberOfLines={5}>{liveNarration}</Text>
+            </View>
+          )}
+
+          {/* Bottom bar — Take Quiz only */}
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={[styles.quizButton, { backgroundColor: lectureCompleted ? '#10b981' : (isDark ? '#1a2235' : '#e2e8f0') }]}
+              onPress={openQuiz}
+              accessibilityLabel="Take quiz"
+            >
+              <MaterialIcon name="help-circle" size={20} color={lectureCompleted ? '#fff' : (isDark ? '#4b5563' : '#9ca3af')} />
+              <Text style={[styles.quizButtonText, { color: lectureCompleted ? '#fff' : (isDark ? '#4b5563' : '#9ca3af') }]}>Take Quiz</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      <ConfirmDialog
+        visible={showCompleteDialog}
+        title="Lecture Complete"
+        message="The lecture is finished. Open the quiz to unlock the next topic, or take the lecture again from the beginning."
+        confirmText="Open Quiz"
+        confirmVariant="primary"
+        onConfirm={() => {
+          setShowCompleteDialog(false);
+          openQuiz();
+        }}
+        onCancel={() => setShowCompleteDialog(false)}
+      />
+
+      <VoiceQAOverlay
+        visible={showVoiceQA}
+        sessionId={session?.id ?? null}
+        courseId={courseId}
+        topicId={topicId}
+        studentName={studentName}
+        theme={theme}
+        onQuestionAnswered={(question, answer) => {
+          // Append to sidebar chat so user can read it later
+          setChatMessages(prev => [
+            ...prev,
+            { type: 'user', text: question },
+            { type: 'ai', text: answer },
+          ]);
+          // Open the chat panel so the conversation is visible
+          setActiveToolPanel('chat');
+        }}
+        onClose={() => {
+          setShowVoiceQA(false);
+          setHandRaised(false);
+          // Resume lecture after overlay closes
+          setTimeout(() => setIsPlaying(true), 600);
+        }}
+      />
+    </MainLayout>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16, minHeight: 0, overflow: 'hidden' },
+  sessionShell: { gap: 14, flex: 1, minHeight: 0, overflow: 'hidden' },
+  sessionToolbar: {
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  sessionToolbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0, flex: 1.2 },
+  toolbarBackButton: { borderRadius: 14 },
+  sessionIdentity: { flex: 1, minWidth: 0 },
+  sessionEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  sessionTitle: { fontSize: 18, fontWeight: '800' },
+  sessionSubtitle: { fontSize: 12, marginTop: 2 },
+  sessionToolbarCenter: { flex: 1.4, gap: 10 },
+  toolbarBadges: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  toolbarBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  toolbarBadgeText: { fontSize: 12, fontWeight: '700' },
+  sessionToolbarRight: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end', flex: 1.4, flexWrap: 'nowrap', alignItems: 'center', minWidth: 0 },
+  toolbarAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  toolbarActionText: { fontSize: 12, fontWeight: '700' },
+  toolbarControlGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  toolbarDivider: { width: 1, alignSelf: 'stretch' },
+  toolbarActionCompact: {
+    width: 64,
+    minHeight: 54,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  toolbarActionCaption: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  liveIndicatorDot: { width: 10, height: 10, borderRadius: 5 },
+  liveIndicatorText: { fontSize: 12, fontWeight: '800' },
+  classroomStage: { flex: 1, flexDirection: 'row', gap: 14, minHeight: 0 },
+  classroomStageStack: { flexDirection: 'column' },
+  classroomMainColumn: { flex: 1, minHeight: 0 },
+  stageHeroCard: {
+    flex: 1,
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+    minHeight: 0,
+  },
+  stageHeroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  stageHeroLeft: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, flex: 1 },
+  stageMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  stageModePill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  stageModePillText: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  stageMetaPillText: { fontSize: 11, fontWeight: '700' },
+  sessionClockText: { fontSize: 12, fontWeight: '800' },
+  stageTutorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    maxWidth: '100%',
+  },
+  stageTutorPulse: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#4f46e5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stageTutorMeta: { flex: 1, minWidth: 0 },
+  stageTutorName: { fontSize: 13, fontWeight: '800' },
+  stageTutorLine: { fontSize: 12, marginTop: 2 },
+  stageSupportChip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    maxWidth: '100%',
+  },
+  stageSupportLabel: { fontSize: 12, fontWeight: '700' },
+  inlineTransitionCard: { borderRadius: 16, padding: 12, borderWidth: 1 },
+  stageCanvasFrame: {
+    flex: 1,
+    minHeight: 360,
+    borderRadius: 24,
+    padding: 8,
+  },
+  stageWhiteboard: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.14)',
+    shadowColor: '#020617',
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.24,
+    shadowRadius: 30,
+    elevation: 12,
+  },
+  stageBoardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 },
+  stageBoardSubtext: { color: '#cbd5e1', fontSize: 11, lineHeight: 16, marginTop: 2, maxWidth: 680 },
+  stageBoardHeaderActions: { flexDirection: 'row', gap: 8 },
+  stageMiniControl: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  subtitleDock: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 12, marginTop: 8 },
+  subtitleDockTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subtitleDockText: { fontSize: 16, lineHeight: 26, fontWeight: '500', marginTop: 6 },
+  contextDrawer: {
+    width: 360,
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 12,
+    minHeight: 0,
+  },
+  contextDrawerOverlay: {
+    width: '100%',
+    maxHeight: 360,
+  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { marginTop: 16, fontSize: 16 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  progressBarWrap: { flex: 1 },
+  progressBar: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexDirection: 'row' },
+  progressFill: { height: '100%' },
+  progressValue: { fontSize: 13, fontWeight: '700' },
+  lectureTimeBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16, alignSelf: 'flex-start' },
+  lectureTimeBannerText: { fontSize: 13, fontWeight: '700' },
+  statusCard: { borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1 },
+  statusHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 12 },
+  statusTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  statusTitle: { fontSize: 15, fontWeight: '700' },
+  statusMeta: { fontSize: 12, fontWeight: '700' },
+  statusText: { fontSize: 13, lineHeight: 20 },
+  metaPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  metaPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  metaPillText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  transitionCard: { borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1 },
+  transitionLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  transitionText: { fontSize: 14, lineHeight: 21, fontWeight: '600' },
+  topRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
+  topRowStack: { flexDirection: 'column' },
+  whiteboard: { flex: 1, borderRadius: 16, padding: 16 },
+  liveBoard: { minHeight: 320 },
+  sideStack: { width: 220, gap: 12 },
+  tutorPanel: { width: 190, borderRadius: 16, padding: 16, alignItems: 'center' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardHeaderText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  boardHeaderRow: { marginBottom: 14, gap: 10 },
+  boardModeBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  boardModeText: { color: '#fff', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  boardObjective: { color: '#cbd5e1', fontSize: 13, lineHeight: 20 },
+  whiteboardTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  whiteboardSummary: { color: '#cbd5e1', fontSize: 14, lineHeight: 22, marginBottom: 12 },
+  boardSurface: { flex: 1, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.04)', padding: 16, gap: 14, flexDirection: 'row', alignItems: 'stretch', minHeight: 0 },
+  boardSurfaceStack: { flexDirection: 'column' },
+  boardPrimaryColumn: { flex: 1, justifyContent: 'center', minWidth: 0 },
+  boardVisualRail: { width: 260, gap: 10 },
+  boardSideCard: { borderWidth: 1, borderColor: 'rgba(148,163,184,0.14)', borderRadius: 14, padding: 12, backgroundColor: 'rgba(2,6,23,0.26)' },
+  boardSideEyebrow: { color: '#93c5fd', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 6 },
+  boardSideTitle: { color: '#fff', fontSize: 14, fontWeight: '800', marginBottom: 8 },
+  boardSideText: { color: '#cbd5e1', fontSize: 12, lineHeight: 19 },
+  boardSideBullet: { color: '#e2e8f0', fontSize: 12, lineHeight: 18, marginBottom: 6 },
+  boardCheckpointCard: { backgroundColor: 'rgba(124,45,18,0.24)', borderColor: 'rgba(251,146,60,0.25)' },
+  boardCheckpointText: { color: '#ffedd5', fontSize: 13, lineHeight: 20, fontWeight: '700' },
+  boardBodyText: { color: '#e2e8f0', fontSize: 15, lineHeight: 24 },
+  diagramWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 8 },
+  diagramCaption: { color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
+
+  // ── Plain text block (no boardContent) ────────────────────────────────────
+  plainTextBlock: { gap: 10 },
+  plainTextLine: { color: '#e2e8f0', fontSize: 17, lineHeight: 28, fontWeight: '400' },
+
+  // ── Chalk-style whiteboard notes ──────────────────────────────────────────
+  chalkNoteBlock: { gap: 6 },
+  chalkBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4 },
+  chalkBulletArrow: { color: '#60a5fa', fontSize: 16, lineHeight: 26, fontWeight: '700', flexShrink: 0 },
+  chalkBulletText: { flex: 1, color: '#f1f5f9', fontSize: 16, lineHeight: 26, fontWeight: '500' },
+  chalkEmphasis: { color: '#93c5fd', fontSize: 15, lineHeight: 23, marginTop: 14, fontStyle: 'italic', borderLeftWidth: 3, borderLeftColor: '#60a5fa', paddingLeft: 12 },
+
+  // ── Terminal / console code block ─────────────────────────────────────────
+  terminalWrap: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#0d1117', flex: 1 },
+  terminalBar: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1f26', paddingHorizontal: 14, paddingVertical: 10 },
+  terminalDot: { width: 12, height: 12, borderRadius: 6 },
+  terminalLangLabel: { color: '#6b7280', fontSize: 12, fontWeight: '600', marginLeft: 8 },
+  terminalBody: { padding: 14, gap: 2 },
+  terminalLine: { flexDirection: 'row', gap: 12 },
+  terminalLineNum: { color: '#4b5563', fontSize: 13, lineHeight: 22, width: 24, textAlign: 'right', fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier', flexShrink: 0 },
+  terminalLineCode: { flex: 1, color: '#e5e7eb', fontSize: 13, lineHeight: 22, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' },
+  terminalFooter: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)', paddingHorizontal: 14, paddingVertical: 10 },
+  terminalFooterIcon: { color: '#60a5fa', fontSize: 13, lineHeight: 20, flexShrink: 0 },
+  terminalFooterText: { flex: 1, color: '#94a3b8', fontSize: 12, lineHeight: 19 },
+
+  boardBullet: { color: '#e2e8f0', fontSize: 15, lineHeight: 24, marginBottom: 8 },
+  boardEmphasis: { color: '#93c5fd', fontSize: 14, lineHeight: 22, marginTop: 12, fontStyle: 'italic' },
+  boardQuestion: { color: '#fef3c7', fontSize: 22, lineHeight: 30, fontWeight: '700' },
+  sectionLabel: { color: '#fff', fontSize: 13, fontWeight: '700', marginTop: 10, marginBottom: 4 },
+  sectionText: { color: '#cbd5e1', fontSize: 13, lineHeight: 21 },
+  tutorLabel: { fontSize: 14, fontWeight: '700', marginBottom: 16 },
+  avatarRing: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: 'rgba(79,70,229,0.3)', justifyContent: 'center', alignItems: 'center' },
+  avatarInner: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#a855f7', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#fff', fontSize: 32, fontWeight: '700' },
+  tutorMeta: { fontSize: 11, textAlign: 'center', marginTop: 8 },
+  visualRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
+  visualCard: { flex: 1, borderRadius: 16, padding: 16, borderWidth: 1 },
+  visualHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  visualEyebrow: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  visualTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  visualBody: { fontSize: 13, lineHeight: 21 },
+  visualHint: { borderRadius: 12, padding: 12, marginTop: 12 },
+  visualHintLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
+  visualHintText: { fontSize: 13, lineHeight: 20 },
+  diagramRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1 },
+  diagramIndex: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  diagramIndexText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  diagramText: { flex: 1, fontSize: 13, lineHeight: 20 },
+  flowStep: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  flowStepBadge: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  flowStepBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  flowStepText: { flex: 1, color: '#e2e8f0', fontSize: 14, lineHeight: 21 },
+  boardTable: { borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
+  boardTableRow: { padding: 12, borderBottomWidth: 1 },
+  boardTableTitle: { color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  boardTableBody: { fontSize: 12, lineHeight: 18 },
+  comparisonTable: { borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
+  comparisonRow: { padding: 12, borderBottomWidth: 1 },
+  comparisonCellTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  comparisonCellBody: { fontSize: 12, lineHeight: 18 },
+  nodeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  nodeCard: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  nodeLabel: { fontSize: 12, fontWeight: '600' },
+  liveNodeCard: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  liveNodeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  codePanel: { borderWidth: 1, borderRadius: 14, padding: 14, backgroundColor: 'rgba(15,23,42,0.92)' },
+  codeLanguage: { color: '#93c5fd', fontSize: 11, fontWeight: '700', marginBottom: 10, letterSpacing: 1 },
+  codeText: { color: '#e5e7eb', fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier', fontSize: 13, lineHeight: 20 },
+  codeHint: { color: '#cbd5e1', fontSize: 12, lineHeight: 18, marginTop: 12 },
+  teacherCardsRow: { flexDirection: 'row', gap: 12, marginBottom: 16, flexWrap: 'wrap' },
+  teacherCard: { flex: 1, minWidth: 210, borderRadius: 16, padding: 14, borderWidth: 1 },
+  teacherCardLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  teacherCardText: { fontSize: 13, lineHeight: 20 },
+  supportCard: { borderWidth: 1, borderRadius: 16, padding: 14 },
+  supportLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  supportText: { fontSize: 13, lineHeight: 20 },
+  stageInsightsGrid: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
+  insightCard: { flex: 1, minWidth: 220, borderWidth: 1, borderRadius: 18, padding: 14 },
+  insightLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  insightText: { fontSize: 13, lineHeight: 20, marginBottom: 6 },
+  subtitlesCard: { borderRadius: 16, padding: 16, marginBottom: 16 },
+  subtitlesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  subtitlesTitle: { fontSize: 12, fontWeight: '700' },
+  modeBadge: { color: '#fff', backgroundColor: '#3b82f6', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, fontSize: 10, fontWeight: '700' },
+  subtitlesText: { fontSize: 15, lineHeight: 24 },
+  segmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  segmentPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, maxWidth: '100%' },
+  segmentText: { fontSize: 11, fontWeight: '600' },
+  qaCard: { borderRadius: 16, padding: 16, marginBottom: 16, maxHeight: 340 },
+  qaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  qaTitle: { fontSize: 15, fontWeight: '700' },
+  chatScroll: { maxHeight: 180, marginBottom: 12 },
+  chatScrollContent: { paddingBottom: 4 },
+  chatEmptyState: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 14, padding: 14, alignItems: 'center', marginBottom: 10 },
+  chatEmptyTitle: { fontSize: 14, fontWeight: '700', marginTop: 8, marginBottom: 6 },
+  chatEmptyText: { fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  chatBubble: { padding: 12, borderRadius: 14, marginBottom: 8, maxWidth: '92%', borderWidth: 1 },
+  chatBubbleUser: { backgroundColor: '#4F46E5', alignSelf: 'flex-end', borderColor: '#4F46E5' },
+  chatBubbleAi: { backgroundColor: 'rgba(79,70,229,0.1)', alignSelf: 'flex-start' },
+  chatRole: { fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.6 },
+  inputRow: { flexDirection: 'row', gap: 8, borderWidth: 1, borderRadius: 18, padding: 10, alignItems: 'flex-end' },
+  input: { flex: 1, minHeight: 44, maxHeight: 92, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 10 },
+  toolPanelCard: { flex: 1, borderWidth: 1, borderRadius: 22, padding: 16, minHeight: 0, gap: 14 },
+  toolPanelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  toolPanelTitle: { fontSize: 18, fontWeight: '800' },
+  toolPanelSubtitle: { fontSize: 12, lineHeight: 18, marginTop: 4 },
+  toolPanelScrollContent: { paddingBottom: 4, gap: 12 },
+  quizPreviewCard: { borderWidth: 1, borderRadius: 18, padding: 14 },
+  quizPreviewLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  quizPreviewValue: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  quizPreviewMeta: { fontSize: 13, lineHeight: 19 },
+  quizLoadingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  quizQuestionPreview: { borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 10 },
+  quizQuestionIndex: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  quizQuestionText: { fontSize: 14, lineHeight: 21, fontWeight: '600' },
+  essentialsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  essentialsCard: { flexBasis: '48%', flexGrow: 1, borderRadius: 18, padding: 14, minHeight: 120 },
+  essentialsTitle: { color: '#fff', fontSize: 15, fontWeight: '800', marginTop: 10 },
+  essentialsMeta: { color: 'rgba(255,255,255,0.8)', fontSize: 12, lineHeight: 18, marginTop: 6 },
+  notesReferenceCard: { borderWidth: 1, borderRadius: 18, padding: 14 },
+  notesReferenceTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  notesReferenceMeta: { fontSize: 13, lineHeight: 19 },
+  notesEditor: { flex: 1, minHeight: 220, borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, lineHeight: 22 },
+  notesFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  notesSavedLabel: { fontSize: 12, flex: 1 },
+  actions: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  action: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', gap: 6 },
+  actionText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  iconButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  sidebar: { flex: 1, paddingTop: 8, paddingHorizontal: 8 },
+  sidebarTitle: { fontSize: 14, fontWeight: '700', padding: 16 },
+  sidebarItem: { borderLeftWidth: 3, borderLeftColor: 'transparent', padding: 12, marginHorizontal: 8, marginBottom: 4, borderRadius: 10 },
+  sidebarItemText: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  sidebarItemDuration: { fontSize: 11, marginBottom: 4 },
+  sidebarItemStatus: { fontSize: 11 },
+  flashcard: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 },
+  flashcardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 },
+  flashcardLabel: { fontSize: 12, fontWeight: '700' },
+  flashcardHint: { fontSize: 11, fontWeight: '600' },
+  flashcardFront: { fontSize: 16, lineHeight: 24, marginBottom: 12, fontWeight: '600' },
+  flashcardDivider: { height: 1, marginBottom: 12 },
+  flashcardMeta: { fontSize: 12, lineHeight: 18 },
+  notesTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  notesBody: { fontSize: 14, lineHeight: 22, marginBottom: 6 },
+  noteSection: { marginBottom: 14 },
+  noteSectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 6 },
+
+  // ── New layout styles (matches LearningScreen) ────────────────────────────
+  mainContent: { flexDirection: 'row', overflow: 'hidden' },
+  iconRail: { width: 78, alignItems: 'center', paddingTop: 20, paddingBottom: 16, gap: 4, borderRightWidth: 1, overflow: 'hidden' },
+  railBtn: { width: 64, paddingVertical: 11, borderRadius: 12, alignItems: 'center', gap: 5, borderWidth: 1, borderColor: 'transparent' },
+  railLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.2 },
+  aiSlidePanel: { width: 290, flexShrink: 0, overflow: 'hidden', borderRightWidth: 1 },
+  aiLearningArea: { flex: 1, overflow: 'hidden', padding: 16, flexDirection: 'column' },
+  progressSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
+  progressLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  progressText: { fontSize: 12, fontWeight: '500' },
+  progressBarContainer: { flex: 1 },
+  progressFillGreen: { height: '100%', backgroundColor: '#10b981' },
+  progressPercent: { fontSize: 12, fontWeight: '600' },
+  stageWhiteboardNew: { padding: 12, borderRadius: 12, overflow: 'hidden' },
+  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  quizButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 25 },
+  quizButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+
+  // ── AI side panel styles ───────────────────────────────────────────────────
+  aiPanelContainer: { flex: 1, flexDirection: 'column', overflow: 'hidden' },
+  aiPanelHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1 },
+  aiPanelAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  aiPanelTitle: { fontSize: 14, fontWeight: '700' },
+  aiPanelSubtitle: { fontSize: 11, marginTop: 1 },
+  aiOnlineDot: { width: 8, height: 8, borderRadius: 4 },
+  aiPanelMessages: { padding: 12, gap: 10, paddingBottom: 8 },
+  aiPanelMessagesEmpty: { flex: 1, justifyContent: 'center' },
+  aiPanelEmpty: { alignItems: 'center', padding: 24, gap: 10 },
+  aiPanelEmptyIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  aiPanelEmptyTitle: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  aiPanelEmptySub: { fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  aiChatRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 4 },
+  aiChatRowUser: { justifyContent: 'flex-end' },
+  aiChatRowAI: { justifyContent: 'flex-start' },
+  aiChatAvatar: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  aiChatBubble: { maxWidth: '80%', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 18 },
+  aiChatText: { fontSize: 13, lineHeight: 20 },
+  aiTypingRow: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  aiTypingDot: { width: 7, height: 7, borderRadius: 3.5 },
+  aiPanelInputArea: { padding: 10, borderTopWidth: 1 },
+  aiPanelInputBox: { flexDirection: 'row', alignItems: 'flex-end', borderWidth: 1, borderRadius: 22, paddingLeft: 14, paddingRight: 6, paddingVertical: 6, gap: 6 },
+  aiPanelInput: { flex: 1, fontSize: 13, maxHeight: 80, paddingTop: 4, paddingBottom: 4 },
+  aiPanelInputBtns: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aiIconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  aiSendBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  aiFlashcard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
+  aiFlashcardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  aiFlashcardLabel: { fontSize: 11, fontWeight: '700' },
+  aiFlashcardHint: { fontSize: 10, fontWeight: '600' },
+  aiFlashcardText: { fontSize: 14, lineHeight: 22, fontWeight: '600' },
+  aiPanelFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', padding: 10, borderTopWidth: 1, gap: 10 },
+  aiFooterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
+  aiFooterBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  aiNotesEditor: { flex: 1, margin: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, lineHeight: 20 },
+  aiNotesSaved: { flex: 1, fontSize: 11 },
+  moreCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14 },
+  moreCardTitle: { color: '#fff', fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  moreCardSub: { color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 17 },
+
+  // ── Visual rail card header ────────────────────────────────────────────────
+  railCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
+  railDot: { width: 7, height: 7, borderRadius: 3.5, flexShrink: 0 },
+  railModeBadge: { marginLeft: 'auto', borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
+  railModeBadgeText: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  railBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 5 },
+  railBulletDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#60a5fa', marginTop: 7, flexShrink: 0 },
+});
+
+export default AILearningScreen;

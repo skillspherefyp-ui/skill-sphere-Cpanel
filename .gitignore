@@ -1,0 +1,121 @@
+# ===========================
+# Dependencies
+# ===========================
+node_modules/
+AppAndroidSS/node_modules/
+backend/node_modules/
+
+# ===========================
+# Environment Variables
+# ===========================
+.env
+.env.local
+.env.development
+.env.production
+backend/.env
+AppAndroidSS/.env
+
+# ===========================
+# Build Outputs
+# ===========================
+web-build/
+AppAndroidSS/web-build/
+dist/
+build/
+
+# ===========================
+# Logs
+# ===========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/*.log
+backend/server-ai.err.log
+backend/server-ai.out.log
+
+# ===========================
+# Uploads / User Files
+# ===========================
+backend/uploads/
+
+# ===========================
+# OS Files
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Editor
+# ===========================
+.vscode/
+.idea/
+*.swp
+
+# ===========================
+# React Native / Expo
+# ===========================
+AppAndroidSS/.expo/
+AppAndroidSS/android/.gradle/
+AppAndroidSS/android/app/build/
+AppAndroidSS/ios/build/
+AppAndroidSS/ios/Pods/
+
+# ===========================
+# Misc
+# ===========================
+.cache/
+*.pem
+
+# ===========================
+# Unnecessary Root Docs
+# ===========================
+4.4_Software_Description.md
+AI_ARCHITECTURE.md
+API_ENDPOINTS.md
+CERTIFICATE_SYSTEM_FILES.txt
+CLAUDE.md
+DEPLOYMENT_CHECKLIST.md
+DEPLOYMENT_ENV_REFERENCE.md
+DEPLOYMENT_GUIDE.md
+INSTALL_COMMANDS.txt
+PRODUCTION_CONFIG.md
+QUICK_REFERENCE.md
+SETUP_GUIDE.md
+SETUP_REQUIREMENTS.txt
+Screenshot_Reference_Guide.md
+THEME_DOCUMENTATION.md
+ThemeContext.md
+VIVA_PREPARATION.md
+VIVA_PRESENTATION_OUTLINE.md
+Happening.png
+loading_preview.html
+
+# ===========================
+# Unnecessary Frontend Docs
+# ===========================
+AppAndroidSS/QUICK_WEB_START.md
+AppAndroidSS/WEB_SETUP_COMPLETE.md
+AppAndroidSS/RESTART_APP.bat
+AppAndroidSS/icon-output/
+AppAndroidSS/docs/
+
+# ===========================
+# Unnecessary Backend Docs
+# ===========================
+backend/API_DOCUMENTATION.md
+backend/DATABASE_RESET_COMPLETE.md
+backend/DEPLOYMENT.md
+backend/ENV_SETUP.md
+backend/FIXES_APPLIED.md
+backend/MIGRATION_GUIDE.md
+backend/QUICK_START.md
+backend/RUN_FOR_WEB.md
+backend/SETUP_SUMMARY.md
+backend/SUPERADMIN_CREDENTIALS.md
+backend/test-certificate.js
+backend/test-email-delivery.js
+backend/.env.example
+backend/.env.cpanel.example
+backend/.env.example
+backend/.env.cpanel.example

@@ -258,9 +258,11 @@ const sendWelcomeEmail = async (email, name) => {
       </tr>
       <tr>
         <td align="center">
-          <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.orange},${BRAND.orangeLight});border-radius:50px;padding:13px 32px;">
-            <span style="color:#FFFFFF;font-size:14px;font-weight:800;letter-spacing:0.3px;">Start exploring courses today! →</span>
-          </div>
+          <a href="${process.env.FRONTEND_URL || 'https://skillsphere.com.pk'}" style="text-decoration:none;display:inline-block;">
+            <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.orange},${BRAND.orangeLight});border-radius:50px;padding:13px 32px;">
+              <span style="color:#FFFFFF;font-size:14px;font-weight:800;letter-spacing:0.3px;">Start exploring courses today! →</span>
+            </div>
+          </a>
         </td>
       </tr>
     </table>
@@ -391,9 +393,11 @@ const sendCertificateEmail = async (email, studentName, courseName, certificateN
       </tr>
       <tr>
         <td align="center">
-          <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.green},#059669);border-radius:50px;padding:12px 28px;">
-            <span style="color:#FFFFFF;font-size:14px;font-weight:800;">Keep up the great work! &#127942;</span>
-          </div>
+          <a href="${process.env.FRONTEND_URL || 'https://skillsphere.com.pk'}" style="text-decoration:none;display:inline-block;">
+            <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.green},#059669);border-radius:50px;padding:12px 28px;">
+              <span style="color:#FFFFFF;font-size:14px;font-weight:800;">Keep up the great work! &#127942;</span>
+            </div>
+          </a>
         </td>
       </tr>
     </table>
@@ -485,9 +489,11 @@ const sendEnrollmentEmail = async (email, studentName, course) => {
       </tr>
       <tr>
         <td align="center">
-          <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.orange},${BRAND.orangeLight});border-radius:50px;padding:13px 32px;">
-            <span style="color:#FFFFFF;font-size:14px;font-weight:800;letter-spacing:0.3px;">Go to My Learning →</span>
-          </div>
+          <a href="${process.env.FRONTEND_URL || 'https://skillsphere.com.pk'}" style="text-decoration:none;display:inline-block;">
+            <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.orange},${BRAND.orangeLight});border-radius:50px;padding:13px 32px;">
+              <span style="color:#FFFFFF;font-size:14px;font-weight:800;letter-spacing:0.3px;">Go to My Learning →</span>
+            </div>
+          </a>
         </td>
       </tr>
     </table>

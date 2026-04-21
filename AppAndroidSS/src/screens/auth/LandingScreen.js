@@ -1146,7 +1146,7 @@ const Footer = ({ navigation, theme, isDark, isMobile, scrollToSection }) => {
     { title:'Legal',    links:['Privacy Policy','Terms of Service','Cookie Policy'] },
   ];
   const socials = [
-    { icon:'x-twitter',      label:'X',         url: null },
+    { icon:'x-twitter',      label:'X',         url: 'https://x.com/Skill___Sphere' },
     { icon:'logo-linkedin',  label:'LinkedIn',  url: 'https://www.linkedin.com/in/skill-sphere-pk/' },
     { icon:'logo-instagram', label:'Instagram', url: 'https://www.instagram.com/skill._.sphere/' },
     { icon:'logo-youtube',   label:'YouTube',   url: 'https://www.youtube.com/@SkillSphere-learning' },

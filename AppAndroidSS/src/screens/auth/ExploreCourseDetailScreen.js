@@ -9,6 +9,7 @@ import ThemeToggle from '../../components/ThemeToggle';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { courseAPI } from '../../services/apiClient';
 import { resolveFileUrl } from '../../utils/urlHelpers';
+import ShareCourseModal from '../../components/ui/ShareCourseModal';
 
 const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
@@ -103,6 +104,7 @@ const ExploreCourseDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(false);
   const [prereqCourses, setPrereqCourses] = useState([]);
+  const [shareVisible, setShareVisible] = useState(false);
 
   useEffect(() => {
     const id = route.params?.courseId || route.params?.course?.id;
@@ -196,9 +198,18 @@ const ExploreCourseDetailScreen = () => {
 
           {/* ── Course Info Card ── */}
           <SCard isDark={isDark}>
-            <Text style={{ fontSize: isMobile ? 22 : 28, fontWeight: '900', color: isDark ? '#FFFFFF' : NAVY, lineHeight: isMobile ? 30 : 36, marginBottom: 14 }}>
-              {course.name}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 10 }}>
+              <Text style={{ flex: 1, fontSize: isMobile ? 22 : 28, fontWeight: '900', color: isDark ? '#FFFFFF' : NAVY, lineHeight: isMobile ? 30 : 36 }}>
+                {course.name}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShareVisible(true)}
+                style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: ORANGE + '15', justifyContent: 'center', alignItems: 'center', marginTop: 4 }}
+                activeOpacity={0.75}
+              >
+                <Icon name="share-social-outline" size={20} color={ORANGE} />
+              </TouchableOpacity>
+            </View>
 
             {/* Meta badges */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
@@ -353,6 +364,13 @@ const ExploreCourseDetailScreen = () => {
           <View style={{ height: 40 }} />
         </View>
       </ScrollView>
+
+      <ShareCourseModal
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        course={course}
+        isDark={isDark}
+      />
     </View>
   );
 };

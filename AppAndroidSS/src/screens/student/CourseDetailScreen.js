@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { resolveFileUrl } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
+import ShareCourseModal from '../../components/ui/ShareCourseModal';
 
 const CourseDetailScreen = () => {
   const navigation = useNavigation();
@@ -43,6 +44,7 @@ const CourseDetailScreen = () => {
   const [enrollmentData, setEnrollmentData] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
   const [unenrolling, setUnenrolling] = useState(false);
+  const [shareVisible, setShareVisible] = useState(false);
 
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 1024;
@@ -315,16 +317,35 @@ const CourseDetailScreen = () => {
               <Text style={[styles.pageSubtitle, { color: theme.colors.textSecondary }]}>View course information and content</Text>
             </View>
           </View>
-          {isEnrolled && (
-            <AppButton
-              title={progress > 0 ? 'Continue Learning' : 'Start Learning'}
-              onPress={handleStartLearning}
-              variant="primary"
-              style={styles.headerButton}
-              leftIcon="play-circle-outline"
-            />
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => setShareVisible(true)}
+              style={{
+                width: 38, height: 38, borderRadius: 10,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.06)',
+                justifyContent: 'center', alignItems: 'center',
+              }}
+            >
+              <Icon name="share-social-outline" size={20} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+            {isEnrolled && (
+              <AppButton
+                title={progress > 0 ? 'Continue Learning' : 'Start Learning'}
+                onPress={handleStartLearning}
+                variant="primary"
+                style={styles.headerButton}
+                leftIcon="play-circle-outline"
+              />
+            )}
+          </View>
         </View>
+
+        <ShareCourseModal
+          visible={shareVisible}
+          onClose={() => setShareVisible(false)}
+          course={course}
+          isDark={isDark}
+        />
 
         {/* Content Grid */}
         <View style={styles.contentGrid}>

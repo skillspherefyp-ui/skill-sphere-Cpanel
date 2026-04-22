@@ -109,7 +109,7 @@ exports.createTopic = async (req, res) => {
         courseId,
         topicId: topic.id,
         title: `${title} Quiz`,
-        questions: JSON.stringify(normalizedQuestions),
+        questions: normalizedQuestions,
         passingScore: 70,
         isActive: true,
       }, { transaction });
@@ -201,7 +201,7 @@ exports.updateTopic = async (req, res) => {
         courseId: topic.courseId,
         topicId: topic.id,
         title: `${topic.title} Quiz`,
-        questions: JSON.stringify(normalizedQuestions),
+        questions: normalizedQuestions,
         passingScore: 70,
         isActive: true,
       };

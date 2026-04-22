@@ -122,8 +122,8 @@ exports.createTemplate = async (req, res) => {
 
     const template = await CertificateTemplate.create({
       name: name || 'New Template',
-      primaryColor,
-      secondaryColor,
+      primaryColor: primaryColor || '#e5a448',
+      secondaryColor: secondaryColor || '#c2ee20',
       fontFamily,
       titleText,
       subtitleText,

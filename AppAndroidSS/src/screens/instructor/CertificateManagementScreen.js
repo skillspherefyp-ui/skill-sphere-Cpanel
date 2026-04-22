@@ -63,8 +63,8 @@ const CertificateManagementScreen = () => {
   // Template form state
   const [templateForm, setTemplateForm] = useState({
     name: 'Default Template',
-    primaryColor: '#4F46E5',
-    secondaryColor: '#22D3EE',
+    primaryColor: '#e5a448',
+    secondaryColor: '#c2ee20',
     fontFamily: 'Arial, sans-serif',
     titleText: 'Certificate of Completion',
     subtitleText: 'This is to certify that',
@@ -399,8 +399,8 @@ const CertificateManagementScreen = () => {
     setEditingTemplate(template);
     setTemplateForm({
       name: template.name || 'Default Template',
-      primaryColor: template.primaryColor || '#4F46E5',
-      secondaryColor: template.secondaryColor || '#22D3EE',
+      primaryColor: template.primaryColor || '#e5a448',
+      secondaryColor: template.secondaryColor || '#c2ee20',
       fontFamily: template.fontFamily || 'Arial, sans-serif',
       titleText: template.titleText || 'Certificate of Completion',
       subtitleText: template.subtitleText || 'This is to certify that',
@@ -415,8 +415,8 @@ const CertificateManagementScreen = () => {
   const resetForm = () => {
     setTemplateForm({
       name: 'Default Template',
-      primaryColor: '#4F46E5',
-      secondaryColor: '#22D3EE',
+      primaryColor: '#e5a448',
+      secondaryColor: '#c2ee20',
       fontFamily: 'Arial, sans-serif',
       titleText: 'Certificate of Completion',
       subtitleText: 'This is to certify that',
@@ -1179,7 +1179,7 @@ const CertificateManagementScreen = () => {
                       }}
                       value={templateForm.primaryColor}
                       onChangeText={(text) => handleColorChange('primaryColor', text)}
-                      placeholder="#4F46E5"
+                      placeholder="#e5a448"
                       placeholderTextColor={theme.colors.textTertiary}
                     />
                   </View>
@@ -1218,7 +1218,7 @@ const CertificateManagementScreen = () => {
                       }}
                       value={templateForm.secondaryColor}
                       onChangeText={(text) => handleColorChange('secondaryColor', text)}
-                      placeholder="#22D3EE"
+                      placeholder="#c2ee20"
                       placeholderTextColor={theme.colors.textTertiary}
                     />
                   </View>
@@ -1585,8 +1585,8 @@ const CertificateManagementScreen = () => {
                 borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
               }]}>
                 <View style={styles.activateTemplateColors}>
-                  <View style={[styles.colorDotLarge, { backgroundColor: activatingTemplate?.primaryColor || '#4F46E5' }]} />
-                  <View style={[styles.colorDotLarge, { backgroundColor: activatingTemplate?.secondaryColor || '#22D3EE' }]} />
+                  <View style={[styles.colorDotLarge, { backgroundColor: activatingTemplate?.primaryColor || '#e5a448' }]} />
+                  <View style={[styles.colorDotLarge, { backgroundColor: activatingTemplate?.secondaryColor || '#c2ee20' }]} />
                 </View>
                 <Text style={[styles.activateTemplateName, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>
                   {activatingTemplate?.name || 'Template'}

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { Op } = require('sequelize');
 const {
   sequelize,
   Course,
@@ -2245,12 +2246,25 @@ async function submitQuiz(lectureId, userId, answers) {
     unlockedNextTopicId: passed ? lecture.nextTopicId : null
   });
 
+  // Resolve nextTopicId: use stored value or fall back to dynamic lookup
+  let resolvedNextTopicId = lecture.nextTopicId;
+  if (passed && !resolvedNextTopicId) {
+    const currentTopic = await Topic.findByPk(lecture.topicId);
+    if (currentTopic) {
+      const nextTopic = await Topic.findOne({
+        where: { courseId: lecture.courseId, order: { [Op.gt]: currentTopic.order } },
+        order: [['order', 'ASC']]
+      });
+      resolvedNextTopicId = nextTopic?.id || null;
+    }
+  }
+
   const unlockedTopic = passed
     ? await unlockNextTopicForStudent({
         userId,
         courseId: lecture.courseId,
         topicId: lecture.topicId,
-        nextTopicId: lecture.nextTopicId
+        nextTopicId: resolvedNextTopicId
       })
     : null;
 
@@ -2261,7 +2275,8 @@ async function submitQuiz(lectureId, userId, answers) {
     totalQuestions,
     passingThreshold: quiz.passingThreshold,
     gradedQuestions,
-    unlockedTopic
+    unlockedTopic,
+    courseComplete: passed && !unlockedTopic,
   };
 }
 

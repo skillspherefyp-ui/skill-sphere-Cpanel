@@ -482,6 +482,21 @@ const EnrolledCoursesScreen = () => {
                         </View>
                       </View>
 
+                      {/* Course Type Badge */}
+                      <View style={[
+                        styles.courseTypeBadge,
+                        { backgroundColor: course.creationMode === 'ai' ? '#8B5CF615' : '#0EA5E915' }
+                      ]}>
+                        <Icon
+                          name={course.creationMode === 'ai' ? 'flash-outline' : 'school-outline'}
+                          size={13}
+                          color={course.creationMode === 'ai' ? '#8B5CF6' : '#0EA5E9'}
+                        />
+                        <Text style={[styles.courseTypeText, { color: course.creationMode === 'ai' ? '#8B5CF6' : '#0EA5E9' }]}>
+                          {course.creationMode === 'ai' ? 'AI-Powered' : 'Instructor-Led'}
+                        </Text>
+                      </View>
+
                       {/* Action Button */}
                       <TouchableOpacity
                         style={[
@@ -848,6 +863,20 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
     },
     metaText: {
       fontSize: 12,
+    },
+    courseTypeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+      marginBottom: 12,
+    },
+    courseTypeText: {
+      fontSize: 11,
+      fontWeight: '600',
     },
     courseActionBtn: {
       flexDirection: 'row',

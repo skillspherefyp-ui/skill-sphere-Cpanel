@@ -46,12 +46,13 @@ const TOPIC_COLORS = [
 const AddTopicsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { courseId, creationMode: routeCreationMode } = route.params;
+  const { courseId: rawCourseId, creationMode: routeCreationMode } = route.params;
+  const courseId = typeof rawCourseId === 'string' ? parseInt(rawCourseId, 10) : rawCourseId;
   const { courses, addTopic, updateTopic, deleteTopic, fetchCourses } = useData();
   const { user, logout } = useAuth();
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
-  const course = courses.find(c => c.id === courseId);
+  const course = courses.find(c => c.id === courseId || c.id === rawCourseId);
   const creationMode = routeCreationMode || course?.creationMode || 'ai';
   const isManualMode = creationMode === 'manual';
 

@@ -429,7 +429,7 @@ const CourseDetailScreen = () => {
                 </View>
                 <AppButton
                   title={canEdit ? 'Manage' : 'View'}
-                  onPress={() => navigation.navigate('AddTopics', { courseId })}
+                  onPress={() => navigation.navigate('AddTopics', { courseId, creationMode: course?.creationMode })}
                   variant="outline"
                   size="sm"
                   leftIcon={canEdit ? 'settings-outline' : 'eye-outline'}

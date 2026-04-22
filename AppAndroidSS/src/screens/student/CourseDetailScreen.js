@@ -502,6 +502,22 @@ const CourseDetailScreen = () => {
                     <Text style={[styles.infoValue, { color: theme.colors.textPrimary }]}>{course.topics?.length || 0} topics</Text>
                   </View>
                 </View>
+
+                <View style={styles.infoGridItem}>
+                  <View style={[styles.infoIcon, { backgroundColor: course.creationMode === 'ai' ? '#8B5CF615' : '#0EA5E915' }]}>
+                    <Icon
+                      name={course.creationMode === 'ai' ? 'flash-outline' : 'school-outline'}
+                      size={18}
+                      color={course.creationMode === 'ai' ? '#8B5CF6' : '#0EA5E9'}
+                    />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: theme.colors.textTertiary }]}>Course Type</Text>
+                    <Text style={[styles.infoValue, { color: course.creationMode === 'ai' ? '#8B5CF6' : '#0EA5E9' }]}>
+                      {course.creationMode === 'ai' ? 'AI-Powered' : 'Instructor-Led'}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </AppCard>
 

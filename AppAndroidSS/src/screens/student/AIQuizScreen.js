@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWind
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import AppHeader from '../../components/ui/AppHeader';
+import MainLayout from '../../components/ui/MainLayout';
 import AppCard from '../../components/ui/AppCard';
 import AppButton from '../../components/ui/AppButton';
 import ProgressBar from '../../components/ui/ProgressBar';
@@ -11,6 +11,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { aiTutorAPI } from '../../services/apiClient';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
+import { getSidebarItems } from '../../utils/sidebarItems';
 
 const QuizScreen = () => {
   const navigation = useNavigation();
@@ -18,7 +20,17 @@ const QuizScreen = () => {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const { fetchCourses } = useData();
+  const { user } = useAuth();
   const { courseId, topicId, lectureId } = route.params || {};
+
+  const sidebarItems = getSidebarItems(user?.role);
+  const handleNavigate = (routeName) => {
+    if (routeName === 'CertificateVerify') {
+      navigation.navigate(routeName, { fromStudent: true });
+    } else {
+      navigation.navigate(routeName);
+    }
+  };
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -116,30 +128,42 @@ const QuizScreen = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <AppHeader title="Quiz" />
+      <MainLayout
+        showSidebar={true}
+        sidebarItems={sidebarItems}
+        activeRoute="EnrolledCourses"
+        onNavigate={handleNavigate}
+      >
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading lecture quiz...</Text>
         </View>
-      </View>
+      </MainLayout>
     );
   }
 
   if (!quiz || !question) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <AppHeader title="Quiz" />
+      <MainLayout
+        showSidebar={true}
+        sidebarItems={sidebarItems}
+        activeRoute="EnrolledCourses"
+        onNavigate={handleNavigate}
+      >
         <View style={styles.loadingWrap}>
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Quiz not available for this lecture.</Text>
         </View>
-      </View>
+      </MainLayout>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <AppHeader title={`Quiz - Question ${currentQuestion + 1} of ${totalQuestions}`} />
+    <MainLayout
+      showSidebar={true}
+      sidebarItems={sidebarItems}
+      activeRoute="EnrolledCourses"
+      onNavigate={handleNavigate}
+    >
       <ProgressBar progress={((currentQuestion + 1) / totalQuestions) * 100} style={styles.progressBar} />
 
       <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { maxWidth, alignSelf: 'center', width: '100%' }]}>
@@ -161,7 +185,7 @@ const QuizScreen = () => {
         </AppCard>
 
         <View style={styles.optionsContainer}>
-          {question.options.map((option, index) => {
+          {(Array.isArray(question.options) ? question.options : (() => { try { return JSON.parse(question.options); } catch { return []; } })()).map((option, index) => {
             const isSelected = selectedAnswers[question.id] === index;
             return (
               <Animated.View key={index} entering={FadeIn.duration(300).delay(index * 80)}>
@@ -211,7 +235,7 @@ const QuizScreen = () => {
           style={styles.footerButton}
         />
       </View>
-    </View>
+    </MainLayout>
   );
 };
 

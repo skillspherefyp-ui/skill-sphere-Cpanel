@@ -18,7 +18,11 @@ import { getSidebarItems } from '../../utils/sidebarItems';
 const QuizScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { courseId, topicId, topics } = route.params;
+  const params = route.params || {};
+  const courseId  = typeof params.courseId  === 'string' ? parseInt(params.courseId,  10) : params.courseId;
+  const topicId   = typeof params.topicId   === 'string' ? parseInt(params.topicId,   10) : params.topicId;
+  const lectureId = typeof params.lectureId === 'string' ? parseInt(params.lectureId, 10) : params.lectureId;
+  const topics    = params.topics;
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const { fetchCourses } = useData();
@@ -39,16 +43,16 @@ const QuizScreen = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
 
-  if (route.params?.lectureId) {
-    return <AIQuizScreen />;
-  }
-
   const isWeb = Platform.OS === 'web';
   const maxWidth = isWeb && width > 1200 ? 1200 : '100%';
 
   useEffect(() => {
-    fetchQuiz();
-  }, [topicId]);
+    if (!lectureId) fetchQuiz();
+  }, [topicId, lectureId]);
+
+  if (lectureId) {
+    return <AIQuizScreen />;
+  }
 
   const fetchQuiz = async () => {
     try {
@@ -119,6 +123,7 @@ const QuizScreen = () => {
               totalQuestions: result.totalQuestions,
               correctCount: result.correctAnswers,
               passed: result.passed,
+              courseComplete: result.courseComplete,
             });
           }
         }, 2000);
@@ -136,6 +141,7 @@ const QuizScreen = () => {
             totalQuestions: result.totalQuestions,
             correctCount: result.correctAnswers,
             passed: result.passed,
+            courseComplete: false,
           });
         }, 1500);
       }

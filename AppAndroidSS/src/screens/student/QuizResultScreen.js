@@ -18,9 +18,10 @@ const QuizResultScreen = () => {
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const { user, logout } = useAuth();
-  const { score, totalQuestions, correctCount, correctAnswers, passed, courseId, topicId, lectureId, unlockedTopic } = route.params;
+  const { score, totalQuestions, correctCount, correctAnswers, passed, courseId, topicId, lectureId, unlockedTopic, courseComplete } = route.params;
   const displayCorrect = correctCount ?? correctAnswers ?? 0;
   const nextTopicId = unlockedTopic?.id ?? null;
+  const isCourseComplete = courseComplete === true || (passed && !nextTopicId && !lectureId && courseComplete !== false);
 
   const sidebarItems = getSidebarItems(user?.role);
   const handleNavigate = (route) => {
@@ -130,7 +131,7 @@ const QuizResultScreen = () => {
               iconPosition="right"
               style={styles.actionButton}
             />
-          ) : passed && !nextTopicId ? (
+          ) : passed && isCourseComplete ? (
             <AppButton
               title="Preview Certificate"
               onPress={() => navigation.navigate('CertificatePreview', { courseId })}

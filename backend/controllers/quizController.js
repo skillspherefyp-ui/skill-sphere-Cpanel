@@ -1,4 +1,5 @@
 const { Quiz, QuizResult, Course, Enrollment, Topic, Progress } = require('../models');
+const { Op } = require('sequelize');
 
 function normalizeQuizQuestions(rawQuestions) {
   if (Array.isArray(rawQuestions)) {
@@ -221,7 +222,8 @@ exports.submitQuiz = async (req, res) => {
       const currentTopic = await Topic.findByPk(quiz.topicId);
       if (currentTopic) {
         const nextTopic = await Topic.findOne({
-          where: { courseId: quiz.courseId, order: currentTopic.order + 1 }
+          where: { courseId: quiz.courseId, order: { [Op.gt]: currentTopic.order } },
+          order: [['order', 'ASC']]
         });
         if (nextTopic) {
           nextTopicId = nextTopic.id;
@@ -260,6 +262,7 @@ exports.submitQuiz = async (req, res) => {
         passed,
         attemptNumber: result.attemptNumber,
         nextTopicId,
+        courseComplete: passed && !nextTopicId,
       }
     });
   } catch (error) {

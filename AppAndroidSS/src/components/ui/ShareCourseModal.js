@@ -7,16 +7,17 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 const ORANGE  = '#FF8C42';
 const NAVY    = '#1A1A2E';
-const SITE    = 'https://skillsphere.com.pk';
+const SITE_BASE = 'https://skillsphere.com.pk';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+const buildShareUrl  = (course) => `${SITE_BASE}/explore/${course.id}`;
 const buildShareText = (course) => {
   const desc = course.description
     ? (course.description.length > 120
         ? course.description.slice(0, 117) + '…'
         : course.description)
     : '';
-  return `🎓 Check out this course on SkillSphere!\n\n📚 ${course.name}${desc ? `\n${desc}` : ''}\n\n🌐 ${SITE}`;
+  return `🎓 Check out this course on SkillSphere!\n\n📚 ${course.name}${desc ? `\n${desc}` : ''}\n\n🌐 ${buildShareUrl(course)}`;
 };
 
 const openUrl = (url) => {
@@ -88,8 +89,9 @@ const ShareCourseModal = ({ visible, onClose, course, isDark }) => {
 
   if (!course) return null;
 
+  const shareUrl  = buildShareUrl(course);
   const shareText = buildShareText(course);
-  const socials   = getSocials(shareText, SITE);
+  const socials   = getSocials(shareText, shareUrl);
 
   const handleNativeShare = async () => {
     try {
@@ -184,10 +186,10 @@ const ShareCourseModal = ({ visible, onClose, course, isDark }) => {
             <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 700, color: subCol, textTransform: 'uppercase', letterSpacing: '0.8px' }}>Or copy link</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1, background: linkBg, border: `1px solid ${linkBdr}`, borderRadius: 10, padding: '9px 14px', overflow: 'hidden' }}>
-                <p style={{ margin: 0, fontSize: 13, color: subCol, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{SITE}</p>
+                <p style={{ margin: 0, fontSize: 13, color: subCol, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</p>
               </div>
               <button
-                onClick={() => copyToClipboard(SITE, setCopied)}
+                onClick={() => copyToClipboard(shareUrl, setCopied)}
                 style={{
                   background: copied ? '#10B981' : ORANGE,
                   border: 'none', borderRadius: 10, padding: '9px 16px',
@@ -259,11 +261,11 @@ const ShareCourseModal = ({ visible, onClose, course, isDark }) => {
           {/* Copy link */}
           <View style={[styles.copyRow, { borderTopColor: divCol }]}>
             <View style={[styles.copyUrl, { backgroundColor: linkBg, borderColor: linkBdr }]}>
-              <Text style={[styles.copyUrlText, { color: subCol }]} numberOfLines={1}>{SITE}</Text>
+              <Text style={[styles.copyUrlText, { color: subCol }]} numberOfLines={1}>{shareUrl}</Text>
             </View>
             <TouchableOpacity
               style={[styles.copyBtn, { backgroundColor: copied ? '#10B981' : ORANGE }]}
-              onPress={() => copyToClipboard(SITE, setCopied)}
+              onPress={() => copyToClipboard(shareUrl, setCopied)}
             >
               <Icon name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#FFFFFF" />
               <Text style={styles.copyBtnText}>{copied ? 'Copied!' : 'Copy'}</Text>

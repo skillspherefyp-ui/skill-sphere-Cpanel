@@ -83,11 +83,20 @@ const ADMIN_SCREENS = {
   Settings:              'settings',
 };
 
+const AUTH_SCREENS = {
+  Landing:              '',
+  Login:                'login',
+  Signup:               'signup',
+  ExploreCourses:       'explore',
+  ExploreCourseDetail:  'explore/:courseId',
+};
+
 const ROLE_CONFIG = {
-  student:    { screens: { Student:    { path: 'student',     screens: STUDENT_SCREENS    } }, rootName: 'Student'    },
-  instructor:      { screens: { Instructor:      { path: 'instructor',        screens: INSTRUCTOR_SCREENS      } }, rootName: 'Instructor'      },
-  expert:     { screens: { Expert:     { path: 'expert',       screens: EXPERT_SCREENS     } }, rootName: 'Expert'     },
-  admin: { screens: { Admin: { path: 'admin', screens: ADMIN_SCREENS } }, rootName: 'Admin' },
+  null:       { screens: { Auth:       { path: '',           screens: AUTH_SCREENS       } }, rootName: 'Auth'       },
+  student:    { screens: { Student:    { path: 'student',    screens: STUDENT_SCREENS    } }, rootName: 'Student'    },
+  instructor: { screens: { Instructor: { path: 'instructor', screens: INSTRUCTOR_SCREENS } }, rootName: 'Instructor' },
+  expert:     { screens: { Expert:     { path: 'expert',     screens: EXPERT_SCREENS     } }, rootName: 'Expert'     },
+  admin:      { screens: { Admin:      { path: 'admin',      screens: ADMIN_SCREENS      } }, rootName: 'Admin'      },
 };
 
 // ── NavigationWrapper — sits inside AuthProvider so it can read auth state ────
@@ -99,8 +108,8 @@ const NavigationWrapper = ({ theme }) => {
   const { user, isInitialized } = useAuth();
 
   const linking = useMemo(() => {
-    const role = isInitialized ? user?.role : null;
-    const roleConfig = ROLE_CONFIG[role];
+    const role = isInitialized ? (user?.role ?? 'null') : 'null';
+    const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG['null'];
     // The root screen name that AppNavigator actually mounts for this role.
     // Used as fallback so resetRoot never receives undefined (which crashes).
     const rootName = roleConfig?.rootName ?? 'Auth';

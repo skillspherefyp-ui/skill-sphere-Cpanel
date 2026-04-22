@@ -451,11 +451,14 @@ const HeroSection = ({ navigation, theme, isDark, isMobile, scrollToSection }) =
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.heroSearchBtn, { backgroundColor: ORANGE }]}
+              style={[styles.heroSearchBtn, { backgroundColor: ORANGE }, isMobile && { paddingHorizontal: 10 }]}
               onPress={handleHeroSearch}
               activeOpacity={0.85}
             >
-              <Text style={styles.heroSearchBtnText}>Search</Text>
+              {isMobile
+                ? <Icon name="search" size={18} color="#fff" />
+                : <Text style={styles.heroSearchBtnText}>Search</Text>
+              }
             </TouchableOpacity>
           </View>
 
@@ -1151,53 +1154,67 @@ const Footer = ({ navigation, theme, isDark, isMobile, scrollToSection }) => {
     { icon:'logo-instagram', label:'Instagram', url: 'https://www.instagram.com/skill._.sphere/' },
     { icon:'logo-youtube',   label:'YouTube',   url: 'https://www.youtube.com/@SkillSphere-learning' },
   ];
-  return (
-    <View style={[styles.footer, { paddingHorizontal: isMobile ? 20 : 32 }]}>
-      <View style={[styles.footerGrid, isMobile && { flexDirection:'column', gap:28 }]}>
-        <View style={[styles.footerBrand, isMobile && { marginBottom:4 }]}>
-          <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:12 }}>
-            <Image source={LOGO} style={styles.footerLogoImg} resizeMode="contain" />
-            <Text style={styles.footerLogoName}>Skill<Text style={{ color:ORANGE }}>Sphere</Text></Text>
-          </View>
-          <Text style={[styles.footerTagline, isMobile && { fontSize:13 }]}>
-            Empowering learners worldwide with expert knowledge, AI assistance, and industry-recognised certifications.
-          </Text>
-          <View style={styles.footerSocials}>
-            {socials.map(s => (
-              <TouchableOpacity key={s.label} style={styles.socialBtn}
-                onPress={() => s.url && Linking.openURL(s.url)}
-                activeOpacity={s.url ? 0.7 : 1}>
-                {s.icon === 'x-twitter'
-                  ? <Text style={{ fontSize: 15, fontWeight: '800', color: s.url ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.3)', lineHeight: 17 }}>𝕏</Text>
-                  : <Icon name={s.icon} size={17} color={s.url ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.3)'} />
-                }
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+  const BrandBlock = () => (
+    <View style={{ marginBottom: isMobile ? 24 : 0 }}>
+      <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:12 }}>
+        <Image source={LOGO} style={styles.footerLogoImg} resizeMode="contain" />
+        <Text style={styles.footerLogoName}>Skill<Text style={{ color:ORANGE }}>Sphere</Text></Text>
+      </View>
+      <Text style={[styles.footerTagline, { fontSize: isMobile ? 13 : 13 }]}>
+        Empowering learners worldwide with expert knowledge, AI assistance, and industry-recognised certifications.
+      </Text>
+      <View style={{ flexDirection:'row', flexWrap:'wrap', gap:9 }}>
+        {socials.map(s => (
+          <TouchableOpacity key={s.label} style={styles.socialBtn}
+            onPress={() => s.url && Linking.openURL(s.url)}
+            activeOpacity={s.url ? 0.7 : 1}>
+            {s.icon === 'x-twitter'
+              ? <Text style={{ fontSize:15, fontWeight:'800', color: s.url ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.3)', lineHeight:17 }}>𝕏</Text>
+              : <Icon name={s.icon} size={17} color={s.url ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.3)'} />
+            }
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
-        <View style={[styles.footerCols, isMobile && { flexWrap:'wrap', gap:0 }]}>
-          {cols.map(col => (
-            <View key={col.title} style={[styles.footerCol, isMobile && { width:'50%', marginBottom:24 }]}>
-              <Text style={styles.footerColTitle}>{col.title}</Text>
-              {col.links.map(link => (
-                <TouchableOpacity key={link} style={{ marginBottom:9 }} onPress={() => handleFooterLink(link)}>
-                  <Text style={[styles.footerLink, isMobile && { fontSize:12 }]}>{link}</Text>
-                </TouchableOpacity>
-              ))}
-              {(col.actions || []).map(action => (
-                <TouchableOpacity key={action.label} style={{ marginBottom:9, flexDirection:'row', alignItems:'center', gap:5 }}
-                  onPress={() => navigation.navigate(action.route)}>
-                  <Icon name="shield-checkmark-outline" size={12} color={ORANGE} />
-                  <Text style={[styles.footerLink, { color:ORANGE, fontWeight:'600' }, isMobile && { fontSize:12 }]}>
-                    {action.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+  const ColsBlock = () => (
+    <View style={{ flexDirection:'row', flexWrap:'wrap' }}>
+      {cols.map(col => (
+        <View key={col.title} style={{ width: isMobile ? '50%' : undefined, flex: isMobile ? undefined : 1, marginBottom:24, paddingRight:8 }}>
+          <Text style={styles.footerColTitle}>{col.title}</Text>
+          {col.links.map(link => (
+            <TouchableOpacity key={link} style={{ marginBottom:9 }} onPress={() => handleFooterLink(link)}>
+              <Text style={[styles.footerLink, { fontSize: isMobile ? 12 : 12 }]}>{link}</Text>
+            </TouchableOpacity>
+          ))}
+          {(col.actions || []).map(action => (
+            <TouchableOpacity key={action.label} style={{ marginBottom:9, flexDirection:'row', alignItems:'center', gap:5 }}
+              onPress={() => navigation.navigate(action.route)}>
+              <Icon name="shield-checkmark-outline" size={12} color={ORANGE} />
+              <Text style={[styles.footerLink, { color:ORANGE, fontWeight:'600', fontSize: isMobile ? 12 : 12 }]}>
+                {action.label}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
-      </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <View style={[styles.footer, { paddingHorizontal: isMobile ? 20 : 32 }]}>
+      {isMobile ? (
+        <View style={{ flexDirection:'column', marginBottom:28 }}>
+          <BrandBlock />
+          <ColsBlock />
+        </View>
+      ) : (
+        <View style={styles.footerGrid}>
+          <View style={styles.footerBrand}><BrandBlock /></View>
+          <View style={styles.footerCols}><ColsBlock /></View>
+        </View>
+      )}
 
       <View style={[styles.footerBottom, { borderTopColor:'rgba(255,255,255,0.1)' }, isMobile && { flexDirection:'column', alignItems:'center', gap:10 }]}>
         <Text style={styles.footerCopy}>© {new Date().getFullYear()} SkillSphere. All rights reserved.</Text>
@@ -1245,6 +1262,43 @@ const LandingScreen = ({ navigation }) => {
       });
     }, 400);
     return () => { clearTimeout(timer); observers.forEach(o => o.disconnect()); };
+  }, []);
+
+  // ── SEO meta tags (web only) ──────────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const setMeta = (name, content, property = false) => {
+      const attr = property ? 'property' : 'name';
+      let el = document.querySelector(`meta[${attr}="${name}"]`);
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el); }
+      el.setAttribute('content', content);
+    };
+
+    document.title = 'SkillSphere — Learn Smarter with AI-Powered Courses';
+
+    setMeta('description', 'SkillSphere is an AI-powered Learning Management System offering expert-taught courses, certifications, and personalised learning paths for students worldwide.');
+    setMeta('keywords', 'online learning, AI courses, LMS, certifications, SkillSphere, e-learning Pakistan, programming courses, skill development');
+    setMeta('robots', 'index, follow');
+
+    // Open Graph (Facebook, WhatsApp previews)
+    setMeta('og:type',        'website',                                          true);
+    setMeta('og:url',         'https://skillsphere.com.pk/',                      true);
+    setMeta('og:title',       'SkillSphere — Learn Smarter with AI-Powered Courses', true);
+    setMeta('og:description', 'Expert-taught courses, AI tutoring, and industry-recognised certifications. Start learning today.', true);
+    setMeta('og:image',       'https://skillsphere.com.pk/og-image.png',          true);
+    setMeta('og:site_name',   'SkillSphere',                                      true);
+
+    // Twitter card
+    setMeta('twitter:card',        'summary_large_image');
+    setMeta('twitter:title',       'SkillSphere — Learn Smarter with AI-Powered Courses');
+    setMeta('twitter:description', 'Expert-taught courses, AI tutoring, and industry-recognised certifications.');
+    setMeta('twitter:image',       'https://skillsphere.com.pk/og-image.png');
+
+    // Canonical link
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) { canonical = document.createElement('link'); canonical.setAttribute('rel', 'canonical'); document.head.appendChild(canonical); }
+    canonical.setAttribute('href', 'https://skillsphere.com.pk/');
   }, []);
 
   const scrollToSection = useCallback((id) => {

@@ -1088,7 +1088,9 @@ const AILearningScreen = () => {
   const liveNarration = getVisibleNarration();
 
   const renderVisualDock = () => {
-    const slideBullets = (currentSlide?.bullets || []).slice(0, 4);
+    const rawBullets = currentSlide?.bullets;
+    const parsedBullets = Array.isArray(rawBullets) ? rawBullets : (typeof rawBullets === 'string' ? (() => { try { return JSON.parse(rawBullets); } catch { return []; } })() : []);
+    const slideBullets = parsedBullets.slice(0, 4);
     const visualTitle = currentVisual?.title || currentVisual?.visualType || currentChunk?.title || 'Lesson Visual';
     const visualMode = (currentVisual?.visualMode || panelContent.visualType || 'slide').toLowerCase();
     const modeLabel = { diagram: 'Diagram', flowchart: 'Flowchart', whiteboard: 'Whiteboard', slide: 'Slide', comparison_table: 'Comparison', mixed: 'Mixed', none: 'Visual' }[visualMode] || 'Visual';

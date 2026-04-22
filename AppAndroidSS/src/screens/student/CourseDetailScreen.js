@@ -32,7 +32,8 @@ import ShareCourseModal from '../../components/ui/ShareCourseModal';
 const CourseDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { courseId } = route.params;
+  const { courseId: _courseId } = route.params;
+  const courseId = typeof _courseId === 'string' ? parseInt(_courseId, 10) : _courseId;
   const { courses, enrollments, enrollInCourse, unenrollFromCourse, checkEnrollment, fetchMyEnrollments } = useData();
   const { user, logout } = useAuth();
   const { theme, isDark } = useTheme();
@@ -697,7 +698,7 @@ const CourseDetailScreen = () => {
             </AppCard>
 
             {/* Prerequisites Card */}
-            {course.prerequisiteIds && course.prerequisiteIds.length > 0 && (
+            {Array.isArray(course.prerequisiteIds) && course.prerequisiteIds.length > 0 && (
               <AppCard style={[styles.card, { borderLeftWidth: 3, borderLeftColor: '#F59E0B' }]}>
                 <View style={styles.prereqHeader}>
                   <Icon name="lock-closed-outline" size={16} color="#F59E0B" />

@@ -203,11 +203,10 @@ const AppHeader = ({
                 activeOpacity={0.7}
               >
                 <View style={[styles.dropdownItemIcon, isActive && styles.dropdownItemIconActive]}>
-                  <Icon
-                    name={isActive ? (item.iconActive || item.icon) : item.icon}
-                    size={18}
-                    color={isActive ? '#FFFFFF' : '#FF8C42'}
-                  />
+                  {item.iconLib === 'mci'
+                    ? <MCIcon name={isActive ? (item.iconActive || item.icon) : item.icon} size={18} color={isActive ? '#FFFFFF' : '#FF8C42'} />
+                    : <Icon name={isActive ? (item.iconActive || item.icon) : item.icon} size={18} color={isActive ? '#FFFFFF' : '#FF8C42'} />
+                  }
                 </View>
                 <Text style={[styles.dropdownItemLabel, isActive && styles.dropdownItemLabelActive]}>
                   {item.label}

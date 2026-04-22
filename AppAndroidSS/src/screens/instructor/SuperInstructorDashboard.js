@@ -749,7 +749,7 @@ const SuperInstructorDashboard = () => {
               </View>
               <View>
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-                  Instructoristrators
+                  Instructors
                 </Text>
                 <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
                   {instructors.length} total instructors

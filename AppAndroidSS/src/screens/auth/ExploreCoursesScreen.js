@@ -35,7 +35,7 @@ const Navbar = ({ navigation, isDark, isMobile }) => {
       <View style={nb.content}>
         {/* Left: back + logo */}
         <View style={nb.left}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={nb.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Landing')} style={nb.backBtn} activeOpacity={0.7}>
             <Icon name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <Image source={LOGO} style={nb.logoImg} resizeMode="cover" />

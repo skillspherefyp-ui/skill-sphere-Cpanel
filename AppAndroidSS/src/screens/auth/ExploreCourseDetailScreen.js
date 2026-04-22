@@ -31,7 +31,7 @@ const Navbar = ({ navigation, isDark, isMobile }) => {
     <View style={[nb.container, { background: 'linear-gradient(135deg, #1A1A2E 0%, #1E1E38 100%)' }, stickyStyle]}>
       <View style={nb.content}>
         <View style={nb.left}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={nb.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ExploreCourses')} style={nb.backBtn} activeOpacity={0.7}>
             <Icon name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <Image source={LOGO} style={nb.logoImg} resizeMode="cover" />

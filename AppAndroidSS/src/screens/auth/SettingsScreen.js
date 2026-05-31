@@ -39,7 +39,10 @@ const SettingsScreen = () => {
   // Profile edit state
   const [editName, setEditName] = useState(user?.name || '');
   const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [editAge, setEditAge] = useState(user?.age ? String(user.age) : '');
+  const [editQualification, setEditQualification] = useState(user?.qualification || '');
   const [savingProfile, setSavingProfile] = useState(false);
+  const isStudent = user?.role === 'student';
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Password state
@@ -136,6 +139,10 @@ const SettingsScreen = () => {
       const result = await updateProfile({
         name: editName.trim(),
         phone: editPhone.trim() || null,
+        ...(isStudent && {
+          age: editAge.trim() ? parseInt(editAge.trim(), 10) : null,
+          qualification: editQualification.trim() || null,
+        }),
       });
       if (result.success) {
         Toast.show({ type: 'success', text1: 'Profile Saved', text2: 'Your profile has been updated.' });
@@ -299,6 +306,35 @@ const SettingsScreen = () => {
               keyboardType="phone-pad"
             />
           </View>
+
+          {isStudent && (
+            <View style={styles.inputGroup}>
+              <View style={styles.inputLabelRow}>
+                <Icon name="calendar-outline" size={14} color={theme.colors.textTertiary} />
+                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Age <Text style={{ color: theme.colors.textTertiary }}>(optional)</Text></Text>
+              </View>
+              <AppInput
+                value={editAge}
+                onChangeText={setEditAge}
+                placeholder="e.g. 22"
+                keyboardType="numeric"
+              />
+            </View>
+          )}
+
+          {isStudent && (
+            <View style={styles.inputGroup}>
+              <View style={styles.inputLabelRow}>
+                <Icon name="school-outline" size={14} color={theme.colors.textTertiary} />
+                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Qualification <Text style={{ color: theme.colors.textTertiary }}>(optional)</Text></Text>
+              </View>
+              <AppInput
+                value={editQualification}
+                onChangeText={setEditQualification}
+                placeholder="e.g. Bachelor's in Computer Science"
+              />
+            </View>
+          )}
 
           <AppButton
             title={savingProfile ? 'Saving…' : 'Save Profile'}

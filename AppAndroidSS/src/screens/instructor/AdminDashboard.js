@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import MainLayout from '../../components/ui/MainLayout';
+import UserAvatar from '../../components/ui/UserAvatar';
 import AppCard from '../../components/ui/AppCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Skeleton, { SkeletonDashboardStats, SkeletonTableRow } from '../../components/ui/Skeleton';
@@ -784,11 +785,7 @@ const AdminDashboard = () => {
                   ]}
                 >
                   <View style={styles.userRowLeft}>
-                    <View style={[styles.userAvatar, { backgroundColor: '#6366F1' }]}>
-                      <Text style={styles.userAvatarText}>
-                        {instructor.name?.charAt(0)?.toUpperCase() || 'A'}
-                      </Text>
-                    </View>
+                    <UserAvatar user={instructor} size={38} />
                     <View style={styles.userDetails}>
                       <Text style={[styles.userName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                         {instructor.name || 'Unknown'}
@@ -875,11 +872,7 @@ const AdminDashboard = () => {
                   ]}
                 >
                   <View style={styles.userRowLeft}>
-                    <View style={[styles.userAvatar, { backgroundColor: '#8B5CF6' }]}>
-                      <Text style={styles.userAvatarText}>
-                        {expert.name?.charAt(0)?.toUpperCase() || 'E'}
-                      </Text>
-                    </View>
+                    <UserAvatar user={expert} size={38} />
                     <View style={styles.userDetails}>
                       <Text style={[styles.userName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                         {expert.name || 'Unknown'}
@@ -966,11 +959,7 @@ const AdminDashboard = () => {
                   ]}
                 >
                   <View style={styles.userRowLeft}>
-                    <View style={[styles.userAvatar, { backgroundColor: '#22D3EE' }]}>
-                      <Text style={styles.userAvatarText}>
-                        {student.name?.charAt(0)?.toUpperCase() || 'S'}
-                      </Text>
-                    </View>
+                    <UserAvatar user={student} size={38} />
                     <View style={styles.userDetails}>
                       <Text style={[styles.userName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                         {student.name || 'Unknown'}

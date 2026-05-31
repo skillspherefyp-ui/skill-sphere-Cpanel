@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, TouchableOpacity, Image, ActivityIndicator, TextInput,
@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ThemeToggle from '../../components/ThemeToggle';
+import UserAvatar from '../../components/ui/UserAvatar';
 
 const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
@@ -75,10 +76,51 @@ const SignupDetailsScreen = ({ route, navigation }) => {
   const [password, setPassword]         = useState('');
   const [confirmPw, setConfirmPw]       = useState('');
   const [phone, setPhone]               = useState('');
+  const [age, setAge]                   = useState('');
+  const [qualification, setQualification] = useState('');
   const [showPw, setShowPw]             = useState(false);
   const [error, setError]               = useState('');
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
 
   const isWeb = Platform.OS === 'web';
+
+  const handlePickPhoto = () => {
+    if (isWeb && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    setUploadingPhoto(true);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const img = new window.Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const MAX = 256;
+          const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+          const canvas = document.createElement('canvas');
+          canvas.width  = Math.round(img.width  * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Could not read image')); };
+        img.src = objectUrl;
+      });
+      setProfilePicture(base64);
+    } catch {}
+    finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleComplete = async () => {
     setError('');
@@ -86,7 +128,7 @@ const SignupDetailsScreen = ({ route, navigation }) => {
     if (password.length < 6)   return setError('Password must be at least 6 characters');
     if (password !== confirmPw) return setError('Passwords do not match');
     try {
-      const result = await completeRegistration(email, password, name, phone || null);
+      const result = await completeRegistration(email, password, name, phone || null, age ? parseInt(age, 10) : null, qualification || null, profilePicture || null);
       if (!result.success) setError(result.error || 'Registration failed');
     } catch (err) {
       setError(err.message || 'Registration failed');
@@ -128,6 +170,30 @@ const SignupDetailsScreen = ({ route, navigation }) => {
 
           <View style={[s.card, { backgroundColor: C.cardBg, borderColor: C.cardBorder, maxWidth: 440, alignSelf: 'center', width: '100%' }]}>
 
+            {/* Photo picker */}
+            {isWeb && (
+              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelected} />
+            )}
+            <TouchableOpacity style={s.avatarPicker} onPress={handlePickPhoto} activeOpacity={0.8}>
+              {uploadingPhoto ? (
+                <View style={[s.avatarPlaceholder, { borderColor: C.inputBorder }]}>
+                  <ActivityIndicator color={ORANGE} />
+                </View>
+              ) : profilePicture ? (
+                <View style={{ position: 'relative' }}>
+                  <UserAvatar user={{ name, profilePicture }} size={72} borderColor={ORANGE} />
+                  <View style={s.avatarEditBadge}>
+                    <Icon name="camera" size={12} color="#FFF" />
+                  </View>
+                </View>
+              ) : (
+                <View style={[s.avatarPlaceholder, { borderColor: C.inputBorder, backgroundColor: C.inputBg }]}>
+                  <Icon name="camera-outline" size={22} color={C.inputIcon} />
+                  <Text style={[s.avatarLabel, { color: C.textSecondary }]}>Add Photo{'\n'}(optional)</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             {/* Success banner */}
             <View style={[s.successBanner, { backgroundColor: C.successBg, borderColor: C.successBorder }]}>
               <Icon name="checkmark-circle" size={18} color="#10B981" />
@@ -143,6 +209,12 @@ const SignupDetailsScreen = ({ route, navigation }) => {
 
             <AuthInput C={C} icon="call-outline" placeholder="Phone number (optional)" value={phone}
               onChangeText={setPhone} keyboardType="phone-pad" autoCapitalize="none" />
+
+            <AuthInput C={C} icon="calendar-outline" placeholder="Age (optional)" value={age}
+              onChangeText={setAge} keyboardType="numeric" autoCapitalize="none" />
+
+            <AuthInput C={C} icon="school-outline" placeholder="Qualification (optional)" value={qualification}
+              onChangeText={setQualification} autoCapitalize="words" />
 
             <AuthInput C={C} icon="lock-closed-outline" placeholder="Create password (min 6 characters)" value={password}
               onChangeText={t => { setPassword(t); setError(''); }} secureTextEntry={!showPw}
@@ -202,7 +274,11 @@ const s = StyleSheet.create({
   errorText: { flex: 1, color: '#EF4444', fontSize: 13 },
   primaryBtn: { height: 52, borderRadius: 12, backgroundColor: ORANGE, borderWidth: 1, borderColor: '#E77828', justifyContent: 'center', alignItems: 'center', shadowColor: '#C96A24', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 3 },
   primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', letterSpacing: 0.12 },
-  terms: { fontSize: 11, textAlign: 'center', lineHeight: 18, marginTop: 18 },
+  terms:           { fontSize: 11, textAlign: 'center', lineHeight: 18, marginTop: 18 },
+  avatarPicker:    { alignItems: 'center', marginBottom: 20 },
+  avatarPlaceholder: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', gap: 4 },
+  avatarLabel:     { fontSize: 10, textAlign: 'center', lineHeight: 14 },
+  avatarEditBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: ORANGE, borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default SignupDetailsScreen;

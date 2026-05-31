@@ -6,7 +6,9 @@ import ExpertCourseDetailScreen from '../screens/expert/ExpertCourseDetailScreen
 import FeedbackFormScreen from '../screens/expert/FeedbackFormScreen';
 import SettingsScreen from '../screens/auth/SettingsScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
 import NotificationsScreen from '../screens/auth/NotificationsScreen';
+import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
 import DiscussionScreen from '../screens/auth/DiscussionScreen';
 import DiscussionThreadScreen from '../screens/auth/DiscussionThreadScreen';
 
@@ -27,8 +29,10 @@ const ExpertNavigator = () => {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
       <Stack.Screen name="Discussion" component={DiscussionScreen} />
       <Stack.Screen name="DiscussionThread" component={DiscussionThreadScreen} />
+      <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
     </Stack.Navigator>
   );
 };

@@ -25,7 +25,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const EnrolledCoursesScreen = () => {
@@ -404,7 +404,7 @@ const EnrolledCoursesScreen = () => {
                       { backgroundColor: isDark ? theme.colors.card : theme.colors.surface },
                     ]}
                     activeOpacity={0.7}
-                    onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                    onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                   >
                     {/* Course Image */}
                     {course.thumbnailImage ? (
@@ -503,7 +503,7 @@ const EnrolledCoursesScreen = () => {
                           styles.courseActionBtn,
                           { backgroundColor: isCompleted ? '#10B981' : theme.colors.primary }
                         ]}
-                        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                       >
                         <Text style={styles.courseActionText}>
                           {isCompleted ? 'Review Course' : 'Continue Learning'}

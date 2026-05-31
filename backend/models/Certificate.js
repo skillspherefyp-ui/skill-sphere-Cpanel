@@ -17,11 +17,21 @@ const Certificate = sequelize.define('Certificate', {
   },
   courseId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'courses',
       key: 'id'
     }
+  },
+  courseName: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'Course name snapshot at certificate issue time — preserved if course is deleted'
+  },
+  templateSnapshot: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Template visual settings at certificate issue time — frozen for awarded certificates'
   },
   certificateNumber: {
     type: DataTypes.STRING,

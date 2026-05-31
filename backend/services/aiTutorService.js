@@ -48,10 +48,15 @@ function splitOutlineIntoPoints(outlineText) {
 
 function inferVisualMode(text = '') {
   const lower = `${text}`.toLowerCase();
+  // English keywords
   if (/(compare|difference|versus|vs\b)/.test(lower)) return 'comparison_table';
   if (/(process|lifecycle|sequence|steps|pipeline|chain)/.test(lower)) return 'flowchart';
   if (/(architecture|network|diagram|topology|map)/.test(lower)) return 'diagram';
   if (/(draw|sketch|annotate|whiteboard)/.test(lower)) return 'whiteboard';
+  // Urdu keywords
+  if (/(موازنہ|فرق|بمقابلہ|تقابل)/.test(text)) return 'comparison_table';
+  if (/(عمل|مراحل|ترتیب|سلسلہ|طریقہ کار)/.test(text)) return 'flowchart';
+  if (/(ڈھانچہ|نقشہ|تعلق|رابطہ|نظام|خاکہ)/.test(text)) return 'diagram';
   return 'slide';
 }
 
@@ -87,10 +92,13 @@ function buildVisualData(visualMode, title, slideBullets, examples, analogyIfHel
 
   if (visualMode === 'comparison_table') {
     const rows = (slideBullets || []).slice(0, 4).map((bullet, index) => {
-      const parts = bullet.split(':');
+      // Split on ": " (colon followed by space) to avoid splitting on "::" in things like "Code::Blocks"
+      const sepIndex = bullet.indexOf(': ');
+      const left = sepIndex > 0 ? bullet.slice(0, sepIndex).trim() : bullet.trim();
+      const right = sepIndex > 0 ? bullet.slice(sepIndex + 2).trim() : '';
       return {
-        left: parts[0]?.trim() || `Point ${index + 1}`,
-        right: parts.slice(1).join(':').trim() || examples[index] || analogyIfHelpful || 'Key teaching note',
+        left: left || `Point ${index + 1}`,
+        right: right || examples[index] || analogyIfHelpful || 'Key teaching note',
       };
     });
 
@@ -99,6 +107,10 @@ function buildVisualData(visualMode, title, slideBullets, examples, analogyIfHel
       columns: ['Concept', 'Teaching Note'],
       rows,
     };
+  }
+
+  if (visualMode === 'code') {
+    return { type: 'code' };
   }
 
   return {
@@ -171,7 +183,20 @@ function inferConceptType({ title = '', learningObjective = '', spokenExplanatio
   return 'conceptual';
 }
 
-function buildDefaultTransitionIn({ sectionTitle, chunkTitle, conceptType, previousChunkTitle }) {
+function buildDefaultTransitionIn({ sectionTitle, chunkTitle, conceptType, previousChunkTitle, language }) {
+  if (language === 'Urdu') {
+    if (previousChunkTitle) {
+      return `${previousChunkTitle} کے بعد، آئیے ${chunkTitle} پر توجہ دیتے ہیں۔`;
+    }
+    if (conceptType === 'foundational') {
+      return `آئیے ${sectionTitle || chunkTitle} کے بنیادی خیال سے شروع کرتے ہیں۔`;
+    }
+    if (conceptType === 'procedural') {
+      return `آئیے دیکھتے ہیں کہ ${chunkTitle} مرحلہ وار کیسے کام کرتا ہے۔`;
+    }
+    return `آئیے اب ${chunkTitle} کو واضح اور عملی انداز میں سمجھتے ہیں۔`;
+  }
+
   if (previousChunkTitle) {
     return `Building on ${previousChunkTitle}, let's focus on ${chunkTitle}.`;
   }
@@ -187,7 +212,17 @@ function buildDefaultTransitionIn({ sectionTitle, chunkTitle, conceptType, previ
   return `Next, let's make ${chunkTitle} clear and practical.`;
 }
 
-function buildDefaultTransitionOut({ chunkTitle, nextChunkTitle, conceptType }) {
+function buildDefaultTransitionOut({ chunkTitle, nextChunkTitle, conceptType, language }) {
+  if (language === 'Urdu') {
+    if (nextChunkTitle) {
+      return `اس خیال کو ذہن میں رکھیں، کیونکہ ہم اسے ${nextChunkTitle} میں دوبارہ استعمال کریں گے۔`;
+    }
+    if (conceptType === 'comparison-based') {
+      return `یہ فرق وہ چیز ہے جو آگے بڑھتے وقت یاد رکھنے کے قابل ہے۔`;
+    }
+    return `آگے بڑھنے سے پہلے اس نکتے کو ذہن میں رکھیں۔`;
+  }
+
   if (nextChunkTitle) {
     return `Keep that idea in mind, because we'll use it again in ${nextChunkTitle}.`;
   }
@@ -203,7 +238,8 @@ function deriveTeachingPlan({
   sectionTitle,
   chunk,
   previousChunkTitle = '',
-  nextChunkTitle = ''
+  nextChunkTitle = '',
+  language = 'English'
 }) {
   const conceptType = inferConceptType({
     title: chunk.title,
@@ -258,9 +294,13 @@ function deriveTeachingPlan({
     chunk.learningObjective ? chunk.learningObjective : '',
   ]);
   const checkpointText = `${chunk.checkpointQuestion || ''}`.trim() || (
-    conceptType === 'procedural'
-      ? `Before we continue, can you explain the sequence in ${chunk.title} without looking back?`
-      : `Before we move on, what is the key idea behind ${chunk.title}?`
+    language === 'Urdu'
+      ? (conceptType === 'procedural'
+          ? `آگے بڑھنے سے پہلے، کیا آپ ${chunk.title} کا سلسلہ اپنے الفاظ میں بیان کر سکتے ہیں؟`
+          : `${chunk.title} کا بنیادی خیال کیا ہے؟`)
+      : (conceptType === 'procedural'
+          ? `Before we continue, can you explain the sequence in ${chunk.title} without looking back?`
+          : `Before we move on, what is the key idea behind ${chunk.title}?`)
   );
 
   return {
@@ -279,12 +319,14 @@ function deriveTeachingPlan({
       sectionTitle,
       chunkTitle: chunk.title,
       conceptType,
-      previousChunkTitle
+      previousChunkTitle,
+      language
     }),
     transition_out: buildDefaultTransitionOut({
       chunkTitle: chunk.title,
       nextChunkTitle,
-      conceptType
+      conceptType,
+      language
     }),
     teacher_tone: ['teacher-like', 'explanatory', 'engaging', 'concise but useful'],
     likely_confusion_points: confusionPoints,
@@ -512,7 +554,26 @@ function validateLecturePackage(candidate) {
   return errors;
 }
 
-function normalizeLecturePackage(rawPackage, topicTitle) {
+// For Urdu courses: if a diagram node/edge label contains Urdu script, replace it
+// with the node id (always an English identifier). This is a hard guarantee that
+// diagram labels stay in English regardless of what the AI generates.
+function sanitizeDiagramLabels(diagram, language) {
+  if (!diagram || language !== 'Urdu') return diagram;
+  const hasUrdu = (text) => /[\u0600-\u06FF]/.test(`${text || ''}`);
+  return {
+    ...diagram,
+    nodes: (diagram.nodes || []).map((node) => ({
+      ...node,
+      label: hasUrdu(node.label) ? (`${node.id || ''}`.trim() || node.label) : node.label
+    })),
+    edges: (diagram.edges || []).map((edge) => ({
+      ...edge,
+      label: hasUrdu(edge.label) ? '' : edge.label
+    }))
+  };
+}
+
+function normalizeLecturePackage(rawPackage, topicTitle, language = 'English') {
   const sections = Array.isArray(rawPackage.sections) ? rawPackage.sections : [];
   const normalizedSections = sections.map((section, sectionIndex) => {
     const explanation = `${section?.explanation || ''}`.trim();
@@ -548,6 +609,7 @@ function normalizeLecturePackage(rawPackage, topicTitle) {
           sectionTitle: section?.title || topicTitle,
           previousChunkTitle,
           nextChunkTitle,
+          language,
           chunk: {
             title: `${section?.title || `${topicTitle} Section ${sectionIndex + 1}`} - Step ${chunkIndex + 1}`.trim(),
             learningObjective: `${section?.summary || explanation || topicTitle}`.trim(),
@@ -604,13 +666,33 @@ function normalizeLecturePackage(rawPackage, topicTitle) {
         rawChunk: chunk
       });
       const rawDiagram = chunk?.diagram || chunk?.diagramData || null;
-      const diagramData = rawDiagram && Array.isArray(rawDiagram.nodes) && rawDiagram.nodes.length > 0
-        ? {
+      let diagramData = rawDiagram && Array.isArray(rawDiagram.nodes) && rawDiagram.nodes.length > 0
+        ? sanitizeDiagramLabels({
             nodes: rawDiagram.nodes,
             edges: Array.isArray(rawDiagram.edges) ? rawDiagram.edges : [],
             steps: Array.isArray(rawDiagram.steps) ? rawDiagram.steps : []
-          }
+          }, language)
         : null;
+      // If AI chose visual_mode "diagram" but didn't include nodes (common for Urdu courses),
+      // build a minimal diagram from the chunk's key_terms in English as best-effort.
+      if (!diagramData && visualMode === 'diagram') {
+        const rawTerms = Array.isArray(chunk?.key_terms) ? chunk.key_terms : Array.isArray(chunk?.keyTerms) ? chunk.keyTerms : [];
+        // Filter to terms that look like English (Latin chars) since key_terms may be Urdu
+        const englishTerms = rawTerms.filter((t) => /[A-Za-z]/.test(`${t || ''}`)).slice(0, 5);
+        const fallbackTerms = englishTerms.length >= 2 ? englishTerms : null;
+        if (fallbackTerms) {
+          diagramData = {
+            nodes: fallbackTerms.map((term, i) => ({
+              id: `n${i}`,
+              label: `${term}`.trim(),
+              shape: 'rect',
+              color: i === 0 ? '#3b82f6' : i === fallbackTerms.length - 1 ? '#10b981' : '#8b5cf6'
+            })),
+            edges: fallbackTerms.slice(1).map((_, i) => ({ from: `n${i}`, to: `n${i + 1}`, label: '' })),
+            steps: []
+          };
+        }
+      }
 
       const normalizedChunk = {
         title: `${chunk?.title || section?.title || `${topicTitle} Section ${sectionIndex + 1}`}`.trim(),
@@ -634,7 +716,8 @@ function normalizeLecturePackage(rawPackage, topicTitle) {
         checkpointQuestion: `${chunk?.checkpoint_question_if_any || chunk?.checkpointQuestionIfAny || chunk?.checkpointQuestion || ''}`.trim(),
         visualData: {
           ...(chunk?.visual_data || chunk?.visualData || buildVisualData(visualMode, chunk?.title || section?.title || topicTitle, slideBullets, examples, analogy)),
-          ...(snippetData ? { snippetData } : {})
+          ...(snippetData ? { snippetData } : {}),
+          ...(chunk?.code_example ? { codeExample: chunk.code_example } : {}),
         },
         snippetData,
         diagramData,
@@ -644,6 +727,7 @@ function normalizeLecturePackage(rawPackage, topicTitle) {
         sectionTitle: section?.title || topicTitle,
         previousChunkTitle,
         nextChunkTitle,
+        language,
         chunk: normalizedChunk
       });
       return {
@@ -683,6 +767,7 @@ function normalizeLecturePackage(rawPackage, topicTitle) {
         };
         const teachingPlan = deriveTeachingPlan({
           sectionTitle: section?.title || topicTitle,
+          language,
           chunk: fallbackChunk
         });
         return [{
@@ -1008,7 +1093,8 @@ async function generateCoursePackage(courseId, instructorUser) {
           materials: sourceMaterials,
           priorTopics,
           nextTopicTitle,
-          outlineText
+          outlineText,
+          lectureSettings: course.lectureSettings || null
         });
 
         let rawPackage = generation.package;
@@ -1017,7 +1103,7 @@ async function generateCoursePackage(courseId, instructorUser) {
           rawPackage = await openaiService.repairLecturePackage(JSON.stringify(rawPackage), validationErrors);
         }
 
-        normalized = normalizeLecturePackage(rawPackage, topic.title);
+        normalized = normalizeLecturePackage(rawPackage, topic.title, course.language);
         const finalValidationErrors = validateLecturePackage(normalized);
         if (finalValidationErrors.length > 0) {
           throw new Error(`Generated lecture package is invalid: ${finalValidationErrors.join(', ')}`);
@@ -1035,7 +1121,8 @@ async function generateCoursePackage(courseId, instructorUser) {
             priorTopics,
             nextTopicTitle,
             outlineText,
-            compactMode: true
+            compactMode: true,
+            lectureSettings: course.lectureSettings || null
           });
 
           let compactRawPackage = compactGeneration.package;
@@ -1044,7 +1131,7 @@ async function generateCoursePackage(courseId, instructorUser) {
             compactRawPackage = await openaiService.repairLecturePackage(JSON.stringify(compactRawPackage), compactValidationErrors);
           }
 
-          normalized = normalizeLecturePackage(compactRawPackage, topic.title);
+          normalized = normalizeLecturePackage(compactRawPackage, topic.title, course.language);
           const compactFinalValidationErrors = validateLecturePackage(normalized);
           if (compactFinalValidationErrors.length > 0) {
             throw new Error(`Compact lecture package is invalid: ${compactFinalValidationErrors.join(', ')}`);
@@ -1063,7 +1150,8 @@ async function generateCoursePackage(courseId, instructorUser) {
               nextTopicTitle,
               outlineText,
               compactMode: true,
-              minimalMode: true
+              minimalMode: true,
+              lectureSettings: course.lectureSettings || null
             });
 
             let minimalRawPackage = minimalGeneration.package;
@@ -1072,7 +1160,7 @@ async function generateCoursePackage(courseId, instructorUser) {
               minimalRawPackage = await openaiService.repairLecturePackage(JSON.stringify(minimalRawPackage), minimalValidationErrors);
             }
 
-            normalized = normalizeLecturePackage(minimalRawPackage, topic.title);
+            normalized = normalizeLecturePackage(minimalRawPackage, topic.title, course.language);
             const minimalFinalValidationErrors = validateLecturePackage(normalized);
             if (minimalFinalValidationErrors.length > 0) {
               throw new Error(`Minimal lecture package is invalid: ${minimalFinalValidationErrors.join(', ')}`);
@@ -1091,7 +1179,8 @@ async function generateCoursePackage(courseId, instructorUser) {
                 outlineText,
                 failureReason: `${generationError.message}; compact retry failed: ${compactGenerationError.message}; minimal retry failed: ${minimalGenerationError.message}`
               }),
-              topic.title
+              topic.title,
+              course.language
             );
             modelName = 'fallback-template';
           }
@@ -1332,7 +1421,8 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
 
     try {
       const generation = await openaiService.generateLecturePackage({
-        course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText
+        course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText,
+        lectureSettings: course.lectureSettings || null
       });
 
       let rawPackage = generation.package;
@@ -1353,7 +1443,8 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
 
       try {
         const compactGeneration = await openaiService.generateLecturePackage({
-          course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText, compactMode: true
+          course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText, compactMode: true,
+          lectureSettings: course.lectureSettings || null
         });
 
         let compactRawPackage = compactGeneration.package;
@@ -1362,7 +1453,7 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
           compactRawPackage = await openaiService.repairLecturePackage(JSON.stringify(compactRawPackage), compactValidationErrors);
         }
 
-        normalized = normalizeLecturePackage(compactRawPackage, topic.title);
+        normalized = normalizeLecturePackage(compactRawPackage, topic.title, course.language);
         const compactFinalValidationErrors = validateLecturePackage(normalized);
         if (compactFinalValidationErrors.length > 0) {
           throw new Error(`Compact lecture package is invalid: ${compactFinalValidationErrors.join(', ')}`);
@@ -1374,7 +1465,8 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
 
         try {
           const minimalGeneration = await openaiService.generateLecturePackage({
-            course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText, compactMode: true, minimalMode: true
+            course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText, compactMode: true, minimalMode: true,
+            lectureSettings: course.lectureSettings || null
           });
 
           let minimalRawPackage = minimalGeneration.package;
@@ -1383,7 +1475,7 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
             minimalRawPackage = await openaiService.repairLecturePackage(JSON.stringify(minimalRawPackage), minimalValidationErrors);
           }
 
-          normalized = normalizeLecturePackage(minimalRawPackage, topic.title);
+          normalized = normalizeLecturePackage(minimalRawPackage, topic.title, course.language);
           const minimalFinalValidationErrors = validateLecturePackage(normalized);
           if (minimalFinalValidationErrors.length > 0) {
             throw new Error(`Minimal lecture package is invalid: ${minimalFinalValidationErrors.join(', ')}`);
@@ -1397,7 +1489,8 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
               course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText,
               failureReason: `${generationError.message}; compact retry failed: ${compactGenerationError.message}; minimal retry failed: ${minimalGenerationError.message}`
             }),
-            topic.title
+            topic.title,
+            course.language
           );
           modelName = 'fallback-template';
         }
@@ -1575,7 +1668,8 @@ async function ensureLectureReadyForTopic(topicId) {
       outlineText: outline.outlineText || defaultOutlineText,
       failureReason: lecture?.errorMessage || 'Lecture package was missing when the student started learning.'
     }),
-    topic.title
+    topic.title,
+    course.language
   );
 
   await persistLecturePackage({
@@ -1866,6 +1960,13 @@ async function setSessionPaused(sessionId, userId, paused) {
     throw new Error('Tutor session not found');
   }
 
+  let courseLanguage = 'English';
+  if (!paused) {
+    const courseForLang = await Course.findByPk(session.courseId, { attributes: ['language'] });
+    courseLanguage = courseForLang?.language || 'English';
+  }
+  const isUrdu = courseLanguage === 'Urdu';
+
   const teachingState = session.teachingState || {};
   await session.update({
     status: paused ? 'paused' : (session.status === 'lecture_completed' ? 'lecture_completed' : 'in_progress'),
@@ -1876,8 +1977,8 @@ async function setSessionPaused(sessionId, userId, paused) {
       ...teachingState,
       resumePending: true,
       resumeLeadIn: teachingState.lastPauseReason === 'question'
-        ? "Now that we've cleared that up, let's continue."
-        : "Coming back to the main idea, let's continue.",
+        ? (isUrdu ? 'اب جبکہ یہ بات واضح ہو گئی، آگے بڑھتے ہیں۔' : "Now that we've cleared that up, let's continue.")
+        : (isUrdu ? 'مرکزی خیال کی طرف واپس آتے ہیں، آگے بڑھتے ہیں۔' : "Coming back to the main idea, let's continue."),
     },
     lastActivityAt: new Date()
   });
@@ -2044,7 +2145,9 @@ async function submitQuestion(sessionId, userId, question) {
     teachingState: {
       ...(session.teachingState || {}),
       lastPauseReason: 'question',
-      resumeLeadIn: "Now that we've cleared that up, let's continue."
+      resumeLeadIn: courseLanguage === 'Urdu'
+        ? 'اب جبکہ یہ بات واضح ہو گئی، آگے بڑھتے ہیں۔'
+        : "Now that we've cleared that up, let's continue."
     },
     lastActivityAt: new Date()
   });

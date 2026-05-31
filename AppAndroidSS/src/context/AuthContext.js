@@ -283,10 +283,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const completeRegistration = async (email, password, name, phone) => {
+  const completeRegistration = async (email, password, name, phone, age, qualification, profilePicture) => {
     setIsLoading(true);
     try {
-      const response = await authAPI.completeRegistration({ email, password, name, phone });
+      const response = await authAPI.completeRegistration({ email, password, name, phone, age, qualification, profilePicture });
 
       if (response.success) {
         const userPayload = normalizeUser(response.user, 'student');
@@ -399,9 +399,15 @@ export const AuthProvider = ({ children }) => {
         const userPayload = normalizeUser(response.user, 'student');
         await AsyncStorage.setItem('@skillsphere:token', response.token);
         await AsyncStorage.setItem('@skillsphere:user', JSON.stringify(userPayload));
-        setUser(userPayload);
+
+        if (!response.isNewUser) {
+          // Existing user — log in immediately
+          setUser(userPayload);
+        }
+        // New user — token stored but user not set yet; caller navigates to profile completion
+
         setIsLoading(false);
-        return { success: true, user: userPayload };
+        return { success: true, isNewUser: response.isNewUser || false, user: userPayload };
       }
 
       setIsLoading(false);
@@ -409,6 +415,43 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       setIsLoading(false);
       return { success: false, error: error.message || 'Google sign in failed' };
+    }
+  };
+
+  // Finalize Google sign-up profile (all optional)
+  const finalizeGoogleProfile = async (phone, age, qualification, profilePicture) => {
+    setIsLoading(true);
+    try {
+      const storedUserStr = await AsyncStorage.getItem('@skillsphere:user');
+      const pendingUser = storedUserStr ? JSON.parse(storedUserStr) : null;
+
+      if (phone || age || qualification || profilePicture) {
+        const response = await authAPI.updateProfile({
+          phone: phone || null,
+          age: age ? parseInt(age, 10) : null,
+          qualification: qualification || null,
+          profilePicture: profilePicture || null,
+        });
+        if (response.success) {
+          const updatedUser = normalizeUser({ ...pendingUser, ...response.user }, 'student');
+          await AsyncStorage.setItem('@skillsphere:user', JSON.stringify(updatedUser));
+          setUser(updatedUser);
+          setIsLoading(false);
+          return { success: true };
+        }
+      }
+
+      // Skip or update failed — set the pending user as-is
+      if (pendingUser) setUser(pendingUser);
+      setIsLoading(false);
+      return { success: true };
+    } catch (error) {
+      setIsLoading(false);
+      try {
+        const storedUserStr = await AsyncStorage.getItem('@skillsphere:user');
+        if (storedUserStr) setUser(JSON.parse(storedUserStr));
+      } catch {}
+      return { success: true };
     }
   };
 
@@ -439,6 +482,7 @@ export const AuthProvider = ({ children }) => {
     verifySignupOTP,
     // Google OAuth
     googleSignIn,
+    finalizeGoogleProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

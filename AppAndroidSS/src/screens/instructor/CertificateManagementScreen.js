@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,23 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { certificateTemplateAPI, courseAPI, API_BASE } from '../../services/apiClient';
+import CertificateCard from '../../components/CertificateCard';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const ORANGE = '#FF8C42';
 const GREEN = '#10B981';
+
+// ── Preset certificate color palettes ────────────────────────────────────────
+const CERT_PALETTES = [
+  { id: 'navy_gold',    name: 'Navy + Gold',    primary: '#C9A84C', secondary: '#7EC8E3', bg: '#1a1a3e' },
+  { id: 'classic_gold', name: 'Classic Gold',   primary: '#C9A84C', secondary: '#B8860B', bg: '#ffffff' },
+  { id: 'midnight',     name: 'Midnight',       primary: '#F59E0B', secondary: '#60A5FA', bg: '#0f172a' },
+  { id: 'tech_blue',    name: 'Tech Blue',      primary: '#2563EB', secondary: '#06B6D4', bg: '#eff6ff' },
+  { id: 'forest',       name: 'Forest Green',   primary: '#15803D', secondary: '#4ADE80', bg: '#f0fdf4' },
+  { id: 'royal_purple', name: 'Royal Purple',   primary: '#7C3AED', secondary: '#A78BFA', bg: '#1e1b4b' },
+  { id: 'crimson_gold', name: 'Crimson + Gold', primary: '#DC2626', secondary: '#F59E0B', bg: '#fff5f5' },
+  { id: 'dark_orange',  name: 'Dark + Orange',  primary: '#EA580C', secondary: '#FCD34D', bg: '#1c1917' },
+];
 
 const CertificateManagementScreen = () => {
   const { user, logout } = useAuth();
@@ -50,7 +63,7 @@ const CertificateManagementScreen = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState(null);
   const [allCourses, setAllCourses] = useState([]);
@@ -59,16 +72,28 @@ const CertificateManagementScreen = () => {
   const [activatingTemplate, setActivatingTemplate] = useState(null);
   const [activateCourseIds, setActivateCourseIds] = useState([]);
   const [activeAssignments, setActiveAssignments] = useState([]);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [previewSignatureUri, setPreviewSignatureUri] = useState(null);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [userHasSignature, setUserHasSignature] = useState(false);
+  const [mySignatureUri, setMySignatureUri] = useState(null);
+  const [strokeSize, setStrokeSize] = useState(2.5);
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const lastPosRef = useRef({ x: 0, y: 0 });
 
   // Template form state
   const [templateForm, setTemplateForm] = useState({
     name: 'Default Template',
     primaryColor: '#e5a448',
     secondaryColor: '#c2ee20',
+    backgroundColor: '#1a1a3e',
     fontFamily: 'Arial, sans-serif',
     titleText: 'Certificate of Completion',
     subtitleText: 'This is to certify that',
-    footerText: '',
+    footerText: 'This certificate is awarded upon successful completion of the course requirements.',
   });
 
   // Sidebar navigation items based on user role
@@ -94,13 +119,16 @@ const CertificateManagementScreen = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [statsRes, templatesRes, activeRes, coursesRes, activePerCourseRes] = await Promise.all([
+      const [statsRes, templatesRes, activeRes, coursesRes, activePerCourseRes, sigRes] = await Promise.all([
         certificateTemplateAPI.getStats(),
         certificateTemplateAPI.getAll(),
         certificateTemplateAPI.getActive(),
-        courseAPI.getAll(),
+        isSuperInstructor ? courseAPI.getAll() : courseAPI.getAll({ instructorId: user?.id, limit: 200 }),
         certificateTemplateAPI.getActivePerCourse(),
+        certificateTemplateAPI.getMySignature().catch(() => ({ signatureDataUri: null })),
       ]);
+      setUserHasSignature(!!(sigRes?.signatureDataUri));
+      setMySignatureUri(sigRes?.signatureDataUri || null);
 
       if (statsRes.success) {
         setStats(statsRes.stats);
@@ -128,7 +156,7 @@ const CertificateManagementScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id, isSuperInstructor]);
 
   useEffect(() => {
     fetchData();
@@ -211,8 +239,8 @@ const CertificateManagementScreen = () => {
 
   // Activate template for specific courses
   const handleActivateForCourses = async () => {
-    if (!activatingTemplate || activateCourseIds.length === 0) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Please select at least one course' });
+    if (!activatingTemplate) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'No template selected' });
       return;
     }
 
@@ -323,74 +351,134 @@ const CertificateManagementScreen = () => {
     setTemplateToDelete(null);
   };
 
-  // Handle color picker for web
-  const handleColorChange = (field, color) => {
-    setTemplateForm({ ...templateForm, [field]: color });
+  // Apply a preset palette (sets all three colors at once)
+  const handlePaletteSelect = (palette) => {
+    setTemplateForm(prev => ({
+      ...prev,
+      primaryColor: palette.primary,
+      secondaryColor: palette.secondary,
+      backgroundColor: palette.bg,
+    }));
   };
 
-  // Handle image upload (web-compatible)
-  const handleUploadImage = async (templateId, type) => {
-    if (Platform.OS === 'web') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/jpeg,image/png,image/jpg,image/gif,image/webp';
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          await uploadImage(templateId, type, file);
-        }
-      };
-      input.click();
-    } else {
-      Toast.show({
-        type: 'info',
-        text1: 'Coming Soon',
-        text2: 'Image upload on mobile coming soon',
-      });
-    }
+  // Which preset palette matches the current form colors (if any)
+  const activePaletteId = CERT_PALETTES.find(p =>
+    p.primary === templateForm.primaryColor &&
+    p.secondary === templateForm.secondaryColor &&
+    p.bg === templateForm.backgroundColor
+  )?.id || null;
+
+  // Open signature drawing pad — one signature per instructor, not per template
+  const handleOpenSignaturePad = () => {
+    setShowSignaturePad(true);
+    setTimeout(() => {
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }, 100);
   };
 
-  const uploadImage = async (templateId, type, file) => {
+  // Canvas drawing handlers (web only)
+  const getCanvasPos = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDrawing = (e) => {
+    e.preventDefault();
+    isDrawingRef.current = true;
+    const pos = getCanvasPos(e);
+    lastPosRef.current = pos;
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.lineWidth = strokeSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#000000';
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  };
+
+  const draw = (e) => {
+    if (!isDrawingRef.current) return;
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.lineWidth = strokeSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#000000';
+    // Use midpoint quadratic Bezier for smooth cursive curves
+    const midX = (lastPosRef.current.x + pos.x) / 2;
+    const midY = (lastPosRef.current.y + pos.y) / 2;
+    ctx.quadraticCurveTo(lastPosRef.current.x, lastPosRef.current.y, midX, midY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(midX, midY);
+    lastPosRef.current = pos;
+  };
+
+  const stopDrawing = () => {
+    isDrawingRef.current = false;
+  };
+
+  const clearCanvas = () => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  };
+
+  const handleSaveSignature = async () => {
+    if (!canvasRef.current) return;
     try {
-      setUploadingImage(true);
-      const formData = new FormData();
-      formData.append(type === 'background' ? 'background' : 'signature', file);
-
-      const uploadFn = type === 'background'
-        ? certificateTemplateAPI.uploadBackground
-        : certificateTemplateAPI.uploadSignature;
-
-      const response = await uploadFn(templateId, formData);
-
+      setSavingSignature(true);
+      const dataUri = canvasRef.current.toDataURL('image/png');
+      const response = await certificateTemplateAPI.saveMySignature(dataUri);
       if (response.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: `${type === 'background' ? 'Background' : 'Signature'} uploaded successfully`
-        });
+        Toast.show({ type: 'success', text1: 'Saved', text2: 'Signature saved — applies to all your certificates' });
+        setShowSignaturePad(false);
+        setUserHasSignature(true);
+        setMySignatureUri(dataUri);
         fetchData();
       }
     } catch (error) {
-      console.error('Error uploading image:', error);
-      Toast.show({ type: 'error', text1: 'Error', text2: error.message || 'Failed to upload image' });
+      Toast.show({ type: 'error', text1: 'Error', text2: error.message || 'Failed to save signature' });
     } finally {
-      setUploadingImage(false);
+      setSavingSignature(false);
+    }
+  };
+
+  const handleClearSignature = async () => {
+    try {
+      await certificateTemplateAPI.clearMySignature();
+      Toast.show({ type: 'success', text1: 'Cleared', text2: 'Signature removed' });
+      setUserHasSignature(false);
+      setMySignatureUri(null);
+      fetchData();
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to clear signature' });
     }
   };
 
   // Preview certificate
   const handlePreviewCertificate = async (templateId) => {
-    try {
-      Toast.show({ type: 'info', text1: 'Loading', text2: 'Generating preview...' });
-      const blobUrl = await certificateTemplateAPI.getPreview(templateId);
-      if (Platform.OS === 'web') {
-        window.open(blobUrl, '_blank');
-      } else {
-        Linking.openURL(blobUrl);
-      }
-    } catch (error) {
-      console.error('Error previewing certificate:', error);
-      Toast.show({ type: 'error', text1: 'Error', text2: error.message || 'Failed to load preview' });
+    const tpl = templates.find(t => t.id === templateId) || activeTemplate;
+    setPreviewTemplate(tpl);
+    setPreviewSignatureUri(null);
+    setShowPreviewModal(true);
+    if (tpl?.id && tpl?.hasSignature) {
+      try {
+        const sigRes = await certificateTemplateAPI.getSignatureImage(tpl.id);
+        if (sigRes?.signatureDataUri) setPreviewSignatureUri(sigRes.signatureDataUri);
+      } catch (_) {}
     }
   };
 
@@ -399,12 +487,13 @@ const CertificateManagementScreen = () => {
     setEditingTemplate(template);
     setTemplateForm({
       name: template.name || 'Default Template',
-      primaryColor: template.primaryColor || '#e5a448',
-      secondaryColor: template.secondaryColor || '#c2ee20',
+      primaryColor: template.primaryColor || '#C9A84C',
+      secondaryColor: template.secondaryColor || '#7EC8E3',
+      backgroundColor: template.backgroundColor || '#1a1a3e',
       fontFamily: template.fontFamily || 'Arial, sans-serif',
       titleText: template.titleText || 'Certificate of Completion',
       subtitleText: template.subtitleText || 'This is to certify that',
-      footerText: template.footerText || '',
+      footerText: template.footerText || 'This certificate is awarded upon successful completion of the course requirements.',
     });
     // Set selected courses from template
     setSelectedCourseIds(template.courses ? template.courses.map(c => c.id) : []);
@@ -415,12 +504,13 @@ const CertificateManagementScreen = () => {
   const resetForm = () => {
     setTemplateForm({
       name: 'Default Template',
-      primaryColor: '#e5a448',
-      secondaryColor: '#c2ee20',
+      primaryColor: '#C9A84C',
+      secondaryColor: '#7EC8E3',
+      backgroundColor: '#1a1a3e',
       fontFamily: 'Arial, sans-serif',
       titleText: 'Certificate of Completion',
       subtitleText: 'This is to certify that',
-      footerText: '',
+      footerText: 'This certificate is awarded upon successful completion of the course requirements.',
     });
     setSelectedCourseIds([]);
     setEditingTemplate(null);
@@ -558,6 +648,58 @@ const CertificateManagementScreen = () => {
           </AppCard>
         </View>
 
+        {/* ── Your Signature ───────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.duration(400)} style={[styles.card, {
+          marginBottom: 20,
+          borderWidth: 1,
+          borderColor: isDark ? 'rgba(255,140,66,0.18)' : 'rgba(255,140,66,0.15)',
+          backgroundColor: theme.colors.surface,
+          borderRadius: 16,
+          padding: 18,
+        }]}>
+          <View style={[styles.cardTitleRow, { marginBottom: 14 }]}>
+            <View style={[styles.cardTitleIcon, { backgroundColor: isDark ? 'rgba(255,140,66,0.15)' : 'rgba(255,140,66,0.10)' }]}>
+              <Icon name="pencil" size={16} color={ORANGE} />
+            </View>
+            <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>Your Signature</Text>
+            {userHasSignature && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.10)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, marginLeft: 8 }}>
+                <Icon name="checkmark-circle" size={12} color={GREEN} />
+                <Text style={{ fontSize: 11, color: GREEN, fontWeight: '600' }}>Saved</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 14, lineHeight: 18 }}>
+            Your handwritten signature is applied to all certificate templates you create. Draw it once — it appears on every certificate you issue.
+          </Text>
+
+          {/* Draw / Edit button */}
+          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: ORANGE, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10 }}
+              onPress={handleOpenSignaturePad}
+              activeOpacity={0.85}
+            >
+              <Icon name="pencil-outline" size={15} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
+                {userHasSignature ? 'Edit Signature' : 'Add Signature'}
+              </Text>
+            </TouchableOpacity>
+
+            {userHasSignature && (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: isDark ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.3)', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10 }}
+                onPress={handleClearSignature}
+                activeOpacity={0.85}
+              >
+                <Icon name="trash-outline" size={15} color="#EF4444" />
+                <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 13 }}>Remove</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View>
+
         {/* Content Grid */}
         <View style={styles.contentGrid}>
           {/* Main Column */}
@@ -611,90 +753,73 @@ const CertificateManagementScreen = () => {
                       </View>
                     </View>
 
-                    {/* Background Image */}
-                    <View style={styles.templateField}>
-                      <Text style={[styles.fieldLabel, { color: theme.colors.textTertiary }]}>
-                        Background Image (Optional)
-                      </Text>
-                      <View style={styles.uploadRow}>
-                        {activeTemplate.backgroundImage ? (
-                          <Image
-                            source={{ uri: getImageUrl(activeTemplate.backgroundImage) }}
-                            style={styles.thumbnailImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View style={[styles.placeholderImage, { backgroundColor: theme.colors.surface }]}>
-                            <Icon name="image-outline" size={24} color={theme.colors.textTertiary} />
-                          </View>
-                        )}
-                        <AppButton
-                          title={uploadingImage ? 'Uploading...' : 'Upload'}
-                          onPress={() => handleUploadImage(activeTemplate.id, 'background')}
-                          variant="outline"
-                          size="sm"
-                          leftIcon="cloud-upload-outline"
-                          disabled={uploadingImage}
-                        />
-                      </View>
-                    </View>
-
                     {/* Instructor Signature */}
                     <View style={styles.templateField}>
                       <Text style={[styles.fieldLabel, { color: theme.colors.textTertiary }]}>
                         Instructor Signature
                       </Text>
-                      <View style={styles.uploadRow}>
-                        {activeTemplate.instructorSignature ? (
+                      {mySignatureUri ? (
+                        <View style={[styles.placeholderSignature, { backgroundColor: '#ffffff', justifyContent: 'center', alignItems: 'center', minHeight: 70, borderWidth: 1, borderColor: 'rgba(0,0,0,0.10)' }]}>
                           <Image
-                            source={{ uri: getImageUrl(activeTemplate.instructorSignature) }}
-                            style={styles.signatureImage}
-                            resizeMode="contain"
+                            source={{ uri: mySignatureUri }}
+                            style={{ width: 220, height: 60, resizeMode: 'contain' }}
                           />
-                        ) : (
-                          <View style={[styles.placeholderSignature, { backgroundColor: theme.colors.surface }]}>
-                            <Icon name="pencil-outline" size={20} color={theme.colors.textTertiary} />
-                            <Text style={[styles.placeholderText, { color: theme.colors.textTertiary }]}>
-                              No signature
-                            </Text>
-                          </View>
-                        )}
-                        <AppButton
-                          title={uploadingImage ? 'Uploading...' : 'Upload'}
-                          onPress={() => handleUploadImage(activeTemplate.id, 'signature')}
-                          variant="outline"
-                          size="sm"
-                          leftIcon="cloud-upload-outline"
-                          disabled={uploadingImage}
-                        />
-                      </View>
+                        </View>
+                      ) : (
+                        <View style={[styles.placeholderSignature, { backgroundColor: theme.colors.surface, gap: 4 }]}>
+                          <Icon name="information-circle-outline" size={16} color={theme.colors.textTertiary} />
+                          <Text style={[styles.placeholderText, { color: theme.colors.textTertiary }]}>
+                            Add your signature in the section above
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
-                    {/* Colors */}
-                    <View style={styles.colorsRow}>
-                      <View style={styles.colorField}>
-                        <Text style={[styles.fieldLabel, { color: theme.colors.textTertiary }]}>
-                          Primary Color
-                        </Text>
-                        <View style={styles.colorPreview}>
-                          <View style={[styles.colorSwatch, { backgroundColor: activeTemplate.primaryColor }]} />
-                          <Text style={[styles.colorValue, { color: theme.colors.textPrimary }]}>
-                            {activeTemplate.primaryColor}
+                    {/* Color Theme */}
+                    {(() => {
+                      const matchedPalette = CERT_PALETTES.find(p =>
+                        p.primary === activeTemplate.primaryColor &&
+                        p.secondary === activeTemplate.secondaryColor &&
+                        p.bg === activeTemplate.backgroundColor
+                      );
+                      const themeName = matchedPalette ? matchedPalette.name : activeTemplate.name;
+                      const bg = activeTemplate.backgroundColor || '#ffffff';
+                      const primary = activeTemplate.primaryColor || '#C9A84C';
+                      const secondary = activeTemplate.secondaryColor || '#7EC8E3';
+                      return (
+                        <View style={[styles.templateField, { marginTop: 8 }]}>
+                          <Text style={[styles.fieldLabel, { color: theme.colors.textTertiary }]}>
+                            Color Theme
                           </Text>
+                          <View style={{
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            borderWidth: 1,
+                            borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+                          }}>
+                            {/* Color strip preview */}
+                            <View style={{ height: 36, backgroundColor: bg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 }}>
+                              <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: primary, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3 }} />
+                              <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: secondary, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3 }} />
+                              <View style={{ flex: 1 }} />
+                              <Icon name="color-palette-outline" size={14} color={primary} />
+                            </View>
+                            {/* Theme name row */}
+                            <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.textPrimary }}>
+                                {themeName}
+                              </Text>
+                              {matchedPalette && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.10)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
+                                  <Icon name="checkmark-circle" size={11} color={GREEN} />
+                                  <Text style={{ fontSize: 10, color: GREEN, fontWeight: '600' }}>Preset</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.colorField}>
-                        <Text style={[styles.fieldLabel, { color: theme.colors.textTertiary }]}>
-                          Secondary Color
-                        </Text>
-                        <View style={styles.colorPreview}>
-                          <View style={[styles.colorSwatch, { backgroundColor: activeTemplate.secondaryColor }]} />
-                          <Text style={[styles.colorValue, { color: theme.colors.textPrimary }]}>
-                            {activeTemplate.secondaryColor}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
+                      );
+                    })()}
 
                     {/* Preview Button */}
                     <AppButton
@@ -1083,7 +1208,7 @@ const CertificateManagementScreen = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ padding: 20, maxHeight: 400 }}>
+            <ScrollView style={{ padding: 20, maxHeight: 560 }}>
               <View style={styles.formField}>
                 <Text style={[styles.formLabel, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>Template Name</Text>
                 <TextInput
@@ -1144,85 +1269,55 @@ const CertificateManagementScreen = () => {
                 />
               </View>
 
-              <View style={styles.formRow}>
-                <View style={[styles.formField, { flex: 1, marginRight: 8 }]}>
-                  <Text style={[styles.formLabel, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>Primary Color</Text>
-                  <View style={styles.colorPickerContainer}>
-                    {Platform.OS === 'web' ? (
-                      <input
-                        type="color"
-                        value={templateForm.primaryColor}
-                        onChange={(e) => handleColorChange('primaryColor', e.target.value)}
+              {/* ── Color Palette Selector ── */}
+              <View style={styles.formField}>
+                <Text style={[styles.formLabel, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>Color Palette</Text>
+                <Text style={[styles.formHint, { color: theme.colors.textTertiary, marginBottom: 10 }]}>
+                  Choose a preset — all colors are contrast-tested
+                </Text>
+
+                {/* Palette grid */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {CERT_PALETTES.map(palette => {
+                    const isActive = activePaletteId === palette.id;
+                    return (
+                      <TouchableOpacity
+                        key={palette.id}
+                        onPress={() => handlePaletteSelect(palette)}
                         style={{
-                          width: 50,
-                          height: 40,
-                          border: 'none',
-                          borderRadius: 8,
-                          cursor: 'pointer',
-                          padding: 0,
+                          borderRadius: 12,
+                          borderWidth: isActive ? 2.5 : 1.5,
+                          borderColor: isActive ? GREEN : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'),
+                          overflow: 'hidden',
+                          width: '47%',
+                          shadowColor: isActive ? GREEN : '#000',
+                          shadowOpacity: isActive ? 0.3 : 0.05,
+                          shadowRadius: 6,
+                          elevation: isActive ? 4 : 1,
                         }}
-                      />
-                    ) : (
-                      <View style={[styles.colorSwatchLarge, { backgroundColor: templateForm.primaryColor }]} />
-                    )}
-                    <TextInput
-                      style={{
-                        flex: 1,
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.04)',
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,46,0.1)',
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        color: isDark ? '#FFFFFF' : '#1A1A2E',
-                        fontSize: 14,
-                      }}
-                      value={templateForm.primaryColor}
-                      onChangeText={(text) => handleColorChange('primaryColor', text)}
-                      placeholder="#e5a448"
-                      placeholderTextColor={theme.colors.textTertiary}
-                    />
-                  </View>
+                        activeOpacity={0.8}
+                      >
+                        {/* Color preview strip */}
+                        <View style={{ height: 32, backgroundColor: palette.bg, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 5 }}>
+                          <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: palette.primary }} />
+                          <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: palette.secondary }} />
+                          {isActive && (
+                            <View style={{ marginLeft: 'auto' }}>
+                              <Icon name="checkmark-circle" size={16} color={GREEN} />
+                            </View>
+                          )}
+                        </View>
+                        {/* Palette name */}
+                        <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', paddingHorizontal: 8, paddingVertical: 5 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: isDark ? '#FFFFFF' : '#1A1A2E' }}>
+                            {palette.name}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <View style={[styles.formField, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={[styles.formLabel, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>Secondary Color</Text>
-                  <View style={styles.colorPickerContainer}>
-                    {Platform.OS === 'web' ? (
-                      <input
-                        type="color"
-                        value={templateForm.secondaryColor}
-                        onChange={(e) => handleColorChange('secondaryColor', e.target.value)}
-                        style={{
-                          width: 50,
-                          height: 40,
-                          border: 'none',
-                          borderRadius: 8,
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      />
-                    ) : (
-                      <View style={[styles.colorSwatchLarge, { backgroundColor: templateForm.secondaryColor }]} />
-                    )}
-                    <TextInput
-                      style={{
-                        flex: 1,
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.04)',
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,46,0.1)',
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        color: isDark ? '#FFFFFF' : '#1A1A2E',
-                        fontSize: 14,
-                      }}
-                      value={templateForm.secondaryColor}
-                      onChangeText={(text) => handleColorChange('secondaryColor', text)}
-                      placeholder="#c2ee20"
-                      placeholderTextColor={theme.colors.textTertiary}
-                    />
-                  </View>
-                </View>
+
               </View>
 
               <View style={styles.formField}>
@@ -1246,7 +1341,7 @@ const CertificateManagementScreen = () => {
               </View>
 
               <View style={styles.formField}>
-                <Text style={[styles.formLabel, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>Footer Text (Optional)</Text>
+                <Text style={[styles.formLabel, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>Footer Text</Text>
                 <TextInput
                   style={{
                     backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.04)',
@@ -1262,7 +1357,7 @@ const CertificateManagementScreen = () => {
                   }}
                   value={templateForm.footerText}
                   onChangeText={(text) => setTemplateForm({ ...templateForm, footerText: text })}
-                  placeholder="Additional footer text..."
+                  placeholder="This certificate is awarded upon successful completion of the course requirements."
                   placeholderTextColor={theme.colors.textTertiary}
                   multiline
                   numberOfLines={3}
@@ -1379,6 +1474,236 @@ const CertificateManagementScreen = () => {
               >
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
                   {saving ? 'Saving...' : (editingTemplate ? 'Update' : 'Create')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Certificate Preview Modal */}
+      <Modal
+        visible={showPreviewModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPreviewModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 16,
+          ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } : {}),
+        }}>
+          <View style={{
+            width: '100%',
+            maxWidth: 780,
+            backgroundColor: isDark ? 'rgba(15,15,30,0.96)' : 'rgba(255,255,255,0.97)',
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+            padding: 24,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 20 },
+            shadowOpacity: 0.4,
+            shadowRadius: 40,
+            elevation: 20,
+          }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(79,70,229,0.15)', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="ribbon-outline" size={20} color={theme.colors.primary} />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: theme.colors.textPrimary }}>Certificate Preview</Text>
+                  <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginTop: 1 }}>
+                    {previewTemplate?.name || 'Template Preview'}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowPreviewModal(false)} style={{ padding: 8 }}>
+                <Icon name="close" size={22} color={theme.colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Certificate Card */}
+            {previewTemplate && (() => {
+              const cardW = Math.min(width - 80, 720);
+              return (
+                <View style={{ alignItems: 'center' }}>
+                  <CertificateCard
+                    template={previewTemplate}
+                    certificate={null}
+                    studentName="John Doe"
+                    courseName="Advanced Web Development"
+                    cardWidth={cardW}
+                    isInstructorPreview={true}
+                    signatureUri={previewSignatureUri}
+                  />
+                </View>
+              );
+            })()}
+
+            {/* Info row */}
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', gap: 8,
+              marginTop: 16, padding: 12, borderRadius: 10,
+              backgroundColor: isDark ? 'rgba(99,102,241,0.1)' : '#eef2ff',
+              borderWidth: 1, borderColor: '#c7d2fe',
+            }}>
+              <Icon name="information-circle-outline" size={16} color="#6366f1" />
+              <Text style={{ flex: 1, fontSize: 12, color: isDark ? '#a5b4fc' : '#4338ca', lineHeight: 17 }}>
+                This is a design preview with sample data. The actual certificate will use the student's name and course.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Signature Drawing Pad Modal */}
+      <Modal
+        visible={showSignaturePad}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSignaturePad(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+          ...(Platform.OS === 'web' ? { backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } : {}),
+        }}>
+          <View style={{
+            width: '100%',
+            maxWidth: 600,
+            backgroundColor: isDark ? 'rgba(15,15,30,0.95)' : 'rgba(255,255,255,0.97)',
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,46,0.1)',
+            padding: 28,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 20 },
+            shadowOpacity: isDark ? 0.5 : 0.15,
+            shadowRadius: 40,
+            elevation: 20,
+          }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(79,70,229,0.15)', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="create-outline" size={20} color={theme.colors.primary} />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: theme.colors.textPrimary }}>Draw Signature</Text>
+                  <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginTop: 1 }}>Sign in the box below</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowSignaturePad(false)} style={{ padding: 8 }}>
+                <Icon name="close" size={22} color={theme.colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Canvas */}
+            {Platform.OS === 'web' ? (
+              <canvas
+                ref={canvasRef}
+                width={540}
+                height={180}
+                style={{
+                  width: '100%',
+                  height: 180,
+                  border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}`,
+                  borderRadius: 12,
+                  cursor: 'crosshair',
+                  backgroundColor: '#ffffff',
+                  touchAction: 'none',
+                  display: 'block',
+                }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
+            ) : (
+              <View style={{ height: 180, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+                <Icon name="create-outline" size={32} color={theme.colors.textTertiary} />
+                <Text style={{ color: theme.colors.textTertiary, marginTop: 8, fontSize: 13 }}>Signature drawing available on web</Text>
+              </View>
+            )}
+
+            {/* Stroke size slider */}
+            {Platform.OS === 'web' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 4 }}>
+                <Icon name="remove-outline" size={16} color={theme.colors.textTertiary} />
+                <input
+                  type="range"
+                  min="1"
+                  max="6"
+                  step="0.5"
+                  value={strokeSize}
+                  onChange={(e) => setStrokeSize(parseFloat(e.target.value))}
+                  style={{
+                    flex: 1,
+                    accentColor: theme.colors.primary,
+                    cursor: 'pointer',
+                    height: 4,
+                  }}
+                />
+                <Icon name="add-outline" size={16} color={theme.colors.textTertiary} />
+                <View style={{
+                  width: 28, height: 28,
+                  borderRadius: 14,
+                  backgroundColor: theme.colors.primary + '20',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <View style={{
+                    width: Math.min(strokeSize * 3, 20),
+                    height: Math.min(strokeSize * 3, 20),
+                    borderRadius: Math.min(strokeSize * 3, 20) / 2,
+                    backgroundColor: theme.colors.primary,
+                  }} />
+                </View>
+              </View>
+            )}
+
+            <Text style={{ fontSize: 11, color: theme.colors.textTertiary, textAlign: 'center', marginTop: 6 }}>
+              Draw your signature above with mouse or finger
+            </Text>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={clearCanvas}
+                style={{
+                  flex: 1, paddingVertical: 12, borderRadius: 12,
+                  borderWidth: 1.5, borderColor: theme.colors.border,
+                  alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <Icon name="refresh-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={{ color: theme.colors.textSecondary, fontWeight: '600', fontSize: 14 }}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveSignature}
+                disabled={savingSignature}
+                style={{
+                  flex: 2, paddingVertical: 12, borderRadius: 12,
+                  backgroundColor: theme.colors.primary,
+                  alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
+                  opacity: savingSignature ? 0.7 : 1,
+                }}
+              >
+                <Icon name="checkmark-outline" size={16} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+                  {savingSignature ? 'Saving...' : 'Save Signature'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1604,34 +1929,34 @@ const CertificateManagementScreen = () => {
                   const currentActiveTemplate = getActiveTemplateForCourse(course.id);
                   const hasOtherActive = currentActiveTemplate && currentActiveTemplate.id !== activatingTemplate?.id;
 
-                  // Skip courses that already have another template assigned
+                  // Courses with another template — show as selectable with a "Will replace" warning
                   if (hasOtherActive) {
                     return (
-                      <View
+                      <TouchableOpacity
                         key={course.id}
                         style={[
                           styles.activateCourseItem,
                           {
-                            backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(26,26,46,0.03)',
-                            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
-                            opacity: 0.6,
+                            backgroundColor: isSelected ? (isDark ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.08)') : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(26,26,46,0.03)'),
+                            borderColor: isSelected ? '#F59E0B' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)'),
                           }
                         ]}
+                        onPress={() => toggleActivateCourse(course.id)}
                       >
                         <Icon
-                          name="lock-closed"
+                          name={isSelected ? 'checkbox' : 'square-outline'}
                           size={22}
-                          color={theme.colors.textTertiary}
+                          color={isSelected ? '#F59E0B' : theme.colors.textTertiary}
                         />
                         <View style={styles.activateCourseInfo}>
-                          <Text style={[styles.activateCourseName, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                          <Text style={[styles.activateCourseName, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]} numberOfLines={1}>
                             {course.name}
                           </Text>
                           <Text style={[styles.activateCourseStatus, { color: '#F59E0B' }]}>
-                            Already assigned to: {currentActiveTemplate.name}
+                            {isSelected ? 'Will replace: ' : 'Currently: '}{currentActiveTemplate.name}
                           </Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     );
                   }
 

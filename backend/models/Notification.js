@@ -17,11 +17,15 @@ const Notification = sequelize.define('Notification', {
   },
   title: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
   },
   message: {
-    type: DataTypes.TEXT,
-    allowNull: false
+    type: DataTypes.TEXT('long'),
+    allowNull: false,
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
   },
   type: {
     type: DataTypes.ENUM('info', 'success', 'warning', 'error', 'course', 'quiz', 'certificate'),
@@ -50,7 +54,9 @@ const Notification = sequelize.define('Notification', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'notifications'
+  tableName: 'notifications',
+  charset: 'utf8mb4',
+  collate: 'utf8mb4_unicode_ci',
 });
 
 module.exports = Notification;

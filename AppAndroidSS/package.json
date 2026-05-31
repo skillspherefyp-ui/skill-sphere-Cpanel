@@ -21,8 +21,10 @@
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/stack": "^6.3.20",
+    "qrcode": "^1.5.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-helmet-async": "^3.0.0",
     "react-native": "0.72.17",
     "react-native-gesture-handler": "~2.12.0",
     "react-native-linear-gradient": "^2.8.3",
@@ -33,7 +35,8 @@
     "react-native-svg": "13.9.0",
     "react-native-toast-message": "^2.3.3",
     "react-native-vector-icons": "^10.0.0",
-    "react-native-web": "^0.19.13"
+    "react-native-web": "^0.19.13",
+    "react-helmet-async": "^2.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

@@ -75,6 +75,23 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('local', 'google'),
     defaultValue: 'local'
   },
+  instructorSignature: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
+    comment: 'Instructor handwritten signature as base64 PNG (shared across all their certificate templates)'
+  },
+  lastLogin: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  age: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  qualification: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   privacyPolicyAccepted: {
     type: DataTypes.BOOLEAN,
     defaultValue: false

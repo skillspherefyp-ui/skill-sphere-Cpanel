@@ -111,7 +111,8 @@ function splitIntoTeachingNotes(text = '', fallbackItems = []) {
 
 function getSnippetData(chunk) {
   const snippetData = chunk.visualData?.snippetData || {};
-  const snippet = `${snippetData.codeSnippet || ''}`.trim();
+  const codeExample = chunk.visualData?.codeExample || {};
+  const snippet = `${snippetData.codeSnippet || codeExample.snippet || ''}`.trim();
   const command = `${snippetData.commandExample || ''}`.trim();
 
   if (!snippet && !command) {
@@ -121,8 +122,8 @@ function getSnippetData(chunk) {
   return {
     codeSnippet: snippet,
     commandExample: command,
-    snippetLanguage: `${snippetData.snippetLanguage || 'text'}`.trim(),
-    snippetExplanation: `${snippetData.snippetExplanation || ''}`.trim(),
+    snippetLanguage: `${snippetData.snippetLanguage || codeExample.language || 'text'}`.trim(),
+    snippetExplanation: `${snippetData.snippetExplanation || codeExample.explanation || ''}`.trim(),
   };
 }
 
@@ -161,13 +162,14 @@ function resolveClassroomMode({ chunk, plan, checkpointText, snippetData }) {
   const visualType = plan.visual_priority || chunk.visualMode || 'none';
   const isTechnical = plan.concept_type === 'technical' || Boolean(snippetData);
 
-  // Code: AI explicitly set visual_mode "code", OR snippet was detected
-  if (visualType === 'code' || (isTechnical && snippetData)) return 'code_walkthrough';
+  // AI-explicit rich visual modes take priority — never override with snippet/technical detection
+  if (visualType === 'comparison_table') return 'comparison_explainer';
+  if (visualType === 'flowchart') return 'flowchart_explainer';
   // Diagram: AI generated actual diagram nodes (highest-fidelity signal)
   if (chunk.diagramData?.nodes?.length) return 'diagram_explainer';
-  if (visualType === 'flowchart') return 'flowchart_explainer';
-  if (visualType === 'comparison_table') return 'comparison_explainer';
   if (visualType === 'diagram' || visualType === 'mixed') return 'diagram_explainer';
+  // Code: AI explicitly set visual_mode "code", OR a real snippet was detected
+  if (visualType === 'code' || (isTechnical && snippetData)) return 'code_walkthrough';
   if (plan.concept_type === 'memorization-heavy') return checkpointText ? 'checkpoint' : 'recap';
   if (plan.use_whiteboard || visualType === 'whiteboard' || plan.concept_type === 'foundational' || plan.use_analogy) return 'whiteboard_notes';
   if (plan.use_slide && Array.isArray(chunk.slideBullets) && chunk.slideBullets.length > 0) return 'slide_summary';
@@ -175,7 +177,15 @@ function resolveClassroomMode({ chunk, plan, checkpointText, snippetData }) {
   return 'narration_only';
 }
 
-function buildBoardContent({ lecture, chunk, plan, classroomMode, snippetData, checkpointText }) {
+function sanitizeNodeLabels(nodes, language) {
+  if (language !== 'Urdu') return nodes;
+  return (nodes || []).map((node) => ({
+    ...node,
+    label: /[\u0600-\u06FF]/.test(`${node.label || ''}`) ? (`${node.id || ''}`.trim() || node.label) : node.label
+  }));
+}
+
+function buildBoardContent({ lecture, chunk, plan, classroomMode, snippetData, checkpointText, language }) {
   const whiteboardNotes = splitIntoTeachingNotes(
     chunk.whiteboardExplanation,
     [chunk.learningObjective, ...(chunk.slideBullets || []), ...(chunk.keyTerms || [])]
@@ -198,12 +208,12 @@ function buildBoardContent({ lecture, chunk, plan, classroomMode, snippetData, c
       };
     case 'diagram_explainer': {
       // Prefer AI-generated diagramData nodes (highest fidelity), fall back to visualData
-      const diagNodes = chunk.diagramData?.nodes || (Array.isArray(visualData.nodes) ? visualData.nodes : []);
+      const rawDiagNodes = chunk.diagramData?.nodes || (Array.isArray(visualData.nodes) ? visualData.nodes : []);
       return {
         type: 'diagram',
         title: chunk.title,
         caption: chunk.visualCaption || '',
-        nodes: diagNodes.slice(0, 6),
+        nodes: sanitizeNodeLabels(rawDiagNodes.slice(0, 6), language),
       };
     }
     case 'flowchart_explainer': {
@@ -222,8 +232,8 @@ function buildBoardContent({ lecture, chunk, plan, classroomMode, snippetData, c
         rows: Array.isArray(visualData.rows) ? visualData.rows.slice(0, 5) : [],
       };
     case 'code_walkthrough': {
-      // Prefer AI-generated code_example, fall back to detected snippetData
-      const ce = chunk.codeExample || {};
+      // Prefer AI-generated codeExample (stored inside visualData for DB persistence), fall back to detected snippetData
+      const ce = chunk.visualData?.codeExample || chunk.codeExample || {};
       return {
         type: 'code',
         title: chunk.title,
@@ -302,7 +312,8 @@ function buildPanelContent(chunk, visualSuggestion, plan, checkpointText, classr
   };
 }
 
-function buildNarrationSegments({ chunk, plan, checkpointText, resumeText }) {
+function buildNarrationSegments({ chunk, plan, checkpointText, resumeText, language }) {
+  const isUrdu = language === 'Urdu';
   const segments = [];
 
   if (resumeText || plan.transition_in) {
@@ -314,15 +325,22 @@ function buildNarrationSegments({ chunk, plan, checkpointText, resumeText }) {
   }
 
   if (plan.use_example && chunk.examples?.[0]) {
-    segments.push(`For example, ${chunk.examples[0].replace(/^[A-Z]/, (char) => char.toLowerCase())}`);
+    const example = chunk.examples[0].replace(/^[A-Z]/, (char) => char.toLowerCase());
+    segments.push(isUrdu ? `مثال کے طور پر، ${example}` : `For example, ${example}`);
   }
 
   if (plan.use_analogy && chunk.analogyIfHelpful) {
-    segments.push(`A simple way to picture it is this: ${chunk.analogyIfHelpful}`);
+    segments.push(isUrdu
+      ? `اسے سمجھنے کا آسان طریقہ یہ ہے: ${chunk.analogyIfHelpful}`
+      : `A simple way to picture it is this: ${chunk.analogyIfHelpful}`
+    );
   }
 
   if (checkpointText) {
-    segments.push(`Before we move on, think about this: ${checkpointText}`);
+    segments.push(isUrdu
+      ? `آگے بڑھنے سے پہلے، اس پر غور کریں: ${checkpointText}`
+      : `Before we move on, think about this: ${checkpointText}`
+    );
   } else if (plan.transition_out) {
     segments.push(plan.transition_out);
   }
@@ -356,7 +374,15 @@ function shouldUseAiPlanner(plan, chunk, session) {
   return signals.filter(Boolean).length >= 2;
 }
 
+function detectLanguage(language, chunk) {
+  if (language === 'Urdu') return 'Urdu';
+  // Auto-detect from stored chunk content — handles cases where language param is missing
+  const text = `${chunk?.title || ''} ${chunk?.spokenExplanation || ''}`;
+  return /[\u0600-\u06FF]/.test(text) ? 'Urdu' : (language || 'English');
+}
+
 async function getTeachingDecision({ lecture, chunk, session, visualSuggestion, previousChunk, nextChunk, language }) {
+  language = detectLanguage(language, chunk);
   const sequence = normalizeSequence(chunk.teachingSequence, chunk.visualMode);
   const cacheKey = `${chunk.id || `${chunk.sectionIndex}-${chunk.chunkIndex}`}`;
   const cachedPlan = session?.teachingState?.chunkPlanCache?.[cacheKey] || null;
@@ -402,6 +428,22 @@ async function getTeachingDecision({ lecture, chunk, session, visualSuggestion, 
     }
   }
 
+  // For Urdu courses, override any English transition/checkpoint text.
+  // A text is "English" if its first non-space character is a Latin letter — even if an
+  // Urdu title is embedded inside it (e.g. "Next, let's make سی++ clear and practical.").
+  if (language === 'Urdu') {
+    const startsWithLatin = (text) => /^[A-Za-z]/.test(`${text || ''}`.trimStart());
+    if (finalPlan.transition_in && startsWithLatin(finalPlan.transition_in)) {
+      finalPlan = { ...finalPlan, transition_in: `آئیے اب ${chunk.title || ''} کو سمجھتے ہیں۔` };
+    }
+    if (finalPlan.transition_out && startsWithLatin(finalPlan.transition_out)) {
+      finalPlan = { ...finalPlan, transition_out: `آگے بڑھنے سے پہلے اس نکتے کو ذہن میں رکھیں۔` };
+    }
+    if (finalPlan.checkpoint_text && startsWithLatin(finalPlan.checkpoint_text)) {
+      finalPlan = { ...finalPlan, checkpoint_text: chunk.checkpointQuestion || '' };
+    }
+  }
+
   const resumeText = session?.teachingState?.resumePending
     ? `${session?.teachingState?.resumeLeadIn || ''}`.trim()
     : '';
@@ -419,7 +461,8 @@ async function getTeachingDecision({ lecture, chunk, session, visualSuggestion, 
     plan: finalPlan,
     classroomMode,
     snippetData,
-    checkpointText
+    checkpointText,
+    language
   });
   const supportPanel = buildSupportPanel({
     chunk,
@@ -440,7 +483,8 @@ async function getTeachingDecision({ lecture, chunk, session, visualSuggestion, 
     chunk,
     plan: finalPlan,
     checkpointText,
-    resumeText
+    resumeText,
+    language
   });
   const narrationText = composeNarration(narrationSegments);
 

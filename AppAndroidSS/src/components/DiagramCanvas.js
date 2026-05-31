@@ -4,10 +4,10 @@ import Svg, { Defs, Marker, Polygon, Path } from 'react-native-svg';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-const NODE_W = 108;
-const NODE_H = 40;
-const COL_GAP = 52;
-const ROW_GAP = 44;
+const NODE_W = 160;
+const NODE_H = 54;
+const COL_GAP = 88;
+const ROW_GAP = 52;
 const PAD = 16;
 const NODES_PER_ROW = 3;
 
@@ -84,6 +84,14 @@ function buildEdgePath(fromNode, toNode) {
   // Curved bezier for vertical offsets
   const cx = (x1 + x2) / 2;
   return `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`;
+}
+
+function hexToRgba(hex, alpha) {
+  if (!hex || !hex.startsWith('#') || hex.length < 7) return `rgba(99,102,241,${alpha})`;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export default function DiagramCanvas({ diagramData, currentStep, isDark, width }) {
@@ -198,13 +206,32 @@ export default function DiagramCanvas({ diagramData, currentStep, isDark, width 
         })}
       </Svg>
 
+      {/* Edge labels — floated above the gap between nodes, never overlapping node boxes */}
+      {edges.map((edge, i) => {
+        if (!edge.label) return null;
+        const fromNode = nodeMap.get(edge.from);
+        const toNode = nodeMap.get(edge.to);
+        if (!fromNode || !toNode || !revealedEdgeSources.has(edge.from)) return null;
+        const gapLeft = (fromNode.x + NODE_W) * scale;
+        const gapRight = toNode.x * scale;
+        const gapWidth = Math.max(gapRight - gapLeft, 24);
+        const midY = ((fromNode.y + NODE_H / 2 + toNode.y + NODE_H / 2) / 2 - (minY < PAD ? minY - PAD : 0)) * scale;
+        return (
+          <View key={`elabel-${i}`} style={{ position: 'absolute', left: gapLeft, top: midY - 16, width: gapWidth, alignItems: 'center' }}>
+            <Text style={styles.edgeLabel}>{edge.label}</Text>
+          </View>
+        );
+      })}
+
       {/* Node views — absolutely positioned for RN Animated support */}
       <View style={{ width: maxX * scale, height: canvasH * scale }}>
         {laidOut.map((node) => {
           const anim = nodeAnims.current[node.id];
-          const nodeColor = node.color || '#3b82f6';
-          const nodeBg = isDark ? '#1e293b' : '#f0f7ff';
-          const textColor = isDark ? '#e2e8f0' : '#1e3a5f';
+          const nodeColor = node.color || (node.emphasis === 'primary' ? '#6366f1' : '#3b82f6');
+          const nodeBg = isDark
+            ? hexToRgba(nodeColor, 0.18)
+            : hexToRgba(nodeColor, 0.12);
+          const textColor = '#ffffff';
           const borderRadius = node.shape === 'oval' ? NODE_H / 2 : node.shape === 'diamond' ? 6 : 8;
 
           return (
@@ -227,7 +254,7 @@ export default function DiagramCanvas({ diagramData, currentStep, isDark, width 
             >
               <View style={[styles.nodeAccent, { backgroundColor: nodeColor, width: 3, borderRadius: 2 }]} />
               <Text
-                style={[styles.nodeLabel, { color: textColor, fontSize: Math.max(9, 11 * scale) }]}
+                style={[styles.nodeLabel, { color: textColor, fontSize: Math.max(11, 12 * scale) }]}
                 numberOfLines={2}
               >
                 {node.label}
@@ -260,7 +287,13 @@ const styles = StyleSheet.create({
   },
   nodeLabel: {
     flex: 1,
-    fontWeight: '500',
-    lineHeight: 13,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  edgeLabel: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

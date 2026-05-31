@@ -13,7 +13,11 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import UserAvatar from '../../components/ui/UserAvatar';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown, FadeIn,
+  useSharedValue, useAnimatedStyle, withSpring, withTiming,
+} from 'react-native-reanimated';
+import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
 import MainLayout from '../../components/ui/MainLayout';
 import MarkdownText from '../../components/ui/MarkdownText';
@@ -57,7 +61,28 @@ const AIChatScreen = () => {
   const [speakLoading, setSpeakLoading] = useState(false);
 
   // Responsive sidebar width
-  const sidebarWidth = isLarge ? 260 : isPhone ? width * 0.75 : 220;
+  const sidebarWidth = isLarge ? 260 : isPhone ? width * 0.78 : 220;
+
+  // Mobile sidebar animation
+  const mobileSidebarX = useSharedValue(-sidebarWidth);
+  const mobileSidebarBackdrop = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isPhone) return;
+    mobileSidebarX.value = sidebarOpen
+      ? withSpring(0, { damping: 20, stiffness: 130 })
+      : withTiming(-sidebarWidth, { duration: 200 });
+    mobileSidebarBackdrop.value = sidebarOpen
+      ? withTiming(0.7, { duration: 220 })
+      : withTiming(0, { duration: 180 });
+  }, [sidebarOpen, isPhone, sidebarWidth]);
+
+  const mobileSidebarAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: mobileSidebarX.value }],
+  }));
+  const mobileSidebarBackdropStyle = useAnimatedStyle(() => ({
+    opacity: mobileSidebarBackdrop.value,
+  }));
 
   const scrollViewRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -427,72 +452,83 @@ const AIChatScreen = () => {
 
   // ─── Sidebar ──────────────────────────────────────────────────────
 
-  const renderSidebar = () => (
-    <View style={[styles.sidebar, {
-      width: sidebarWidth,
-      backgroundColor: isDark ? theme.colors.background : '#f9f9f9',
-      borderRightColor: theme.colors.border,
-    }]}>
-      {/* Logo + title + close button on mobile */}
-      <View style={[styles.sidebarTop, { borderBottomColor: theme.colors.border }]}>
-        <View style={styles.sidebarBrandRow}>
-          <MCIcon name="robot" size={18} color={theme.colors.primary} />
-          <Text style={[styles.sidebarBrandText, { color: theme.colors.textPrimary }]}>SkillSphere AI</Text>
-          {isPhone && (
-            <TouchableOpacity
-              style={[styles.closeSidebarBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : theme.colors.backgroundSecondary }]}
-              onPress={() => setSidebarOpen(false)}
-            >
-              <Icon name="close" size={20} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity
-          style={[styles.newChatBtn, { backgroundColor: theme.colors.primary }]}
-          onPress={handleNewChat}
-        >
-          <Icon name="create-outline" size={16} color="#fff" />
-          <Text style={styles.newChatBtnText}>New chat</Text>
-        </TouchableOpacity>
-      </View>
+  const glassBg = 'rgba(15,15,35,0.96)';
 
-      {/* Sessions list */}
-      <ScrollView style={styles.sessionsList} showsVerticalScrollIndicator={false}>
-        {sessions.length === 0 ? (
-          <View style={styles.emptySessionsBox}>
-            <Icon name="chatbubbles-outline" size={32} color={theme.colors.textTertiary} />
-            <Text style={[styles.emptySessionsText, { color: theme.colors.textTertiary }]}>No chats yet</Text>
-          </View>
-        ) : (
-          sessions.map(session => {
-            const active = currentSession?.id === session.id;
-            return (
-              <TouchableOpacity
-                key={session.id}
-                style={[
-                  styles.sessionRow,
-                  active && { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : theme.colors.primary + '12' },
-                ]}
-                onPress={() => loadSession(session.id)}
-              >
-                <Icon name="chatbubble-outline" size={14} color={active ? theme.colors.primary : theme.colors.textTertiary} />
-                <Text
-                  style={[styles.sessionTitle, { color: active ? theme.colors.primary : theme.colors.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {session.title || 'New Chat'}
-                </Text>
-                <Text style={[styles.sessionDate, { color: theme.colors.textTertiary }]}>
-                  {formatDate(session.lastMessageAt || session.createdAt)}
-                </Text>
-                <TouchableOpacity onPress={() => handleDeleteSession(session.id)} style={styles.deleteBtn}>
-                  <Icon name="trash-outline" size={13} color={theme.colors.error} />
-                </TouchableOpacity>
+  // Shared content — renders in both desktop (themed) and mobile (glass) variants
+  const SidebarContent = ({ glass = false }) => {
+    const txtPrimary  = glass ? '#FFFFFF'                 : theme.colors.textPrimary;
+    const txtTertiary = glass ? 'rgba(255,255,255,0.35)'  : theme.colors.textTertiary;
+    const divider     = glass ? 'rgba(255,255,255,0.1)'   : theme.colors.border;
+    const activeRowBg = glass ? 'rgba(255,140,66,0.15)'   : (isDark ? 'rgba(255,255,255,0.08)' : theme.colors.primary + '12');
+    const activeTxt   = glass ? '#FF8C42'                 : theme.colors.primary;
+
+    return (
+      <View style={{ flex: 1, flexDirection: 'column', minHeight: 0 }}>
+        <View style={[styles.sidebarTop, { borderBottomColor: divider }]}>
+          <View style={styles.sidebarBrandRow}>
+            <MCIcon name="robot" size={18} color="#FF8C42" />
+            <Text style={[styles.sidebarBrandText, { color: txtPrimary }]}>SkillSphere AI</Text>
+            {glass && (
+              <TouchableOpacity style={styles.closeSidebarBtn} onPress={() => setSidebarOpen(false)}>
+                <Icon name="close" size={20} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+            )}
+          </View>
+          <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat}>
+            <Icon name="create-outline" size={15} color="#fff" />
+            <Text style={styles.newChatBtnText}>New chat</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.sessionsList} showsVerticalScrollIndicator={false}>
+          {sessions.length === 0 ? (
+            <View style={styles.emptySessionsBox}>
+              <Icon name="chatbubbles-outline" size={32} color={txtTertiary} />
+              <Text style={[styles.emptySessionsText, { color: txtTertiary }]}>No chats yet</Text>
+            </View>
+          ) : (
+            sessions.map(session => {
+              const active = currentSession?.id === session.id;
+              return (
+                <TouchableOpacity
+                  key={session.id}
+                  style={[styles.sessionRow, active && { backgroundColor: activeRowBg }]}
+                  onPress={() => loadSession(session.id)}
+                >
+                  <Icon name="chatbubble-outline" size={14} color={active ? activeTxt : txtTertiary} />
+                  <Text style={[styles.sessionTitle, { color: active ? activeTxt : txtPrimary }]} numberOfLines={1}>
+                    {session.title || 'New Chat'}
+                  </Text>
+                  <Text style={[styles.sessionDate, { color: txtTertiary }]}>
+                    {formatDate(session.lastMessageAt || session.createdAt)}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleDeleteSession(session.id)} style={styles.deleteBtn}>
+                    <Icon name="trash-outline" size={13} color={glass ? 'rgba(255,100,100,0.8)' : theme.colors.error} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderSidebar = () => (
+    <View style={{ width: sidebarWidth, flexDirection: 'row' }}>
+      <View style={{ flex: 1, backgroundColor: isDark ? theme.colors.background : '#ffffff', flexDirection: 'column', overflow: 'hidden' }}>
+        <SidebarContent glass={false} />
+      </View>
+      {isWeb ? (
+        <View style={{ width: 2, alignSelf: 'stretch', background: 'linear-gradient(180deg, #FF8C42, #7C6FCD)' }} />
+      ) : (
+        <LinearGradient
+          colors={['#FF8C42', '#7C6FCD']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{ width: 2 }}
+        />
+      )}
     </View>
   );
 
@@ -532,19 +568,46 @@ const AIChatScreen = () => {
 
         {/* ── Chat history sidebar ── */}
         {isPhone ? (
-          /* Phone: absolute overlay with backdrop */
-          sidebarOpen && (
-            <>
-              <TouchableOpacity
-                style={styles.backdrop}
-                activeOpacity={1}
-                onPress={() => setSidebarOpen(false)}
-              />
-              <View style={[styles.sidebarOverlay, { width: sidebarWidth }]}>
-                {renderSidebar()}
-              </View>
-            </>
-          )
+          /* Phone: animated glass overlay with gradient border */
+          <>
+            {/* Blurred backdrop */}
+            <Animated.View
+              style={[styles.backdrop, mobileSidebarBackdropStyle]}
+              pointerEvents={sidebarOpen ? 'auto' : 'none'}
+            >
+              <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setSidebarOpen(false)} />
+            </Animated.View>
+
+            {/* Sliding panel */}
+            <Animated.View style={[styles.mobileSidebarWrapper, mobileSidebarAnimStyle, { width: sidebarWidth + 4 }]}>
+              {isWeb ? (
+                /* Web: CSS gradient border */
+                <View style={{
+                  flex: 1,
+                  borderTopRightRadius: 24,
+                  borderBottomRightRadius: 24,
+                  padding: 2,
+                  background: 'linear-gradient(180deg, #FF8C42, #7C6FCD)',
+                }}>
+                  <View style={[styles.mobileSidebarInner, { backgroundColor: isDark ? theme.colors.background : '#ffffff' }]}>
+                    <SidebarContent glass={false} />
+                  </View>
+                </View>
+              ) : (
+                /* Native: LinearGradient border */
+                <LinearGradient
+                  colors={['#FF8C42', '#7C6FCD']}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={{ flex: 1, borderTopRightRadius: 24, borderBottomRightRadius: 24, padding: 2 }}
+                >
+                  <View style={[styles.mobileSidebarInner, { backgroundColor: isDark ? theme.colors.background : '#ffffff' }]}>
+                    <SidebarContent glass={false} />
+                  </View>
+                </LinearGradient>
+              )}
+            </Animated.View>
+          </>
         ) : (
           /* Tablet / desktop: sidebar pushes content */
           sidebarOpen && renderSidebar()
@@ -670,15 +733,21 @@ const styles = StyleSheet.create({
   backdrop: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     zIndex: 10,
   },
-  sidebarOverlay: {
+  mobileSidebarWrapper: {
     position: 'absolute',
     top: 0,
     left: 0,
     bottom: 0,
     zIndex: 11,
+  },
+  mobileSidebarInner: {
+    flex: 1,
+    borderTopRightRadius: 22,
+    borderBottomRightRadius: 22,
+    overflow: 'hidden',
   },
   sidebar: {
     borderRightWidth: 1,
@@ -703,6 +772,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -713,6 +783,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     borderRadius: 10,
+    backgroundColor: '#FF8C42',
   },
   newChatBtnText: {
     color: '#fff',
@@ -721,6 +792,7 @@ const styles = StyleSheet.create({
   },
   sessionsList: {
     flex: 1,
+    minHeight: 0,
     paddingVertical: 8,
   },
   sessionRow: {

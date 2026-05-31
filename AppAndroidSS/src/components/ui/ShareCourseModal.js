@@ -5,12 +5,14 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+import { slugify } from '../../utils/urlHelpers';
+
 const ORANGE  = '#FF8C42';
 const NAVY    = '#1A1A2E';
 const SITE_BASE = 'https://skillsphere.com.pk';
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-const buildShareUrl  = (course) => `${SITE_BASE}/explore/${course.id}`;
+const buildShareUrl  = (course) =>
+  `${SITE_BASE}/explore/${course.id}/${slugify(course.name)}`;
 const buildShareText = (course) => {
   const desc = course.description
     ? (course.description.length > 120

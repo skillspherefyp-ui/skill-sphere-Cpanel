@@ -19,7 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import MainLayout from '../../components/ui/MainLayout';
 import AppCard from '../../components/ui/AppCard';
 import Skeleton, { SkeletonDashboardStats } from '../../components/ui/Skeleton';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const ORANGE = '#FF8C42';
@@ -729,7 +729,7 @@ const ExpertDashboard = () => {
                   <View style={[styles.tableCell, styles.actionColumn]}>
                     <TouchableOpacity
                       style={[styles.viewDetailsButton, { borderColor: theme.colors.primary }]}
-                      onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                      onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                     >
                       <Text style={[styles.viewDetailsText, { color: theme.colors.primary }]}>
                         Review

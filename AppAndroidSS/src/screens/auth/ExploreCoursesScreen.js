@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Image, Platform, useWindowDimensions, ActivityIndicator,
+  TextInput, Image, useWindowDimensions, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
-import ThemeToggle from '../../components/ThemeToggle';
+import AppHeader from '../../components/ui/AppHeader';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { categoryAPI, courseAPI } from '../../services/apiClient';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
+import { Helmet } from 'react-helmet-async';
 
-const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
 const NAVY2  = '#16213E';
+
 
 const CAT_COLORS = {
   Programming: '#6366F1', Technology: '#6366F1', Design: '#EC4899',
@@ -21,61 +22,6 @@ const CAT_COLORS = {
   Marketing: '#F59E0B', General: ORANGE,
 };
 
-// ── Navbar ────────────────────────────────────────────────────────────────────
-const Navbar = ({ navigation, isDark, isMobile }) => {
-  const isWeb = Platform.OS === 'web';
-  const stickyStyle = isWeb ? { position: 'sticky', top: 0, zIndex: 999 } : {};
-
-  return (
-    <View style={[
-      nb.container,
-      { background: 'linear-gradient(135deg, #1A1A2E 0%, #1E1E38 100%)' },
-      stickyStyle,
-    ]}>
-      <View style={nb.content}>
-        {/* Left: back + logo */}
-        <View style={nb.left}>
-          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Landing')} style={nb.backBtn} activeOpacity={0.7}>
-            <Icon name="arrow-back" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Image source={LOGO} style={nb.logoImg} resizeMode="cover" />
-          <Text style={nb.logoText}>
-            SKILL<Text style={{ color: ORANGE }}>SPHERE</Text>
-          </Text>
-        </View>
-
-        {/* Right */}
-        <View style={nb.right}>
-          <ThemeToggle iconColor="#FFFFFF" />
-          {!isMobile && (
-            <>
-              <TouchableOpacity style={nb.signInBtn} onPress={() => navigation.navigate('Login')}>
-                <Text style={nb.signInText}>Sign In</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={nb.getStartedBtn} onPress={() => navigation.navigate('Signup')}>
-                <Text style={nb.getStartedText}>Get Started</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const nb = StyleSheet.create({
-  container: { height: 62, paddingHorizontal: 20, backgroundColor: NAVY, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 10 },
-  content: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  left: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
-  logoImg: { width: 32, height: 32, borderRadius: 8 },
-  logoText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14, letterSpacing: 1.2 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  signInBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
-  signInText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  getStartedBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10, backgroundColor: ORANGE, borderWidth: 1, borderColor: '#E77828', shadowColor: '#C96A24', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 6, elevation: 3 },
-  getStartedText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-});
 
 // ── Course Card ───────────────────────────────────────────────────────────────
 const CourseCard = ({ course, isDark, theme, isMobile, isTablet, onDetails, onEnroll }) => {
@@ -230,7 +176,52 @@ const ExploreCoursesScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgMain }}>
-      <Navbar navigation={navigation} isDark={isDark} isMobile={isMobile} />
+      <Helmet>
+        <title>Explore Courses - SkillSphere Pakistan</title>
+        <meta name="description" content="Browse hundreds of expert-led online courses on SkillSphere. Learn programming, cybersecurity, data science, business, design and more in Pakistan." />
+        <link rel="canonical" href="https://skillsphere.com.pk/explore" />
+      </Helmet>
+      <AppHeader
+        showBack={true}
+        showDateTime={false}
+        minimal={true}
+        title="Explore Courses"
+        rightActions={!isMobile ? (
+          <>
+            <TouchableOpacity style={ec.signInBtn} onPress={() => navigation.navigate('Login')}>
+              <Text style={ec.signInText}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={ec.getStartedBtn} onPress={() => navigation.navigate('Signup')}>
+              <Text style={ec.getStartedText}>Get Started</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
+        mobileDropdownFooter={(close) => (
+          <>
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4, marginHorizontal: 12 }} />
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 6, marginVertical: 1, borderRadius: 12, gap: 12 }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('Login'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,140,66,0.1)' }}>
+                <Icon name="log-in-outline" size={18} color="#FF8C42" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 6, marginVertical: 1, borderRadius: 12, gap: 12 }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('Signup'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,140,66,0.1)' }}>
+                <Icon name="rocket-outline" size={18} color="#FF8C42" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Get Started</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: maxW, alignSelf: 'center', width: '100%' }}>
@@ -346,7 +337,7 @@ const ExploreCoursesScreen = () => {
                         <CourseCard
                           course={course} isDark={isDark} theme={theme}
                           isMobile={false} isTablet={isTablet}
-                          onDetails={() => navigation.navigate('ExploreCourseDetail', { courseId: course.id })}
+                          onDetails={() => navigation.navigate('ExploreCourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                           onEnroll={() => navigation.navigate('Signup')}
                         />
                       </View>
@@ -364,7 +355,7 @@ const ExploreCoursesScreen = () => {
                   key={course.id}
                   course={course} isDark={isDark} theme={theme}
                   isMobile={true} isTablet={false}
-                  onDetails={() => navigation.navigate('ExploreCourseDetail', { courseId: course.id })}
+                  onDetails={() => navigation.navigate('ExploreCourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                   onEnroll={() => navigation.navigate('Signup')}
                 />
               ));
@@ -418,6 +409,13 @@ const s = StyleSheet.create({
   ctaSub: { fontSize: 15, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 24, maxWidth: 480 },
   ctaBtnPrimary: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12, backgroundColor: ORANGE, borderWidth: 1, borderColor: '#E77828', shadowColor: '#C96A24', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 3 },
   ctaBtnSecondary: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' },
+});
+
+const ec = StyleSheet.create({
+  signInBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
+  signInText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  getStartedBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: ORANGE, borderWidth: 1, borderColor: '#E77828' },
+  getStartedText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 });
 
 export default ExploreCoursesScreen;

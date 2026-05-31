@@ -70,8 +70,8 @@ const MainLayout = ({
   ) : null;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: '#1A1A2E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
 
       <View style={styles.container}>
 

@@ -32,9 +32,12 @@ const todoRoutes = require('./routes/todoRoutes');
 const discussionRoutes = require('./routes/discussionRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const blogRoutes = require('./routes/blogRoutes');
+const bulkEmailRoutes = require('./routes/bulkEmailRoutes');
+const newsletterRoutes = require('./routes/newsletterRoutes');
 const { initScheduledReminders } = require('./controllers/todoController');
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (cPanel/Nginx)
 const PORT = process.env.PORT || 5000;
 
 function normalizeOrigin(origin) {
@@ -207,6 +210,8 @@ app.use('/api/todos', todoRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/bulk-email', bulkEmailRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -237,6 +242,16 @@ async function startServer() {
         }
       },
     });
+
+    // Fix materials.extractedText charset to support non-Latin text (Urdu, Arabic, etc.)
+    try {
+      await sequelize.query(
+        'ALTER TABLE materials MODIFY COLUMN extractedText LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+      );
+      console.log('✅ materials.extractedText charset ensured (utf8mb4)');
+    } catch (e) {
+      // Ignore if already correct or table doesn't exist yet
+    }
 
     // Admin account check
     const adminEmail = process.env.ADMIN_EMAIL;

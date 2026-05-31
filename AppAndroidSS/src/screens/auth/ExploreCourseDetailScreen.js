@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, Platform, useWindowDimensions, ActivityIndicator,
+  Image, useWindowDimensions, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
-import ThemeToggle from '../../components/ThemeToggle';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import AppHeader from '../../components/ui/AppHeader';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { courseAPI } from '../../services/apiClient';
 import { resolveFileUrl } from '../../utils/urlHelpers';
 import ShareCourseModal from '../../components/ui/ShareCourseModal';
 
-const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
 const NAVY2  = '#16213E';
@@ -22,52 +21,56 @@ const CAT_COLORS = {
   Marketing: '#F59E0B', General: ORANGE,
 };
 
-// ── Navbar ────────────────────────────────────────────────────────────────────
-const Navbar = ({ navigation, isDark, isMobile }) => {
-  const isWeb = Platform.OS === 'web';
-  const stickyStyle = isWeb ? { position: 'sticky', top: 0, zIndex: 999 } : {};
-
-  return (
-    <View style={[nb.container, { background: 'linear-gradient(135deg, #1A1A2E 0%, #1E1E38 100%)' }, stickyStyle]}>
-      <View style={nb.content}>
-        <View style={nb.left}>
-          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ExploreCourses')} style={nb.backBtn} activeOpacity={0.7}>
-            <Icon name="arrow-back" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Image source={LOGO} style={nb.logoImg} resizeMode="cover" />
-          <Text style={nb.logoText}>
-            SKILL<Text style={{ color: ORANGE }}>SPHERE</Text>
-          </Text>
-        </View>
-        <View style={nb.right}>
-          <ThemeToggle iconColor="#FFFFFF" />
-          {!isMobile && (
-            <>
-              <TouchableOpacity style={nb.signInBtn} onPress={() => navigation.navigate('Login')}>
-                <Text style={nb.signInText}>Sign In</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={nb.getStartedBtn} onPress={() => navigation.navigate('Signup')}>
-                <Text style={nb.getStartedText}>Get Started</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-};
+const ecNavHeader = (navigation, onBack, isMobile) => (
+  <AppHeader
+    showBack={true}
+    forceShowBack={true}
+    onBack={onBack}
+    showDateTime={false}
+    minimal={true}
+    title="Course Details"
+    rightActions={!isMobile ? (
+      <>
+        <TouchableOpacity style={nb.signInBtn} onPress={() => navigation.navigate('Login')}>
+          <Text style={nb.signInText}>Sign In</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={nb.getStartedBtn} onPress={() => navigation.navigate('Signup')}>
+          <Text style={nb.getStartedText}>Get Started</Text>
+        </TouchableOpacity>
+      </>
+    ) : null}
+    mobileDropdownFooter={(close) => (
+      <>
+        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4, marginHorizontal: 12 }} />
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 6, marginVertical: 1, borderRadius: 12, gap: 12 }}
+          onPress={() => { close(); setTimeout(() => navigation.navigate('Login'), 100); }}
+          activeOpacity={0.7}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,140,66,0.1)' }}>
+            <Icon name="log-in-outline" size={18} color="#FF8C42" />
+          </View>
+          <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Sign In</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 6, marginVertical: 1, borderRadius: 12, gap: 12 }}
+          onPress={() => { close(); setTimeout(() => navigation.navigate('Signup'), 100); }}
+          activeOpacity={0.7}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,140,66,0.1)' }}>
+            <Icon name="rocket-outline" size={18} color="#FF8C42" />
+          </View>
+          <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Get Started</Text>
+        </TouchableOpacity>
+      </>
+    )}
+  />
+);
 
 const nb = StyleSheet.create({
-  container: { height: 62, paddingHorizontal: 20, backgroundColor: NAVY, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 10 },
-  content: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  left: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
-  logoImg: { width: 46, height: 46, borderRadius: 13 },
-  logoText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16, letterSpacing: 1.2 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  signInBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
+  signInBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
   signInText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  getStartedBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10, backgroundColor: ORANGE, borderWidth: 1, borderColor: '#E77828', shadowColor: '#C96A24', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 6, elevation: 3 },
+  getStartedBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: ORANGE, borderWidth: 1, borderColor: '#E77828' },
   getStartedText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 });
 
@@ -135,7 +138,16 @@ const ExploreCourseDetailScreen = () => {
   const catColor = CAT_COLORS[catName] || ORANGE;
   const thumb    = course?.thumbnailImage ? resolveFileUrl(course.thumbnailImage) : null;
 
-  const renderNav = () => <Navbar navigation={navigation} isDark={isDark} isMobile={isMobile} />;
+  const renderNav = () => ecNavHeader(navigation, () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.dispatch(CommonActions.reset({
+        index: 1,
+        routes: [{ name: 'Landing' }, { name: 'ExploreCourses' }],
+      }));
+    }
+  }, isMobile);
 
   if (loading) {
     return (

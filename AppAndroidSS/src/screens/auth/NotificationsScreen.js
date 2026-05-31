@@ -9,6 +9,7 @@ import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
+import { getSidebarItems } from '../../utils/sidebarItems';
 
 const ORANGE = '#FF8C42';
 const RED = '#EF4444';
@@ -33,38 +34,7 @@ const NotificationsScreen = () => {
   }, []);
 
   const role = user?.role;
-
-  const sidebarItems = role === 'instructor'
-    ? [
-        { label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid', route: 'Dashboard' },
-        { label: 'Courses', icon: 'library-outline', iconActive: 'library', route: 'Courses' },
-        { label: 'Students', icon: 'people-outline', iconActive: 'people', route: 'Students' },
-        { label: 'Experts', icon: 'person-outline', iconActive: 'person', route: 'Experts' },
-        { label: 'Categories', icon: 'pricetag-outline', iconActive: 'pricetag', route: 'Categories' },
-        { label: 'Certificates', icon: 'ribbon-outline', iconActive: 'ribbon', route: 'Certificates' },
-      ]
-    : role === 'admin'
-    ? [
-        { label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid', route: 'Dashboard' },
-        { label: 'Instructors', icon: 'shield-outline', iconActive: 'shield', route: 'Instructors' },
-        { label: 'Students', icon: 'people-outline', iconActive: 'people', route: 'Students' },
-        { label: 'Experts', icon: 'person-outline', iconActive: 'person', route: 'Experts' },
-        { label: 'System', icon: 'settings-outline', iconActive: 'settings', route: 'System' },
-      ]
-    : role === 'expert'
-    ? [
-        { label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid', route: 'Dashboard' },
-        { label: 'My Courses', icon: 'library-outline', iconActive: 'library', route: 'Courses' },
-        { label: 'Feedback', icon: 'chatbubble-outline', iconActive: 'chatbubble', route: 'FeedbackForm' },
-      ]
-    : [
-        { label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid', route: 'Dashboard' },
-        { label: 'Browse Courses', icon: 'library-outline', iconActive: 'library', route: 'Courses' },
-        { label: 'My Learning', icon: 'school-outline', iconActive: 'school', route: 'EnrolledCourses' },
-        { label: 'AI Assistant', icon: 'sparkles-outline', iconActive: 'sparkles', route: 'AITutor' },
-        { label: 'Certificates', icon: 'ribbon-outline', iconActive: 'ribbon', route: 'Certificates' },
-        { label: 'Reminders', icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', route: 'Todo' },
-      ];
+  const sidebarItems = getSidebarItems(role);
 
   const handleNavigate = (route) => navigation.navigate(route);
 
@@ -120,7 +90,13 @@ const NotificationsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onLongPress={() => !selectMode && enterSelectMode(item.id)}
-          onPress={() => selectMode && toggleSelect(item.id)}
+          onPress={() => {
+            if (selectMode) {
+              toggleSelect(item.id);
+            } else {
+              navigation.navigate('NotificationDetail', { notification: item });
+            }
+          }}
         >
           <AppCard
             style={[
@@ -148,7 +124,7 @@ const NotificationsScreen = () => {
 
             <View style={styles.notificationContent}>
               <Text style={[styles.notificationTitle, { color: theme.colors.textPrimary }]}>{item.title}</Text>
-              <Text style={[styles.notificationMessage, { color: theme.colors.textSecondary }]}>{item.message}</Text>
+              <Text style={[styles.notificationMessage, { color: theme.colors.textSecondary }]} numberOfLines={3}>{item.message}</Text>
               <Text style={[styles.notificationDate, { color: theme.colors.textTertiary }]}>
                 {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : item.date}
               </Text>
@@ -231,7 +207,7 @@ const NotificationsScreen = () => {
     <MainLayout
       showSidebar={true}
       sidebarItems={sidebarItems}
-      activeRoute="Notifications"
+      activeRoute="Dashboard"
       onNavigate={handleNavigate}
     >
       <View style={[styles.content, { maxWidth, alignSelf: 'center', width: '100%' }]}>

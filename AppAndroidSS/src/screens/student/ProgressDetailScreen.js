@@ -8,6 +8,7 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import CircularProgress from '../../components/ui/CircularProgress';
 import EmptyState from '../../components/ui/EmptyState';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { slugify } from '../../utils/urlHelpers';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -130,7 +131,7 @@ const ProgressDetailScreen = () => {
           completedCourses.map(course => (
             <AppCard
               key={course.id}
-              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
               style={styles.courseCard}
             >
               <View style={styles.courseInfo}>
@@ -160,7 +161,7 @@ const ProgressDetailScreen = () => {
           inProgressCourses.map(course => (
             <AppCard
               key={course.id}
-              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
               style={styles.courseCard}
             >
               <View style={styles.courseInfo}>
@@ -197,7 +198,7 @@ const ProgressDetailScreen = () => {
             {notStartedCourses.map(course => (
               <AppCard
                 key={course.id}
-                onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                 style={styles.courseCard}
               >
                 <View style={styles.courseInfo}>

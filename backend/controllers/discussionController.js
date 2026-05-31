@@ -8,11 +8,11 @@ exports.getPosts = async (req, res) => {
     const posts = await DiscussionPost.findAll({
       where: { parentId: null },
       include: [
-        { model: User, as: 'author', attributes: ['id', 'name', 'role'] },
+        { model: User, as: 'author', attributes: ['id', 'name', 'role', 'profilePicture'] },
         {
           model: DiscussionPost,
           as: 'replies',
-          include: [{ model: User, as: 'author', attributes: ['id', 'name', 'role'] }],
+          include: [{ model: User, as: 'author', attributes: ['id', 'name', 'role', 'profilePicture'] }],
           separate: true,
           order: [['createdAt', 'ASC']],
         },
@@ -65,7 +65,7 @@ exports.createPost = async (req, res) => {
       parentId: parentId || null,
     });
     const full = await DiscussionPost.findByPk(post.id, {
-      include: [{ model: User, as: 'author', attributes: ['id', 'name', 'role'] }],
+      include: [{ model: User, as: 'author', attributes: ['id', 'name', 'role', 'profilePicture'] }],
     });
     res.status(201).json({ success: true, post: full });
   } catch (err) {

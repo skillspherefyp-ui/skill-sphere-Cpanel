@@ -19,7 +19,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const ORANGE = '#FF8C42';
@@ -91,7 +91,7 @@ const ExpertCourseListScreen = () => {
           },
         ]}
         activeOpacity={0.7}
-        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
       >
         {/* Thumbnail */}
         {course.thumbnailImage ? (
@@ -171,7 +171,7 @@ const ExpertCourseListScreen = () => {
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={[styles.actionBtn, styles.viewBtn, { backgroundColor: ORANGE, borderColor: ORANGE }]}
-              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
             >
               <Icon name="eye-outline" size={15} color="#FFFFFF" />
               <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>Review Course</Text>

@@ -259,6 +259,7 @@ export const courseAPI = {
     if (params.category) qs.set('category', params.category);
     if (params.level) qs.set('level', params.level);
     if (params.sort) qs.set('sort', params.sort);
+    if (params.instructorId) qs.set('instructorId', params.instructorId);
     const query = qs.toString();
     return get(`/courses${query ? `?${query}` : ''}`);
   },
@@ -345,28 +346,11 @@ export const certificateTemplateAPI = {
     const blob = await res.blob();
     return URL.createObjectURL(blob);
   },
-  uploadBackground: async (id, formData) => {
-    const token = await AsyncStorage.getItem('@skillsphere:token');
-    const headers = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(`${API_BASE}/certificate-templates/${id}/upload/background`, {
-      method: 'POST',
-      headers,
-      body: formData
-    });
-    return handleResponse(res);
-  },
-  uploadSignature: async (id, formData) => {
-    const token = await AsyncStorage.getItem('@skillsphere:token');
-    const headers = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(`${API_BASE}/certificate-templates/${id}/upload/signature`, {
-      method: 'POST',
-      headers,
-      body: formData
-    });
-    return handleResponse(res);
-  },
+  // Instructor signature — one per instructor, applies to all their templates
+  getMySignature: () => get('/certificate-templates/my-signature'),
+  saveMySignature: (signatureData) => post('/certificate-templates/my-signature', { signatureData }),
+  clearMySignature: () => del('/certificate-templates/my-signature'),
+  getSignatureImage: (id, courseId) => get(`/certificate-templates/${id}/signature-image${courseId ? `?courseId=${courseId}` : ''}`),
 };
 
 export const notificationAPI = {
@@ -434,6 +418,17 @@ export const blogAPI = {
 
 export const uploadAPI = {
   uploadFile: (formData) => uploadFile(formData),
+};
+
+export const bulkEmailAPI = {
+  getRecipients: () => get('/bulk-email/recipients'),
+  send: (data) => post('/bulk-email/send', data),
+};
+
+export const newsletterAPI = {
+  getSubscribers: () => get('/newsletter/subscribers'),
+  subscribe:   (userId) => post(`/newsletter/subscribe/${userId}`),
+  unsubscribe: (userId) => del(`/newsletter/unsubscribe/${userId}`),
 };
 
 export const lectureChatAPI = {
@@ -504,4 +499,6 @@ export default {
   streakAPI,
   todoAPI,
   discussionAPI,
+  bulkEmailAPI,
+  newsletterAPI,
 };

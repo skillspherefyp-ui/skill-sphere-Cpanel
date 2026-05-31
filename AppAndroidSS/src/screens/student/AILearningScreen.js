@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { slugify } from '../../utils/urlHelpers';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -384,7 +385,7 @@ const AILearningScreen = () => {
       const enrollment = await checkEnrollment(courseId);
       if (!enrollment.success || !enrollment.enrolled) {
         setIsEnrolled(false);
-        navigation.navigate('CourseDetail', { courseId });
+        navigation.navigate('CourseDetail', { courseId, courseName: slugify(course?.name) });
         return;
       }
 
@@ -1141,6 +1142,47 @@ const AILearningScreen = () => {
   const renderBoardSurface = () => {
     const diagramData = currentChunk?.diagramData;
 
+    // Safely parse JSON fields — Sequelize may return them as strings on some DB setups
+    const safeJSON = (raw) => {
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') return raw;
+      if (typeof raw === 'string') { try { return JSON.parse(raw); } catch { return null; } }
+      return null;
+    };
+    const safeBullets = (() => { const p = safeJSON(currentChunk.slideBullets); return Array.isArray(p) ? p : []; })();
+    const safeVisualData = (() => { const p = safeJSON(currentChunk.visualData); return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {}; })();
+
+    // Build effective board content — override narration fallback when visualMode has richer data
+    const vm = currentChunk.visualMode;
+    const effectiveBoard = (() => {
+      const base = boardContent;
+      // If backend returned narration but chunk has a real visual mode with bullets, override
+      if ((!base || base.type === 'narration') && safeBullets.length > 0) {
+        if (vm === 'flowchart')
+          return { type: 'flowchart', title: base?.title || currentChunk.title,
+            steps: (safeVisualData.steps?.length > 0 ? safeVisualData.steps : safeBullets.slice(0, 6).map((b, i) => ({ id: `s-${i}`, label: String(b) }))) };
+        if (vm === 'comparison_table')
+          return { type: 'comparison_table', title: base?.title || currentChunk.title,
+            columns: safeVisualData.columns || ['Concept', 'Detail'],
+            rows: (safeVisualData.rows?.length > 0 ? safeVisualData.rows : safeBullets.slice(0, 5).map(b => { const s = String(b); const i = s.indexOf(': '); return i > 0 ? { left: s.slice(0, i).trim(), right: s.slice(i + 2).trim() } : { left: s, right: '' }; })) };
+        if (vm === 'diagram')
+          return { type: 'diagram', title: base?.title || currentChunk.title,
+            nodes: (safeVisualData.nodes?.length > 0 ? safeVisualData.nodes : safeBullets.slice(0, 6).map((b, i) => ({ id: `n-${i}`, label: String(b) }))) };
+        if (vm === 'slide' || vm === 'mixed')
+          return { type: 'slide_summary', title: base?.title || currentChunk.title, bullets: safeBullets.slice(0, 5).map(String) };
+        if (vm === 'whiteboard')
+          return { type: 'whiteboard_notes', title: base?.title || currentChunk.title, notes: safeBullets.slice(0, 4).map(String) };
+      }
+      // If boardContent has a visual type but empty data, fill from safe sources
+      if (base?.type === 'flowchart' && !base.steps?.length)
+        return { ...base, steps: (safeVisualData.steps?.length > 0 ? safeVisualData.steps : safeBullets.slice(0, 6).map((b, i) => ({ id: `s-${i}`, label: String(b) }))) };
+      if (base?.type === 'comparison_table' && !base.rows?.length)
+        return { ...base, rows: (safeVisualData.rows?.length > 0 ? safeVisualData.rows : safeBullets.slice(0, 5).map(b => { const s = String(b); const i = s.indexOf(': '); return i > 0 ? { left: s.slice(0, i).trim(), right: s.slice(i + 2).trim() } : { left: s, right: '' }; })) };
+      if (base?.type === 'diagram' && !base.nodes?.length)
+        return { ...base, nodes: (safeVisualData.nodes?.length > 0 ? safeVisualData.nodes : safeBullets.slice(0, 6).map((b, i) => ({ id: `n-${i}`, label: String(b) }))) };
+      return base;
+    })();
+
     if (diagramData?.nodes?.length && diagramStep >= 0) {
       return (
         <View style={styles.diagramWrap}>
@@ -1148,7 +1190,7 @@ const AILearningScreen = () => {
             diagramData={diagramData}
             currentStep={diagramStep}
             isDark={isDark}
-            width={isMobile ? (width - 80) : Math.min(480, width - 260)}
+            width={isMobile ? (width - 48) : Math.min(600, width - 200)}
           />
           {!!currentChunk.visualCaption && (
             <Text style={styles.diagramCaption}>{currentChunk.visualCaption}</Text>
@@ -1157,7 +1199,7 @@ const AILearningScreen = () => {
       );
     }
 
-    if (!boardContent) {
+    if (!effectiveBoard) {
       // Plain text — render as a readable whiteboard paragraph
       const bodyText = currentChunk.learningObjective || currentChunk.summary || '';
       const sentences = bodyText.split(/(?<=[.!?])\s+/).filter(Boolean);
@@ -1170,56 +1212,137 @@ const AILearningScreen = () => {
       );
     }
 
-    if (boardContent.type === 'flowchart') {
-      return getProgressiveItems(boardContent.steps).map((step, index) => (
-        <View key={step.id || index} style={styles.flowStep}>
-          <View style={[styles.flowStepBadge, { backgroundColor: theme.colors.primary }]}>
-            <Text style={styles.flowStepBadgeText}>{index + 1}</Text>
+    if (effectiveBoard.type === 'flowchart') {
+      const rawSteps = effectiveBoard.steps?.length > 0 ? effectiveBoard.steps : [];
+      const steps = getProgressiveItems(rawSteps);
+      return (
+        <View style={styles.flowchartWrap}>
+          {steps.map((step, index) => {
+            const isLast = index === steps.length - 1;
+            return (
+              <View key={step.id || index}>
+                <View style={[
+                  styles.flowchartNode,
+                  isLast
+                    ? { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)' }
+                    : { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' },
+                ]}>
+                  <View style={[
+                    styles.flowchartBadge,
+                    { backgroundColor: isLast ? '#10b981' : theme.colors.primary },
+                  ]}>
+                    <Text style={styles.flowchartBadgeText}>{index + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.flowchartLabel, isLast && { color: '#6ee7b7' }]}>{step.label}</Text>
+                    {!!step.cue && <Text style={styles.flowchartCue}>{step.cue}</Text>}
+                  </View>
+                </View>
+                {!isLast && (
+                  <View style={styles.flowchartConnector}>
+                    <View style={[styles.flowchartConnectorLine, { backgroundColor: theme.colors.primary + '50' }]} />
+                    <Text style={[styles.flowchartConnectorArrow, { color: theme.colors.primary }]}>▼</Text>
+                    <View style={[styles.flowchartConnectorLine, { backgroundColor: theme.colors.primary + '50' }]} />
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      );
+    }
+
+    if (effectiveBoard.type === 'comparison_table') {
+      const rows = getProgressiveItems(effectiveBoard.rows?.length > 0 ? effectiveBoard.rows : []);
+      const [colLeft = 'Concept', colRight = 'Detail'] = effectiveBoard.columns || [];
+      const vsBadge = (() => {
+        const l = colLeft.toLowerCase();
+        const r = colRight.toLowerCase();
+        // Show → when right column is clearly a description/detail (not a true comparison side)
+        if (/(note|detail|desc|explanation|purpose|example|usage|info)/.test(r)) return '→';
+        // Show → when left is input-type and right is output-type
+        if (/(before|input|source|from|step|cause|key|tool|name|concept)/.test(l) && /(after|output|result|to|effect)/.test(r)) return '→';
+        return 'VS';
+      })();
+      return (
+        <View style={styles.comparisonWrap}>
+          {/* Column headers */}
+          <View style={styles.comparisonHeader}>
+            <View style={[styles.comparisonHeaderCell, { backgroundColor: 'rgba(59,130,246,0.15)', borderColor: 'rgba(59,130,246,0.3)' }]}>
+              <Text style={[styles.comparisonHeaderText, { color: '#93c5fd' }]}>{colLeft}</Text>
+            </View>
+            <View style={styles.comparisonVsBadge}>
+              <Text style={styles.comparisonVsText}>{vsBadge}</Text>
+            </View>
+            <View style={[styles.comparisonHeaderCell, { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '55' }]}>
+              <Text style={[styles.comparisonHeaderText, { color: theme.colors.primary }]}>{colRight}</Text>
+            </View>
           </View>
-          <Text style={styles.flowStepText}>{step.label}</Text>
-        </View>
-      ));
-    }
-
-    if (boardContent.type === 'comparison_table') {
-      return (
-        <View style={[styles.boardTable, { borderColor: theme.colors.border }]}>
-          {getProgressiveItems(boardContent.rows).map((row, index) => (
-            <View key={`${row.left}-${index}`} style={[styles.boardTableRow, { borderBottomColor: theme.colors.border }]}>
-              <Text style={styles.boardTableTitle}>{row.left}</Text>
-              <Text style={[styles.boardTableBody, { color: '#cbd5e1' }]}>{row.right}</Text>
+          {/* Data rows */}
+          {rows.map((row, index) => (
+            <View key={`${row.left}-${index}`} style={[
+              styles.comparisonRow,
+              { backgroundColor: index % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent' },
+            ]}>
+              <View style={[styles.comparisonCell, { borderLeftWidth: 3, borderLeftColor: '#3b82f6' }]}>
+                <Text style={styles.comparisonCellText}>{row.left}</Text>
+              </View>
+              <View style={styles.comparisonDivider} />
+              <View style={[styles.comparisonCell, { borderLeftWidth: 3, borderLeftColor: theme.colors.primary }]}>
+                <Text style={styles.comparisonCellText}>{row.right || '—'}</Text>
+              </View>
             </View>
           ))}
         </View>
       );
     }
 
-    if (boardContent.type === 'diagram') {
+    if (effectiveBoard.type === 'diagram') {
+      const nodeColors = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
+      const visibleNodes = getProgressiveItems(effectiveBoard.nodes?.length > 0 ? effectiveBoard.nodes : []);
       return (
-        <View style={styles.nodeWrap}>
-          {getProgressiveItems(boardContent.nodes).map((node, index) => (
-            <View key={node.id || index} style={[styles.liveNodeCard, { borderColor: 'rgba(255,255,255,0.12)' }]}>
-              <Text style={styles.liveNodeText}>{node.label}</Text>
-            </View>
-          ))}
+        <View style={styles.conceptNodeWrap}>
+          {visibleNodes.map((node, index) => {
+            const color = node.color || nodeColors[index % nodeColors.length];
+            const isPrimary = node.emphasis === 'primary' || index === 0;
+            const isLast = index === visibleNodes.length - 1;
+            return (
+              <View key={node.id || index}>
+                <View style={[
+                  styles.conceptNodeCard,
+                  { borderColor: color + (isPrimary ? 'cc' : '70'),
+                    backgroundColor: color + (isPrimary ? '28' : '14'),
+                    borderWidth: isPrimary ? 1.5 : 1 },
+                ]}>
+                  <View style={[styles.conceptNodeBadge, { backgroundColor: color }]}>
+                    <Text style={styles.conceptNodeBadgeText}>{index + 1}</Text>
+                  </View>
+                  <Text style={[styles.conceptNodeText, isPrimary && { fontWeight: '700', color: '#f1f5f9' }]}>{node.label}</Text>
+                </View>
+                {!isLast && (
+                  <View style={styles.conceptNodeConnector}>
+                    <View style={[styles.conceptNodeConnectorLine, { backgroundColor: color + '55' }]} />
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       );
     }
 
-    if (boardContent.type === 'code') {
-      const lang = (boardContent.snippetLanguage || 'text').toLowerCase();
-      const lines = `${boardContent.snippet || ''}`.split(/\r?\n/);
-      const visibleLines = getProgressiveItems(lines, Math.min(2, lines.length || 1));
+    if (effectiveBoard.type === 'code') {
+      const lang = (effectiveBoard.snippetLanguage || 'text').toLowerCase();
+      const lines = `${effectiveBoard.snippet || ''}`.split(/\r?\n/);
+      const visibleLines = getProgressiveItems(lines, 1);
       return (
         <View style={styles.terminalWrap}>
-          {/* Terminal chrome */}
           <View style={styles.terminalBar}>
             <View style={[styles.terminalDot, { backgroundColor: '#ff5f57' }]} />
             <View style={[styles.terminalDot, { backgroundColor: '#febc2e' }]} />
             <View style={[styles.terminalDot, { backgroundColor: '#28c840' }]} />
             <Text style={styles.terminalLangLabel}>{lang}</Text>
           </View>
-          {/* Code lines with line numbers */}
           <View style={styles.terminalBody}>
             {visibleLines.map((line, i) => (
               <View key={i} style={styles.terminalLine}>
@@ -1228,24 +1351,24 @@ const AILearningScreen = () => {
               </View>
             ))}
           </View>
-          {!!boardContent.snippetExplanation && (
+          {!!effectiveBoard.snippetExplanation && (
             <View style={styles.terminalFooter}>
               <Text style={styles.terminalFooterIcon}>ℹ</Text>
-              <Text style={styles.terminalFooterText}>{boardContent.snippetExplanation}</Text>
+              <Text style={styles.terminalFooterText}>{effectiveBoard.snippetExplanation}</Text>
             </View>
           )}
         </View>
       );
     }
 
-    if (boardContent.type === 'checkpoint') {
-      return <Text style={styles.boardQuestion}>{boardContent.question}</Text>;
+    if (effectiveBoard.type === 'checkpoint') {
+      return <Text style={styles.boardQuestion}>{effectiveBoard.question}</Text>;
     }
 
-    if (boardContent.type === 'slide_summary' || boardContent.type === 'recap') {
+    if (effectiveBoard.type === 'slide_summary' || effectiveBoard.type === 'recap') {
       return (
         <View style={styles.chalkNoteBlock}>
-          {getProgressiveItems(boardContent.bullets).map((bullet, index) => (
+          {getProgressiveItems(effectiveBoard.bullets).map((bullet, index) => (
             <View key={`${bullet}-${index}`} style={styles.chalkBulletRow}>
               <Text style={styles.chalkBulletArrow}>▸</Text>
               <Text style={styles.chalkBulletText}>{bullet}</Text>
@@ -1255,16 +1378,16 @@ const AILearningScreen = () => {
       );
     }
 
-    if (boardContent.type === 'whiteboard_notes' || boardContent.type === 'narration') {
+    if (effectiveBoard.type === 'whiteboard_notes' || effectiveBoard.type === 'narration') {
       return (
         <View style={styles.chalkNoteBlock}>
-          {getProgressiveItems(boardContent.notes).map((note, index) => (
+          {getProgressiveItems(effectiveBoard.notes).map((note, index) => (
             <View key={`${note}-${index}`} style={styles.chalkBulletRow}>
               <Text style={styles.chalkBulletArrow}>▸</Text>
               <Text style={styles.chalkBulletText}>{note}</Text>
             </View>
           ))}
-          {!!boardContent.emphasis && <Text style={styles.chalkEmphasis}>{boardContent.emphasis}</Text>}
+          {!!effectiveBoard.emphasis && <Text style={styles.chalkEmphasis}>{effectiveBoard.emphasis}</Text>}
         </View>
       );
     }
@@ -2082,6 +2205,7 @@ const AILearningScreen = () => {
         visible={showVoiceQA}
         sessionId={session?.id ?? null}
         courseId={courseId}
+        language={course?.language}
         topicId={topicId}
         studentName={studentName}
         theme={theme}
@@ -2367,15 +2491,43 @@ const styles = StyleSheet.create({
   boardTableRow: { padding: 12, borderBottomWidth: 1 },
   boardTableTitle: { color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 4 },
   boardTableBody: { fontSize: 12, lineHeight: 18 },
-  comparisonTable: { borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
-  comparisonRow: { padding: 12, borderBottomWidth: 1 },
-  comparisonCellTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  comparisonCellBody: { fontSize: 12, lineHeight: 18 },
   nodeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   nodeCard: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
   nodeLabel: { fontSize: 12, fontWeight: '600' },
   liveNodeCard: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
   liveNodeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+  // ── Flowchart visual component ──────────────────────────────────────────────
+  flowchartWrap: { gap: 0, paddingHorizontal: 2 },
+  flowchartNode: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 },
+  flowchartBadge: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  flowchartBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  flowchartLabel: { color: '#e2e8f0', fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  flowchartCue: { color: '#94a3b8', fontSize: 11, lineHeight: 15, marginTop: 2, fontStyle: 'italic' },
+  flowchartConnector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 2 },
+  flowchartConnectorLine: { width: 1.5, height: 8, borderRadius: 1 },
+  flowchartConnectorArrow: { fontSize: 12, marginHorizontal: 0, lineHeight: 14 },
+
+  // ── Comparison table visual component ──────────────────────────────────────
+  comparisonWrap: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  comparisonHeader: { flexDirection: 'row', alignItems: 'center' },
+  comparisonHeaderCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1 },
+  comparisonHeaderText: { fontSize: 12, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.8 },
+  comparisonVsBadge: { width: 34, height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
+  comparisonVsText: { color: '#64748b', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  comparisonRow: { flexDirection: 'row', alignItems: 'stretch', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
+  comparisonCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
+  comparisonCellText: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
+  comparisonDivider: { width: 34, backgroundColor: 'rgba(255,255,255,0.04)' },
+
+  // ── Concept node cards (diagram fallback) ───────────────────────────────────
+  conceptNodeWrap: { gap: 4 },
+  conceptNodeCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+  conceptNodeBadge: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  conceptNodeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  conceptNodeConnector: { alignItems: 'center', height: 14, justifyContent: 'center' },
+  conceptNodeConnectorLine: { width: 2, height: 10, borderRadius: 1 },
+  conceptNodeText: { flex: 1, color: '#e2e8f0', fontSize: 14, fontWeight: '500', lineHeight: 20 },
   codePanel: { borderWidth: 1, borderRadius: 14, padding: 14, backgroundColor: 'rgba(15,23,42,0.92)' },
   codeLanguage: { color: '#93c5fd', fontSize: 11, fontWeight: '700', marginBottom: 10, letterSpacing: 1 },
   codeText: { color: '#e5e7eb', fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier', fontSize: 13, lineHeight: 20 },

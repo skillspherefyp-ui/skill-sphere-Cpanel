@@ -31,15 +31,14 @@ router.post('/file', upload.single('file'), (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Local storage path
-    const fileUrl = `/uploads/${req.file.filename}`;
+    const fileUrl = req.file.path;
 
     console.log('✅ File uploaded successfully:');
     console.log('   - Original name:', req.file.originalname);
     console.log('   - URL:', fileUrl);
     console.log('   - Size:', req.file.size, 'bytes');
     console.log('   - Type:', req.file.mimetype);
-    console.log('   - Storage: Local');
+    console.log('   - Storage: Cloudinary');
 
     res.json({
       success: true,
@@ -64,13 +63,13 @@ router.post('/files', upload.array('files', 10), (req, res) => {
     }
 
     const files = req.files.map(file => ({
-      url: `/uploads/${file.filename}`,
+      url: file.path,
       filename: file.originalname,
       size: file.size,
       mimetype: file.mimetype
     }));
 
-    console.log(`✅ ${files.length} files uploaded (Local)`);
+    console.log(`✅ ${files.length} files uploaded (Cloudinary)`);
 
     res.json({
       success: true,

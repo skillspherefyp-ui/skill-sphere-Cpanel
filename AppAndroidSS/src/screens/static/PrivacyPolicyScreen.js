@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Platform,
+  View, Text, ScrollView, StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
-import ThemeToggle from '../../components/ThemeToggle';
+import AppHeader from '../../components/ui/AppHeader';
+import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
@@ -36,15 +37,12 @@ const PrivacyPolicyScreen = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
-
-      <View style={[s.header, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Icon name="chevron-back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Privacy Policy</Text>
-        <ThemeToggle iconColor="#FFFFFF" />
-      </View>
+      <Helmet>
+        <title>Privacy Policy - SkillSphere</title>
+        <meta name="description" content="Read SkillSphere's privacy policy to understand how we collect, use, and protect your personal data on our online learning platform." />
+        <link rel="canonical" href="https://skillsphere.com.pk/privacy" />
+      </Helmet>
+      <AppHeader showBack={true} showDateTime={false} minimal={true} title="Privacy Policy" />
 
       <ScrollView showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 50 }}>
@@ -55,7 +53,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
         }]}>
           <Icon name="calendar-outline" size={14} color={ORANGE} />
           <Text style={[{ color: c.textSecondary, fontSize: 13, marginLeft: 8 }]}>
-            Last updated: April 2026
+            Last updated: May 2026
           </Text>
         </View>
 
@@ -106,7 +104,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
           {bullet('Correction — update inaccurate information via your profile settings')}
           {bullet('Deletion — request deletion of your account and data')}
           {bullet('Opt-out — unsubscribe from non-essential emails at any time')}
-          {para('To exercise any of these rights, contact us at skillspherefyp@gmail.com.')}
+          {para('To exercise any of these rights, contact us at support@skillsphere.com.pk or skillspherefyp@gmail.com.')}
         </Section>
 
         <Section title="Security">
@@ -125,6 +123,16 @@ const PrivacyPolicyScreen = ({ navigation }) => {
           }]}>
             <Icon name="mail-outline" size={16} color={ORANGE} />
             <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10 }]}>
+              support@skillsphere.com.pk
+            </Text>
+          </View>
+          <View style={[s.contactRow, {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8F9FF',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
+            marginTop: 8,
+          }]}>
+            <Icon name="mail-outline" size={16} color={ORANGE} />
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10 }]}>
               skillspherefyp@gmail.com
             </Text>
           </View>
@@ -136,22 +144,6 @@ const PrivacyPolicyScreen = ({ navigation }) => {
 };
 
 const s = StyleSheet.create({
-  header: {
-    backgroundColor: NAVY, paddingHorizontal: 16, paddingBottom: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  headerIcon: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(246,139,60,0.2)',
-    justifyContent: 'center', alignItems: 'center',
-  },
   lastUpdated: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 10, borderWidth: 1, padding: 10, marginBottom: 20,

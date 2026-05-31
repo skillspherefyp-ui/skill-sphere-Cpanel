@@ -74,6 +74,12 @@ const CreateCourseScreen = () => {
   const [category, setCategory] = useState(categories[0]?.name || '');
   const [duration, setDuration] = useState('');
   const [creationMode, setCreationMode] = useState('ai'); // 'ai' | 'manual'
+  const [lectureSettings, setLectureSettings] = useState({
+    explanationStyle: 'balanced',
+    codeDepth: 'moderate',
+    visualPreference: 'auto',
+    audienceType: 'general',
+  });
   const [materials, setMaterials] = useState([]);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
   const [thumbnailImage, setThumbnailImage] = useState(null);
@@ -108,6 +114,9 @@ const CreateCourseScreen = () => {
       setThumbnailImage(courseData.thumbnailImage || null);
       setMaterials(courseData.materials || []);
       setPrerequisiteIds(courseData.prerequisiteIds || []);
+      if (courseData.lectureSettings && typeof courseData.lectureSettings === 'object') {
+        setLectureSettings(prev => ({ ...prev, ...courseData.lectureSettings }));
+      }
     }
   }, [isEditMode, courseData]);
 
@@ -189,6 +198,7 @@ const CreateCourseScreen = () => {
       materials: formattedMaterials,
       thumbnailImage,
       prerequisiteIds,
+      lectureSettings: creationMode === 'ai' ? lectureSettings : null,
     };
 
     if (isEditMode) {
@@ -211,6 +221,7 @@ const CreateCourseScreen = () => {
         setMaterials([]);
         setThumbnailImage(null);
         setPrerequisiteIds([]);
+        setLectureSettings({ explanationStyle: 'balanced', codeDepth: 'moderate', visualPreference: 'auto', audienceType: 'general' });
         Toast.show({ type: 'success', text1: 'Success', text2: 'Course created!' });
         navigation.navigate('AddTopics', { courseId: result.course.id, creationMode });
       } else {
@@ -519,6 +530,133 @@ const CreateCourseScreen = () => {
                 </View>
               </View>
             </View>
+
+            {/* AI Lecture Settings — only shown for AI courses */}
+            {creationMode === 'ai' && (
+              <View style={styles.formCard}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIconWrap, { backgroundColor: '#8B5CF6' + '18' }]}>
+                    <Icon name="bulb" size={18} color="#8B5CF6" />
+                  </View>
+                  <View style={styles.sectionTitleBlock}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>AI Lecture Settings</Text>
+                    <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+                      Customize how AI generates lecture content
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.sectionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#8B5CF6' + '12' }]} />
+
+                {/* Explanation Style */}
+                <View style={styles.optionGroup}>
+                  <Text style={[styles.optionLabel, { color: theme.colors.textSecondary }]}>Explanation Style</Text>
+                  <View style={styles.optionsRow}>
+                    {[
+                      { value: 'balanced', label: 'Balanced' },
+                      { value: 'step_by_step', label: 'Step-by-Step' },
+                      { value: 'example_first', label: 'Example First' },
+                      { value: 'analogy_driven', label: 'Analogy Driven' },
+                      { value: 'concise', label: 'Concise' },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[styles.optionChip, {
+                          backgroundColor: lectureSettings.explanationStyle === opt.value ? '#8B5CF6' : (isDark ? theme.colors.card : theme.colors.surface),
+                          borderColor: lectureSettings.explanationStyle === opt.value ? '#8B5CF6' : theme.colors.border,
+                        }]}
+                        onPress={() => setLectureSettings(prev => ({ ...prev, explanationStyle: opt.value }))}
+                      >
+                        <Text style={[styles.optionChipText, { color: lectureSettings.explanationStyle === opt.value ? '#FFFFFF' : theme.colors.textSecondary }]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Code Depth */}
+                <View style={styles.optionGroup}>
+                  <Text style={[styles.optionLabel, { color: theme.colors.textSecondary }]}>Code Depth</Text>
+                  <View style={styles.optionsRow}>
+                    {[
+                      { value: 'none', label: 'None' },
+                      { value: 'minimal', label: 'Minimal' },
+                      { value: 'moderate', label: 'Moderate' },
+                      { value: 'heavy', label: 'Heavy' },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[styles.optionChip, {
+                          backgroundColor: lectureSettings.codeDepth === opt.value ? '#8B5CF6' : (isDark ? theme.colors.card : theme.colors.surface),
+                          borderColor: lectureSettings.codeDepth === opt.value ? '#8B5CF6' : theme.colors.border,
+                        }]}
+                        onPress={() => setLectureSettings(prev => ({ ...prev, codeDepth: opt.value }))}
+                      >
+                        <Text style={[styles.optionChipText, { color: lectureSettings.codeDepth === opt.value ? '#FFFFFF' : theme.colors.textSecondary }]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Visual Preference */}
+                <View style={styles.optionGroup}>
+                  <Text style={[styles.optionLabel, { color: theme.colors.textSecondary }]}>Visual Preference</Text>
+                  <View style={styles.optionsRow}>
+                    {[
+                      { value: 'auto', label: 'Auto' },
+                      { value: 'diagrams', label: 'Diagrams' },
+                      { value: 'flowcharts', label: 'Flowcharts' },
+                      { value: 'slides', label: 'Slides' },
+                      { value: 'whiteboards', label: 'Whiteboards' },
+                      { value: 'code', label: 'Code' },
+                      { value: 'mixed', label: 'Mixed' },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[styles.optionChip, {
+                          backgroundColor: lectureSettings.visualPreference === opt.value ? '#8B5CF6' : (isDark ? theme.colors.card : theme.colors.surface),
+                          borderColor: lectureSettings.visualPreference === opt.value ? '#8B5CF6' : theme.colors.border,
+                        }]}
+                        onPress={() => setLectureSettings(prev => ({ ...prev, visualPreference: opt.value }))}
+                      >
+                        <Text style={[styles.optionChipText, { color: lectureSettings.visualPreference === opt.value ? '#FFFFFF' : theme.colors.textSecondary }]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Audience Type */}
+                <View style={[styles.optionGroup, { marginBottom: 0 }]}>
+                  <Text style={[styles.optionLabel, { color: theme.colors.textSecondary }]}>Audience</Text>
+                  <View style={styles.optionsRow}>
+                    {[
+                      { value: 'general', label: 'General' },
+                      { value: 'professional', label: 'Professional' },
+                      { value: 'academic', label: 'Academic' },
+                      { value: 'kids', label: 'Kids' },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[styles.optionChip, {
+                          backgroundColor: lectureSettings.audienceType === opt.value ? '#8B5CF6' : (isDark ? theme.colors.card : theme.colors.surface),
+                          borderColor: lectureSettings.audienceType === opt.value ? '#8B5CF6' : theme.colors.border,
+                        }]}
+                        onPress={() => setLectureSettings(prev => ({ ...prev, audienceType: opt.value }))}
+                      >
+                        <Text style={[styles.optionChipText, { color: lectureSettings.audienceType === opt.value ? '#FFFFFF' : theme.colors.textSecondary }]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
           </Animated.View>
 
           {/* Right Column - Media & Materials */}

@@ -32,7 +32,7 @@ const getRoleMeta = (role) => ROLE_META[role] || { label: role || 'Member', colo
 const DiscussionThreadScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const { postId, postContent, authorName, authorRole, authorId } = route.params || {};
+  const { postId, postContent, authorName, authorRole, authorId, authorProfilePicture } = route.params || {};
   const { theme, isDark } = useTheme();
   const { user, logout } = useAuth();
   const { height } = useWindowDimensions();
@@ -138,7 +138,7 @@ const DiscussionThreadScreen = () => {
         style={[styles.msgRow, opIsOwn ? styles.msgRowRight : styles.msgRowLeft]}
       >
         {!opIsOwn && (
-          <UserAvatar user={{ name: authorName, profilePicture: undefined }} size={32} />
+          <UserAvatar user={{ name: authorName, profilePicture: authorProfilePicture }} size={32} />
         )}
         <View style={{ maxWidth: '78%', gap: 4, alignItems: opIsOwn ? 'flex-end' : 'flex-start' }}>
           {/* Name + role row */}

@@ -1,4 +1,4 @@
-const { Certificate, Course, User, Enrollment, CertificateTemplate } = require('../models');
+const { Certificate, Course, User, Enrollment, CertificateTemplate, TemplateCourse } = require('../models');
 const crypto = require('crypto');
 const { generateAndSaveCertificate } = require('../services/certificateService');
 const { sendCertificateEmail } = require('../services/emailService');
@@ -90,13 +90,39 @@ exports.generateCertificate = async (req, res) => {
       issuedDate: new Date()
     });
 
+    // Always find template and save courseName + templateSnapshot so preview is always correct
+    let template = null;
+    try {
+      const assignment = await TemplateCourse.findOne({ where: { courseId, isActive: true } });
+      if (assignment) {
+        template = await CertificateTemplate.findByPk(assignment.templateId, {
+          include: [{ model: User, as: 'creator', attributes: ['id', 'instructorSignature'] }]
+        });
+      }
+      if (!template) {
+        template = await CertificateTemplate.findOne({
+          where: { isActive: true },
+          include: [{ model: User, as: 'creator', attributes: ['id', 'instructorSignature'] }]
+        });
+      }
+    } catch (_) {}
+
+    const templateSnapshot = template ? {
+      primaryColor: template.primaryColor,
+      secondaryColor: template.secondaryColor,
+      backgroundColor: template.backgroundColor,
+      titleText: template.titleText,
+      subtitleText: template.subtitleText,
+      footerText: template.footerText,
+    } : null;
+
+    // Save courseName + templateSnapshot immediately (before PDF so preview always works)
+    await certificate.update({ courseName: course.name, templateSnapshot });
+
     // Generate PDF and send email if requested (after payment)
     const sendEmail = req.body.sendEmail === true;
     if (sendEmail) {
       try {
-        // Find the active certificate template (course-specific first, then global)
-        const template = await CertificateTemplate.findOne({ where: { isActive: true } });
-
         const { pdfBuffer, certificateUrl } = await generateAndSaveCertificate(
           {
             studentName: user.name,
@@ -105,14 +131,13 @@ exports.generateCertificate = async (req, res) => {
             issueDate: new Date(),
             grade: grade || 'Pass',
             frontendUrl: req.headers.origin || process.env.FRONTEND_URL,
+            instructorSignature: template?.creator?.instructorSignature || null,
           },
           template
         );
 
-        // Save PDF URL back to certificate record
         await certificate.update({ certificateUrl });
 
-        // Send email with PDF attachment
         await sendCertificateEmail(
           user.email,
           user.name,
@@ -123,7 +148,6 @@ exports.generateCertificate = async (req, res) => {
 
         console.log(`📧 Certificate email sent to ${user.email}`);
       } catch (emailErr) {
-        // Don't fail the whole request if PDF/email fails — cert is still created
         console.error('⚠️  Certificate PDF/email error:', emailErr.message);
       }
     }
@@ -163,7 +187,7 @@ exports.verifyCertificate = async (req, res) => {
       certificate: {
         certificateNumber: certificate.certificateNumber,
         studentName: certificate.user.name,
-        courseName: certificate.course.name,
+        courseName: certificate.course?.name || certificate.courseName || 'Course no longer available',
         issuedDate: certificate.issuedDate,
         grade: certificate.grade
       }

@@ -14,11 +14,14 @@ import CategoryManagementScreen from '../screens/instructor/CategoryManagementSc
 import CertificateManagementScreen from '../screens/instructor/CertificateManagementScreen';
 import FeedbackScreen from '../screens/instructor/FeedbackScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
 import NotificationsScreen from '../screens/auth/NotificationsScreen';
+import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
 import DiscussionScreen from '../screens/auth/DiscussionScreen';
 import DiscussionThreadScreen from '../screens/auth/DiscussionThreadScreen';
 import BlogManagementScreen from '../screens/instructor/BlogManagementScreen';
 import CreateEditBlogScreen from '../screens/instructor/CreateEditBlogScreen';
+import BulkEmailScreen from '../screens/instructor/BulkEmailScreen';
 
 const Stack = createStackNavigator();
 
@@ -48,10 +51,13 @@ const AdminNavigator = () => {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
       <Stack.Screen name="BlogManagement" component={BlogManagementScreen} />
       <Stack.Screen name="CreateEditBlog" component={CreateEditBlogScreen} />
       <Stack.Screen name="Discussion" component={DiscussionScreen} />
       <Stack.Screen name="DiscussionThread" component={DiscussionThreadScreen} />
+      <Stack.Screen name="BulkEmail" component={BulkEmailScreen} />
+      <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
     </Stack.Navigator>
   );
 };

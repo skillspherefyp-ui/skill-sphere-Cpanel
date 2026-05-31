@@ -224,6 +224,7 @@ const DiscussionScreen = () => {
               authorName: name,
               authorRole: role,
               authorId: item.userId,
+              authorProfilePicture: item.author?.profilePicture || null,
             })}
             style={[
               styles.bubble,

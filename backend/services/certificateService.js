@@ -2,11 +2,11 @@ const React = require('react');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const QRCode = require('qrcode');
 const { cloudinary } = require('../config/cloudinary');
 
 // Try to load @react-pdf/renderer, fallback if ES Module issue
-let Document, Page, Text, View, Image, StyleSheet, renderToBuffer;
+let Document, Page, Text, View, Image, StyleSheet, renderToBuffer, Font;
+let Svg, SvgPath, SvgRect, Canvas;
 let pdfAvailable = true;
 try {
   const reactPdf = require('@react-pdf/renderer');
@@ -17,23 +17,217 @@ try {
   Image = reactPdf.Image;
   StyleSheet = reactPdf.StyleSheet;
   renderToBuffer = reactPdf.renderToBuffer;
+  Font = reactPdf.Font;
+  Svg = reactPdf.Svg;
+  SvgPath = reactPdf.Path;
+  SvgRect = reactPdf.Rect;
+  Canvas = reactPdf.Canvas;
 } catch (error) {
-  console.warn('⚠️  @react-pdf/renderer not available. Certificate generation will be disabled.');
-  console.warn('   This is expected during initial deployment. Certificates can be enabled later.');
+  console.error('❌ @react-pdf/renderer failed to load:', error.message);
+  console.error('   Full error:', error);
   pdfAvailable = false;
 }
 
-// Try to load sharp for image analysis, fallback to manual if not available
-let sharp;
-try {
-  sharp = require('sharp');
-} catch (e) {
-  console.log('Sharp not installed, using fallback image analysis');
-  sharp = null;
-}
+// No external font registration needed.
+// Student name uses Times-BoldItalic — a built-in PDF font, always available,
+// no network fetch required. This guarantees the name always renders.
 
 // Logo path - automatically used for all certificates
 const LOGO_PATH = path.join(__dirname, '../assets/skillsphere-logo.png');
+
+/**
+ * Colorize a transparent-background signature PNG.
+ * Replaces all non-transparent pixels with the target RGB color.
+ * @param {string} base64DataUri - data:image/png;base64,... string
+ * @param {number[]} targetRgb   - [r, g, b] e.g. [255,255,255] for white
+ * @returns {Promise<string>} colorized data URI
+ */
+const colorizeSignature = async (base64DataUri, targetRgb) => {
+  try {
+    const jimpModule = require('jimp');
+    // Support both jimp v0.x (default export = class) and v1.x (named export)
+    const Jimp = jimpModule.Jimp || jimpModule;
+    const MIME_PNG = (jimpModule.JimpMime && jimpModule.JimpMime.png)
+      || jimpModule.MIME_PNG
+      || 'image/png';
+
+    const base64Data = base64DataUri.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const image = await Jimp.read(buffer);
+    const [r, g, b] = targetRgb;
+
+    // Iterate pixels directly — works in both v0 and v1
+    const { data } = image.bitmap;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 10) { // non-transparent pixel
+        data[i]     = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
+      }
+    }
+
+    // getBufferAsync (v0) or getBuffer (v1)
+    const colorizedBuffer = typeof image.getBufferAsync === 'function'
+      ? await image.getBufferAsync(MIME_PNG)
+      : await image.getBuffer(MIME_PNG);
+
+    return `data:image/png;base64,${colorizedBuffer.toString('base64')}`;
+  } catch (err) {
+    console.warn('colorizeSignature failed, using original:', err.message);
+    return base64DataUri;
+  }
+};
+
+/**
+ * Rounded-rect SVG path helper (used for styled QR generation)
+ */
+const rRectPath = (x, y, w, h, r) => {
+  const cr = Math.min(r, w / 2, h / 2);
+  return `M${x+cr},${y}h${w-2*cr}a${cr},${cr},0,0,1,${cr},${cr}v${h-2*cr}a${cr},${cr},0,0,1,${-cr},${cr}h${-(w-2*cr)}a${cr},${cr},0,0,1,${-cr},${-cr}v${-(h-2*cr)}a${cr},${cr},0,0,1,${cr},${-cr}z`;
+};
+
+/**
+ * Build a styled QR as a react-pdf Svg element.
+ * Circular data dots, accent-colored rounded finder corners, SS badge at center.
+ * dark template → white dots on template-bg; light template → dark dots on white.
+ */
+const createQRSvgElement = (text, { size = 54, accentColor = '#4F46E5', bgIsDark = false, bgColor = '#ffffff' } = {}) => {
+  if (!Svg || !SvgPath || !SvgRect) return null;
+  try {
+    const QRCode = require('qrcode');
+    const qr = QRCode.create(text, { errorCorrectionLevel: 'H' });
+    const N = qr.modules.size;
+    const D = qr.modules.data;
+    const S = size;
+    const m = S / N;
+    const dark   = bgIsDark ? '#FFFFFF' : '#1A1A2E';
+    const light  = bgIsDark ? bgColor   : '#FFFFFF';
+    const accent = accentColor;
+    const pad    = m * 0.12;
+    const dw     = m - 2 * pad;
+
+    const isFinder = (r, c) =>
+      (r <= 7 && c <= 7) || (r <= 7 && c >= N - 8) || (r >= N - 8 && c <= 7);
+
+    // Data modules path (fully rounded)
+    let dp = '';
+    for (let r = 0; r < N; r++)
+      for (let c = 0; c < N; c++)
+        if (D[r * N + c] && !isFinder(r, c))
+          dp += rRectPath(c * m + pad, r * m + pad, dw, dw, dw * 0.5);
+
+    // Finder patterns: outer ring (evenodd) + inner dot, accent colored
+    const finderEls = [];
+    [[0, 0], [N - 7, 0], [0, N - 7]].forEach(([fc, fr], i) => {
+      const ox = fc * m + pad * 0.5, oy = fr * m + pad * 0.5, ow = 7 * m - pad;
+      const ring = `${rRectPath(ox,oy,ow,ow,m*1.5)} ${rRectPath(ox+m,oy+m,5*m-pad,5*m-pad,m*0.9)}`;
+      finderEls.push(React.createElement(SvgPath, { key: `fr${i}`, fill: accent, fillRule: 'evenodd', d: ring }));
+      const ds = 3 * m - pad;
+      finderEls.push(React.createElement(SvgPath, { key: `fd${i}`, fill: accent, d: rRectPath(ox+2*m,oy+2*m,ds,ds,ds*0.4) }));
+    });
+
+    // SS badge: 30% of QR width with rounded corners (area 9% << H budget 30%)
+    const bs = S * 0.30;
+    const bx = (S - bs) / 2, by = (S - bs) / 2;
+
+    const svgEl = React.createElement(Svg, { width: size, height: size, viewBox: `0 0 ${S} ${S}` },
+      React.createElement(SvgRect, { x: 0, y: 0, width: S, height: S, fill: light }),
+      React.createElement(SvgPath, { fill: dark, d: dp }),
+      ...finderEls,
+      React.createElement(SvgPath, { key: 'badge', fill: accent, d: rRectPath(bx, by, bs, bs, bs * 0.28) })
+    );
+
+    // Overlay a native PDF Text on top of the badge — SVG text is unreliable in react-pdf
+    const textOverlay = React.createElement(View, {
+      style: {
+        position: 'absolute',
+        top: by,
+        left: bx,
+        width: bs,
+        height: bs,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }
+    }, React.createElement(Text, {
+      style: { color: '#FFFFFF', fontSize: bs * 0.40, fontWeight: 'bold', textAlign: 'center' }
+    }, 'SS'));
+
+    return React.createElement(View, { style: { position: 'relative', width: size, height: size } },
+      svgEl,
+      textOverlay
+    );
+  } catch (e) {
+    console.warn('createQRSvgElement failed:', e.message);
+    return null;
+  }
+};
+
+/**
+ * Build a PDFKit paint function for a styled QR code.
+ * Uses react-pdf Canvas component → PDFKit painter API.
+ * painter.roundedRect() for dots/finders, painter.text() for SS badge.
+ */
+const createQRPaintFn = (text, { accentColor = '#4F46E5', bgIsDark = false, bgColor = '#ffffff' } = {}) => {
+  try {
+    const QRCode = require('qrcode');
+    const qr = QRCode.create(text, { errorCorrectionLevel: 'H' });
+    const N  = qr.modules.size;
+    const D  = qr.modules.data;
+
+    return (painter, availableWidth, availableHeight) => {
+      const SIZE = Math.min(availableWidth, availableHeight);
+      const m    = SIZE / N;
+      const dark   = bgIsDark ? '#FFFFFF' : '#1A1A2E';
+      const light  = bgIsDark ? bgColor   : '#FFFFFF';
+      const accent = accentColor;
+
+      // Background
+      painter.rect(0, 0, SIZE, SIZE).fill(light);
+
+      const isFinder = (r, c) =>
+        (r <= 7 && c <= 7) || (r <= 7 && c >= N - 8) || (r >= N - 8 && c <= 7);
+
+      // Data modules — circular dots
+      const pad = m * 0.10;
+      const dw  = m - 2 * pad;
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          if (!D[r * N + c] || isFinder(r, c)) continue;
+          painter.roundedRect(c * m + pad, r * m + pad, dw, dw, dw * 0.45).fill(dark);
+        }
+      }
+
+      // Finder patterns: outer rounded ring → clear inner → inner dot
+      const drawFinder = (fc, fr) => {
+        const ox = fc * m, oy = fr * m, p = m * 0.06;
+        painter.roundedRect(ox + p, oy + p, 7*m - 2*p, 7*m - 2*p, m * 1.3).fill(accent);
+        painter.roundedRect(ox + m + p, oy + m + p, 5*m - 2*p, 5*m - 2*p, m * 0.8).fill(light);
+        const ds = 3*m - 2*p;
+        painter.roundedRect(ox + 2*m + p, oy + 2*m + p, ds, ds, ds * 0.35).fill(accent);
+      };
+      drawFinder(0, 0);
+      drawFinder(N - 7, 0);
+      drawFinder(0, N - 7);
+
+      // SS badge — 30% of QR width (area 9% << H 30% budget)
+      const bs = SIZE * 0.30;
+      const bx = (SIZE - bs) / 2;
+      const by = (SIZE - bs) / 2;
+      painter.roundedRect(bx, by, bs, bs, bs * 0.18).fill(accent);
+
+      // SS text using PDFKit built-in bold font
+      const fz = bs * 0.40;
+      painter
+        .font('Helvetica-Bold')
+        .fontSize(fz)
+        .fillColor('#FFFFFF')
+        .text('SS', bx, by + (bs - fz) / 2, { width: bs, align: 'center', lineBreak: false });
+    };
+  } catch (e) {
+    console.warn('createQRPaintFn failed:', e.message);
+    return null;
+  }
+};
 
 /**
  * Convert hex color to RGB
@@ -75,132 +269,47 @@ const getContrastColor = (bgColor, lightColor = '#FFFFFF', darkColor = '#333333'
 };
 
 /**
- * Analyze image brightness to determine if it's light or dark
- * Returns: 'light', 'dark', or null if unable to analyze
- */
-const analyzeImageBrightness = async (imagePath) => {
-  try {
-    if (!imagePath) return null;
-
-    if (!sharp) {
-      console.log('analyzeImageBrightness: Sharp not available, defaulting to dark');
-      return 'dark';
-    }
-
-    let imageInput;
-
-    // Handle HTTP URLs (Cloudinary or remote images)
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      console.log('analyzeImageBrightness: Downloading from URL:', imagePath);
-      const https = require('https');
-      const http = require('http');
-      const client = imagePath.startsWith('https') ? https : http;
-      imageInput = await new Promise((resolve, reject) => {
-        client.get(imagePath, (res) => {
-          const chunks = [];
-          res.on('data', (chunk) => chunks.push(chunk));
-          res.on('end', () => resolve(Buffer.concat(chunks)));
-          res.on('error', reject);
-        }).on('error', reject);
-      });
-    } else {
-      // Local file path
-      let fullPath = imagePath;
-      if (imagePath.startsWith('/uploads/') || imagePath.startsWith('\\uploads\\')) {
-        const relativePath = imagePath.replace(/^[/\\]/, '').replace(/\//g, path.sep);
-        fullPath = path.join(__dirname, '..', relativePath);
-      } else if (!path.isAbsolute(imagePath)) {
-        fullPath = path.join(__dirname, '..', imagePath);
-      }
-      fullPath = path.normalize(fullPath);
-
-      if (!fs.existsSync(fullPath)) {
-        console.log('analyzeImageBrightness: File not found:', fullPath);
-        return null;
-      }
-      imageInput = fullPath;
-    }
-
-    const image = sharp(imageInput);
-    const stats = await image.stats();
-
-    // Calculate average brightness from RGB channels
-    const avgBrightness = (stats.channels[0].mean + stats.channels[1].mean + stats.channels[2].mean) / 3;
-
-    // Normalize to 0-1 range (values are 0-255)
-    const normalizedBrightness = avgBrightness / 255;
-
-    console.log(`analyzeImageBrightness: Average brightness = ${normalizedBrightness.toFixed(2)}`);
-
-    // Threshold: below 0.5 is dark, above is light
-    return normalizedBrightness > 0.5 ? 'light' : 'dark';
-  } catch (error) {
-    console.error('analyzeImageBrightness: Error analyzing image:', error.message);
-    return null;
-  }
-};
-
-/**
  * Create PDF styles - optimized for single landscape A4 page
- * Automatically adjusts text colors based on background image brightness
  * @param {Object} template - Template settings
- * @param {string} backgroundBrightness - 'light', 'dark', or null (no background)
  */
-const createStyles = (template, backgroundBrightness = null) => {
+const createStyles = (template) => {
   const primaryColor = template?.primaryColor || '#4F46E5';
   const secondaryColor = template?.secondaryColor || '#22D3EE';
 
-  // Determine text colors based on actual background image brightness
-  // Dark background = light text, Light background = dark text
-  const isDarkBackground = backgroundBrightness === 'dark';
-  const hasBackgroundImage = backgroundBrightness !== null;
+  // Determine if background color is dark
+  const solidBgIsDark = template?.backgroundColor
+    ? !isLightColor(template.backgroundColor)
+    : false;
 
-  // Text colors - automatically adjust based on background brightness
+  // Text colors - adapt to solid background color
   let titleColor, studentNameColor, brandColor;
   let subtitleColor, bodyTextColor, courseNameColor;
   let detailTextColor, footerTextColor, signatureLineColor, signatureTitleColor;
   let borderColor, innerBorderColor, watermarkColor;
 
-  if (hasBackgroundImage) {
-    if (isDarkBackground) {
-      // Dark background - use light/white text
-      titleColor = '#FFFFFF';
-      studentNameColor = '#FFFFFF';
-      brandColor = '#FFFFFF';
-      subtitleColor = '#E0E0E0';
-      bodyTextColor = '#E0E0E0';
-      courseNameColor = '#FFFFFF';
-      detailTextColor = '#CCCCCC';
-      footerTextColor = '#AAAAAA';
-      signatureLineColor = '#FFFFFF';
-      signatureTitleColor = '#CCCCCC';
-      borderColor = secondaryColor;
-      innerBorderColor = 'rgba(255, 255, 255, 0.3)';
-      watermarkColor = 'rgba(255, 255, 255, 0.05)';
-    } else {
-      // Light background - use dark/black text
-      titleColor = '#1a1a1a';
-      studentNameColor = '#1a1a1a';
-      brandColor = '#1a1a1a';
-      subtitleColor = '#444444';
-      bodyTextColor = '#444444';
-      courseNameColor = '#1a1a1a';
-      detailTextColor = '#666666';
-      footerTextColor = '#777777';
-      signatureLineColor = '#333333';
-      signatureTitleColor = '#666666';
-      borderColor = primaryColor;
-      innerBorderColor = secondaryColor;
-      watermarkColor = 'rgba(0, 0, 0, 0.03)';
-    }
+  if (solidBgIsDark) {
+    // Dark solid background — body text light, accented elements keep primary/secondary
+    titleColor = '#FFFFFF';
+    studentNameColor = primaryColor;
+    brandColor = primaryColor;
+    subtitleColor = '#D0D0D0';
+    bodyTextColor = '#D0D0D0';
+    courseNameColor = primaryColor;
+    detailTextColor = '#BBBBBB';
+    footerTextColor = '#AAAAAA';
+    signatureLineColor = '#FFFFFF';
+    signatureTitleColor = '#BBBBBB';
+    borderColor = primaryColor;
+    innerBorderColor = secondaryColor;
+    watermarkColor = 'rgba(255, 255, 255, 0.04)';
   } else {
-    // No background image - white background, use original colors
+    // Light/white background — accented elements keep primary/secondary
     titleColor = primaryColor;
     studentNameColor = primaryColor;
     brandColor = primaryColor;
     subtitleColor = '#666666';
     bodyTextColor = '#666666';
-    courseNameColor = '#333333';
+    courseNameColor = primaryColor;
     detailTextColor = '#888888';
     footerTextColor = '#999999';
     signatureLineColor = '#333333';
@@ -210,180 +319,220 @@ const createStyles = (template, backgroundBrightness = null) => {
     watermarkColor = 'rgba(79, 70, 229, 0.03)';
   }
 
+  const pageBackground = template?.backgroundColor || '#ffffff';
+
   return StyleSheet.create({
     page: {
       flexDirection: 'column',
-      backgroundColor: '#ffffff',
+      backgroundColor: pageBackground,
       padding: 0,
       position: 'relative',
       width: '100%',
       height: '100%',
     },
-    backgroundImage: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-    },
     border: {
       position: 'absolute',
-      top: 15,
-      left: 15,
-      right: 15,
-      bottom: 15,
-      borderWidth: 3,
+      top: 12,
+      left: 12,
+      right: 12,
+      bottom: 12,
+      borderWidth: 2.5,
       borderColor: borderColor,
-      borderRadius: 8,
+      borderRadius: 6,
     },
     innerBorder: {
       position: 'absolute',
-      top: 22,
-      left: 22,
-      right: 22,
-      bottom: 22,
-      borderWidth: 1,
+      top: 19,
+      left: 19,
+      right: 19,
+      bottom: 19,
+      borderWidth: 0.8,
       borderColor: innerBorderColor,
-      borderRadius: 4,
+      borderRadius: 3,
     },
+    watermark: {
+      position: 'absolute',
+      top: '38%',
+      left: '12%',
+      transform: 'rotate(-28deg)',
+      fontSize: 64,
+      color: watermarkColor,
+      fontWeight: 'bold',
+      letterSpacing: 14,
+    },
+    // ── Header: Logo + Brand + horizontal rule ──
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 34,
+      paddingTop: 26,
+      paddingBottom: 10,
+    },
+    headerLogo: {
+      width: 46,
+      height: 46,
+      borderRadius: 8,
+      marginRight: 10,
+    },
+    headerBrandBlock: {
+      marginRight: 16,
+    },
+    headerBrandName: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: brandColor,
+      letterSpacing: 2.5,
+    },
+    headerTagline: {
+      fontSize: 6.5,
+      color: detailTextColor,
+      letterSpacing: 0.8,
+      marginTop: 2,
+    },
+    headerDivider: {
+      flex: 1,
+      height: 1,
+      backgroundColor: innerBorderColor,
+    },
+    accentBar: {
+      height: 3,
+      backgroundColor: primaryColor,
+      marginHorizontal: 34,
+      borderRadius: 2,
+    },
+    // ── Body ──
     content: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 30,
-      paddingTop: 25,
-      paddingBottom: 40,
-    },
-    logo: {
-      width: 55,
-      height: 55,
-      marginBottom: 6,
-      borderRadius: 8,
-    },
-    brandName: {
-      fontSize: 11,
-      fontWeight: 'bold',
-      color: brandColor,
-      letterSpacing: 2,
-      marginBottom: 12,
+      paddingHorizontal: 44,
+      paddingTop: 8,
+      paddingBottom: 108,
     },
     title: {
-      fontSize: 26,
+      fontSize: 22,
       fontWeight: 'bold',
       color: titleColor,
       textTransform: 'uppercase',
-      letterSpacing: 3,
-      marginBottom: 6,
+      letterSpacing: 4,
+      marginBottom: 10,
+      textAlign: 'center',
+    },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+      width: 200,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 0.8,
+      backgroundColor: secondaryColor,
+    },
+    diamond: {
+      width: 6,
+      height: 6,
+      backgroundColor: secondaryColor,
+      transform: 'rotate(45deg)',
+      marginHorizontal: 7,
     },
     subtitle: {
-      fontSize: 10,
+      fontSize: 9,
       color: subtitleColor,
-      marginBottom: 14,
+      marginBottom: 12,
       letterSpacing: 1,
     },
     studentName: {
-      fontSize: 24,
-      fontWeight: 'bold',
+      fontSize: 30,
+      fontFamily: 'Times-BoldItalic',
       color: studentNameColor,
-      marginBottom: 8,
-      paddingBottom: 6,
-      borderBottomWidth: 2,
-      borderBottomColor: secondaryColor,
-      minWidth: 200,
+      marginBottom: 6,
       textAlign: 'center',
+    },
+    nameUnderline: {
+      width: 90,
+      height: 2,
+      backgroundColor: secondaryColor,
+      borderRadius: 1,
+      marginBottom: 10,
     },
     completionText: {
-      fontSize: 10,
+      fontSize: 9,
       color: bodyTextColor,
       marginBottom: 6,
+      textAlign: 'center',
     },
     courseName: {
-      fontSize: 16,
+      fontSize: 13,
       fontWeight: 'bold',
       color: courseNameColor,
-      marginBottom: 16,
       textAlign: 'center',
-      maxWidth: 380,
+      maxWidth: 360,
     },
-    detailsContainer: {
-      marginBottom: 16,
-      alignItems: 'center',
-    },
-    detailText: {
-      fontSize: 9,
-      color: detailTextColor,
-      marginBottom: 3,
-    },
-    signatureSection: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'flex-end',
-      marginTop: 10,
-    },
-    signatureBlock: {
-      alignItems: 'center',
-      minWidth: 140,
-    },
-    signatureImage: {
-      width: 100,
-      height: 40,
-      marginBottom: 4,
-      objectFit: 'contain',
-    },
-    signatureLine: {
-      width: 120,
-      borderTopWidth: 1,
-      borderTopColor: signatureLineColor,
-      paddingTop: 4,
-      fontSize: 9,
-      color: bodyTextColor,
-      textAlign: 'center',
-    },
-    signatureTitle: {
-      fontSize: 7,
-      color: signatureTitleColor,
-      marginTop: 2,
-    },
-    footer: {
+    // ── Footer bar: QR | date+id | signature ──
+    footerBar: {
       position: 'absolute',
-      bottom: 28,
-      left: 40,
-      right: 40,
+      bottom: 22,
+      left: 28,
+      right: 28,
+      height: 76,
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderTopWidth: 0.8,
+      borderTopColor: innerBorderColor,
+      paddingTop: 6,
+      paddingHorizontal: 6,
+    },
+    qrWrapper: {
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    qrLabel: {
+      fontSize: 4.5,
+      color: footerTextColor,
+      marginTop: 2,
+      textAlign: 'center',
+    },
+    footerCenter: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    footerTagline: {
+      fontSize: 6,
+      color: footerTextColor,
+      textAlign: 'center',
+      fontStyle: 'italic',
+      marginBottom: 4,
+      maxWidth: 260,
     },
     footerText: {
       fontSize: 7,
       color: footerTextColor,
+      marginBottom: 3,
     },
-    watermark: {
-      position: 'absolute',
-      top: '42%',
-      left: '18%',
-      transform: 'rotate(-30deg)',
-      fontSize: 60,
-      color: watermarkColor,
-      fontWeight: 'bold',
-      letterSpacing: 12,
-    },
-    qrWrapper: {
-      position: 'absolute',
-      bottom: 22,
-      right: 44,
+    signatureBlock: {
       alignItems: 'center',
-      backgroundColor: '#FFFFFF',
-      padding: 4,
-      borderRadius: 4,
+      minWidth: 110,
     },
-    qrImage: {
-      width: 60,
-      height: 60,
+    signatureImage: {
+      width: 100,
+      height: 38,
+      marginBottom: 3,
+      objectFit: 'contain',
     },
-    qrLabel: {
-      fontSize: 5.5,
-      color: '#444444',
-      marginTop: 2,
+    signatureLine: {
+      width: 100,
+      borderTopWidth: 0.8,
+      borderTopColor: signatureLineColor,
+      paddingTop: 3,
+      fontSize: 7.5,
+      color: bodyTextColor,
+      textAlign: 'center',
+    },
+    signatureTitle: {
+      fontSize: 6,
+      color: signatureTitleColor,
+      marginTop: 1,
       textAlign: 'center',
     },
   });
@@ -391,14 +540,17 @@ const createStyles = (template, backgroundBrightness = null) => {
 
 /**
  * Certificate Document Component - Single landscape A4 page
+ * Layout: header (logo + brand + rule) → accent bar → centered body → footer bar (QR | date+ID | signature)
  */
-const CertificateDocument = ({ data, template, backgroundBrightness }) => {
-  // Pass background brightness to adjust text colors automatically
-  const styles = createStyles(template, backgroundBrightness);
+const CertificateDocument = ({ data, template }) => {
+  const styles = createStyles(template);
+  const primaryColor = template?.primaryColor || '#4F46E5';
+  const bgIsDark = template?.backgroundColor ? !isLightColor(template.backgroundColor) : false;
+  const solidBgColor = template?.backgroundColor || '#ffffff';
   const titleText = template?.titleText || 'Certificate of Completion';
   const subtitleText = template?.subtitleText || 'This is to certify that';
+  const footerText = template?.footerText || 'This certificate is awarded upon successful completion of the course requirements.';
 
-  // Format the issue date
   const issueDate = new Date(data.issueDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -407,93 +559,92 @@ const CertificateDocument = ({ data, template, backgroundBrightness }) => {
 
   const pageContent = [];
 
-  // Background image (if available)
-  if (data.backgroundImage) {
-    pageContent.push(
-      React.createElement(Image, { key: 'bg', style: styles.backgroundImage, src: data.backgroundImage })
-    );
-  }
-
-  // Border decorations
+  // Absolute layers: borders + watermark
   pageContent.push(React.createElement(View, { key: 'border', style: styles.border }));
   pageContent.push(React.createElement(View, { key: 'innerBorder', style: styles.innerBorder }));
-
-  // Watermark
   pageContent.push(React.createElement(Text, { key: 'watermark', style: styles.watermark }, 'SKILLSPHERE'));
 
-  // Main content
+  // ── Header: Logo + Brand block + horizontal rule ──
+  const headerChildren = [];
+  if (data.logoPath) {
+    headerChildren.push(React.createElement(Image, { key: 'logo', style: styles.headerLogo, src: data.logoPath }));
+  }
+  headerChildren.push(
+    React.createElement(View, { key: 'brandBlock', style: styles.headerBrandBlock },
+      React.createElement(Text, { style: styles.headerBrandName }, 'SKILLSPHERE'),
+      React.createElement(Text, { style: styles.headerTagline }, 'Certificate of Achievement')
+    )
+  );
+  headerChildren.push(React.createElement(View, { key: 'hRule', style: styles.headerDivider }));
+  pageContent.push(React.createElement(View, { key: 'header', style: styles.header }, ...headerChildren));
+
+  // Accent bar
+  pageContent.push(React.createElement(View, { key: 'accent', style: styles.accentBar }));
+
+  // ── Centered body ──
   const contentChildren = [];
 
-  // Logo
-  if (data.logoPath) {
-    contentChildren.push(React.createElement(Image, { key: 'logo', style: styles.logo, src: data.logoPath }));
-  }
-
-  // Brand name
-  contentChildren.push(React.createElement(Text, { key: 'brand', style: styles.brandName }, 'SKILLSPHERE'));
-
-  // Title
   contentChildren.push(React.createElement(Text, { key: 'title', style: styles.title }, titleText));
 
-  // Subtitle
+  // Diamond divider
+  contentChildren.push(
+    React.createElement(View, { key: 'divider', style: styles.dividerRow },
+      React.createElement(View, { style: styles.dividerLine }),
+      React.createElement(View, { style: styles.diamond }),
+      React.createElement(View, { style: styles.dividerLine })
+    )
+  );
+
   contentChildren.push(React.createElement(Text, { key: 'subtitle', style: styles.subtitle }, subtitleText));
-
-  // Student name
   contentChildren.push(React.createElement(Text, { key: 'student', style: styles.studentName }, data.studentName));
-
-  // Completion text
+  contentChildren.push(React.createElement(View, { key: 'nameUnderline', style: styles.nameUnderline }));
   contentChildren.push(React.createElement(Text, { key: 'completion', style: styles.completionText }, 'has successfully completed the course'));
-
-  // Course name
   contentChildren.push(React.createElement(Text, { key: 'course', style: styles.courseName }, data.courseName));
-
-  // Details
-  contentChildren.push(
-    React.createElement(View, { key: 'details', style: styles.detailsContainer },
-      React.createElement(Text, { style: styles.detailText }, `Issued on: ${issueDate}`),
-      React.createElement(Text, { style: styles.detailText }, `Certificate ID: ${data.certificateNumber}`)
-    )
-  );
-
-  // Signature section
-  const signatureChildren = [];
-  if (data.instructorSignature) {
-    signatureChildren.push(React.createElement(Image, { key: 'sig', style: styles.signatureImage, src: data.instructorSignature }));
-  }
-  signatureChildren.push(React.createElement(Text, { key: 'sigLine', style: styles.signatureLine }, 'Instructoristrator'));
-  signatureChildren.push(React.createElement(Text, { key: 'sigTitle', style: styles.signatureTitle }, 'SkillSphere'));
-
-  contentChildren.push(
-    React.createElement(View, { key: 'sigSection', style: styles.signatureSection },
-      React.createElement(View, { style: styles.signatureBlock }, ...signatureChildren)
-    )
-  );
 
   pageContent.push(React.createElement(View, { key: 'content', style: styles.content }, ...contentChildren));
 
-  // Footer — left side: cert ID + verify text
-  pageContent.push(
-    React.createElement(View, { key: 'footer', style: styles.footer },
-      React.createElement(View, { key: 'footerLeft' },
-        React.createElement(Text, { style: styles.footerText }, `Certificate ID: ${data.certificateNumber}`),
-        React.createElement(Text, { style: [styles.footerText, { marginTop: 2 }] }, `Scan QR code to verify authenticity`)
-      )
+  // ── Footer bar: [QR] | [date + cert ID] | [signature] ──
+  const footerChildren = [];
+
+  // QR — SVG with absolute Text overlay for the SS badge (painter.text() is a no-op in react-pdf Canvas)
+  if (data.certificateNumber) {
+    const qrEl = createQRSvgElement(
+      data.verifyBaseUrl ? `${data.verifyBaseUrl}/verify/${data.certificateNumber}` : data.certificateNumber,
+      { size: 54, accentColor: primaryColor, bgIsDark, bgColor: solidBgColor }
+    );
+    if (qrEl) {
+      const qrItems = [
+        React.cloneElement(qrEl, { key: 'qrSvg' }),
+        React.createElement(Text, { key: 'qrScan', style: styles.qrLabel }, 'Scan to verify'),
+      ];
+      if (data.verifyBaseUrl) {
+        qrItems.push(React.createElement(Text, { key: 'qrUrl', style: styles.qrLabel }, data.verifyBaseUrl));
+      }
+      footerChildren.push(React.createElement(View, { key: 'qrWrapper', style: styles.qrWrapper }, ...qrItems));
+    }
+  }
+
+  // Center — footer text + issued date + cert ID
+  footerChildren.push(
+    React.createElement(View, { key: 'footerCenter', style: styles.footerCenter },
+      React.createElement(Text, { style: styles.footerTagline }, footerText),
+      React.createElement(Text, { style: styles.footerText }, `Issued on: ${issueDate}`),
+      React.createElement(Text, { style: styles.footerText }, `Certificate ID: ${data.certificateNumber}`)
     )
   );
 
-  // QR code — bottom-right corner, always on white background for scannability.
-  // QR encodes only the cert ID. URL and ID are shown as text below.
-  if (data.qrCodeDataUrl) {
-    pageContent.push(
-      React.createElement(View, { key: 'qrWrapper', style: styles.qrWrapper },
-        React.createElement(Image, { key: 'qrImg', style: styles.qrImage, src: data.qrCodeDataUrl }),
-        data.verifyBaseUrl
-          ? React.createElement(Text, { key: 'qrUrl', style: styles.qrLabel }, data.verifyBaseUrl)
-          : null,
-        React.createElement(Text, { key: 'qrId', style: styles.qrLabel }, `ID: ${data.certificateNumber}`)
-      )
-    );
+  // Signature — right
+  const sigItems = [];
+  if (data.instructorSignature) {
+    sigItems.push(React.createElement(Image, { key: 'sig', style: styles.signatureImage, src: data.instructorSignature }));
+  } else {
+    sigItems.push(React.createElement(View, { key: 'sigSpace', style: { height: 38 } }));
   }
+  sigItems.push(React.createElement(Text, { key: 'sigLine', style: styles.signatureLine }, 'Instructor'));
+  sigItems.push(React.createElement(Text, { key: 'sigTitle', style: styles.signatureTitle }, 'SkillSphere'));
+  footerChildren.push(React.createElement(View, { key: 'sigBlock', style: styles.signatureBlock }, ...sigItems));
+
+  pageContent.push(React.createElement(View, { key: 'footerBar', style: styles.footerBar }, ...footerChildren));
 
   return React.createElement(Document, {},
     React.createElement(Page, { size: 'A4', orientation: 'landscape', style: styles.page, wrap: false },
@@ -574,19 +725,6 @@ const getImageSource = (imagePath) => {
 
 
 /**
- * Generate a QR code as a base64 PNG data URI.
- * Uses a high resolution so the image stays sharp in the PDF.
- */
-const generateQRCodeDataUrl = async (text) => {
-  return QRCode.toDataURL(text, {
-    width: 300,
-    margin: 1,
-    color: { dark: '#000000', light: '#FFFFFF' },
-    errorCorrectionLevel: 'M',
-  });
-};
-
-/**
  * Generate PDF certificate from data
  * @param {Object} data - Certificate data { studentName, courseName, certificateNumber, issueDate }
  * @param {Object} template - Template settings from database
@@ -595,41 +733,25 @@ const generateQRCodeDataUrl = async (text) => {
 const generateCertificatePDF = async (data, template = null) => {
   // Check if PDF generation is available
   if (!pdfAvailable) {
-    throw new Error('Certificate generation is temporarily unavailable. Please contact instructoristrator.');
+    throw new Error('Certificate generation is temporarily unavailable. Please contact your administrator.');
   }
 
   try {
     // Get logo source
+    console.log('Attempting to load logo from:', LOGO_PATH);
+    console.log('Logo file exists:', fs.existsSync(LOGO_PATH));
     const logoPath = getImageSource(LOGO_PATH);
-    console.log('Logo path:', logoPath);
+    console.log('Logo loaded as base64:', !!logoPath);
 
-    // Get instructor signature if available
+    // Determine if the background color is dark
+    const bgIsDark = template?.backgroundColor ? !isLightColor(template.backgroundColor) : false;
+
+    // Get instructor signature — passed via data (from creator user, not template)
     let instructorSignature = null;
-    if (template?.instructorSignature) {
-      instructorSignature = getImageSource(template.instructorSignature);
-      console.log('Instructor signature path:', instructorSignature);
-    }
-
-    // Get background image if available and analyze its brightness
-    let backgroundImage = null;
-    let backgroundBrightness = null;
-    if (template?.backgroundImage) {
-      backgroundImage = getImageSource(template.backgroundImage);
-      console.log('Background image path:', backgroundImage);
-
-      // Analyze background image brightness for automatic text color adjustment
-      backgroundBrightness = await analyzeImageBrightness(template.backgroundImage);
-      console.log('Background brightness:', backgroundBrightness);
-    }
-
-    // QR encodes only the certificate ID — simple and scannable on any reader.
-    // The domain is shown as text below the QR, not baked into the QR itself.
-    let qrCodeDataUrl = null;
-    try {
-      qrCodeDataUrl = await generateQRCodeDataUrl(data.certificateNumber);
-      console.log('QR code generated for cert ID:', data.certificateNumber);
-    } catch (qrErr) {
-      console.warn('QR code generation failed (non-fatal):', qrErr.message);
+    if (data.instructorSignature) {
+      const targetRgb = bgIsDark ? [255, 255, 255] : [0, 0, 0];
+      instructorSignature = await colorizeSignature(data.instructorSignature, targetRgb);
+      console.log('Instructor signature colorized for', bgIsDark ? 'dark' : 'light', 'background');
     }
 
     // Base URL for display below the QR (never baked into the QR itself)
@@ -640,8 +762,6 @@ const generateCertificatePDF = async (data, template = null) => {
       ...data,
       logoPath,
       instructorSignature,
-      backgroundImage,
-      qrCodeDataUrl,
       verifyBaseUrl,
     };
 
@@ -650,13 +770,11 @@ const generateCertificatePDF = async (data, template = null) => {
       courseName: certificateData.courseName,
       hasLogo: !!certificateData.logoPath,
       hasSignature: !!certificateData.instructorSignature,
-      hasBackground: !!certificateData.backgroundImage,
-      backgroundBrightness
     });
 
     // Generate PDF buffer using React PDF
     const pdfBuffer = await renderToBuffer(
-      React.createElement(CertificateDocument, { data: certificateData, template, backgroundBrightness })
+      React.createElement(CertificateDocument, { data: certificateData, template })
     );
 
     return pdfBuffer;

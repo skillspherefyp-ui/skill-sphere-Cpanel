@@ -12,6 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import MainLayout from '../../components/ui/MainLayout';
+import UserAvatar from '../../components/ui/UserAvatar';
 import AppInput from '../../components/ui/AppInput';
 import AppCard from '../../components/ui/AppCard';
 import AppButton from '../../components/ui/AppButton';
@@ -170,9 +171,7 @@ const StudentListScreen = () => {
           )}
           {/* Avatar & Info */}
           <View style={styles.studentHeader}>
-            <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              <Text style={styles.avatarText}>{student.name.charAt(0).toUpperCase()}</Text>
-            </View>
+            <UserAvatar user={student} size={44} />
             <View style={styles.studentInfo}>
               <Text style={[styles.studentName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                 {student.name}

@@ -7,19 +7,18 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Platform,
   useWindowDimensions,
   Animated,
-  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { certificateAPI } from '../../services/apiClient';
 import MainLayout from '../../components/ui/MainLayout';
+import AppHeader from '../../components/ui/AppHeader';
+import { Helmet } from 'react-helmet-async';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
-const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
 const NAVY2  = '#16213E';
@@ -36,7 +35,7 @@ const CertificateVerificationScreen = ({ navigation, route }) => {
   // React Navigation linking automatically parses query params as route.params.
   // /verify?cert=CERT-123  →  route.params.cert = 'CERT-123'
   // Also accept certificateNumber param for programmatic navigation.
-  const paramCert = route?.params?.cert || route?.params?.certificateNumber || '';
+  const paramCert = route?.params?.cert || route?.params?.certificateNumber || route?.params?.certId || '';
 
   const [certNumber, setCertNumber] = useState(paramCert);
   const [loading, setLoading]       = useState(false);
@@ -298,14 +297,14 @@ const CertificateVerificationScreen = ({ navigation, route }) => {
   );
 
   // ─── Render ─────────────────────────────────────────────────────────────────
-  if (fromStudent) {
+  if (fromStudent || user?.role === 'student' || user?.role === 'admin' || user?.role === 'instructor') {
     return (
       <MainLayout
         showSidebar={true}
         sidebarItems={getSidebarItems(user?.role)}
         activeRoute="CertificateVerify"
         onNavigate={(route) => navigation.navigate(route, route === 'CertificateVerify' ? { fromStudent: true } : undefined)}
-        userInfo={{ name: user?.name, role: 'Student', avatar: user?.avatar }}
+        userInfo={{ name: user?.name, role: user?.role || 'Student', avatar: user?.avatar }}
         onLogout={logout}
         onSettings={() => navigation.navigate('Settings')}
       >
@@ -315,40 +314,49 @@ const CertificateVerificationScreen = ({ navigation, route }) => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? NAVY : '#F8F9FF' }}>
-      {/* ── Navbar (public) ── */}
-      <View style={[s.navbar, { background: Platform.OS === 'web' ? 'linear-gradient(135deg, #1A1A2E 0%, #1E1E38 100%)' : undefined, backgroundColor: Platform.OS !== 'web' ? NAVY : undefined }]}>
-        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="chevron-back" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={s.navBrand}>
-          <Image source={LOGO} style={s.navLogo} resizeMode="cover" />
-          <Text style={s.navLogoText}>SKILL<Text style={{ color: ORANGE }}>SPHERE</Text></Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Helmet>
+        <title>Verify Certificate - SkillSphere</title>
+        <meta name="description" content="Verify the authenticity of a SkillSphere certificate. Enter a certificate ID to confirm it is genuine and view the holder's details." />
+        <link rel="canonical" href="https://skillsphere.com.pk/certificate-verify" />
+      </Helmet>
+      <AppHeader
+        showBack={true}
+        showDateTime={false}
+        minimal={true}
+        title="Verify Certificate"
+        mobileDropdownFooter={(close) => (
+          <>
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4, marginHorizontal: 12 }} />
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 6, marginVertical: 1, borderRadius: 12, gap: 12 }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('Login'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,140,66,0.1)' }}>
+                <Icon name="log-in-outline" size={18} color="#FF8C42" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 6, marginVertical: 1, borderRadius: 12, gap: 12 }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('Signup'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,140,66,0.1)' }}>
+                <Icon name="rocket-outline" size={18} color="#FF8C42" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Get Started</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      />
       {content}
     </View>
   );
 };
 
 const s = StyleSheet.create({
-  navbar: {
-    height: 62,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  navBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  navLogo: { width: 34, height: 34, borderRadius: 9 },
-  navLogoText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15, letterSpacing: 1.2 },
-
   scroll: { paddingBottom: 48, alignItems: 'stretch' },
 
   pageBanner: {

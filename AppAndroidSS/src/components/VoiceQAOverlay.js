@@ -33,8 +33,10 @@ const VoiceQAOverlay = ({
   topicId,
   studentName,
   theme,
+  language,            // 'Urdu' | 'English' — controls greeting/closing language
   onQuestionAnswered,  // (question, answer, rawRes) => void
 }) => {
+  const isUrdu = language === 'Urdu';
   const [phase, setPhase] = useState('speaking-prompt');
   const [transcript, setTranscript] = useState('');
   const [answerText, setAnswerText] = useState('');
@@ -277,14 +279,19 @@ const VoiceQAOverlay = ({
   const speakPrompt = useCallback(() => {
     setPhase('speaking-prompt');
     speak(
-      `Hi ${studentName || 'there'}, what's your question? I've paused the lecture for you.`,
+      isUrdu
+        ? `${studentName || 'آپ'}، آپ کا کیا سوال ہے؟ میں نے آپ کے لیے لیکچر روک دیا ہے۔`
+        : `Hi ${studentName || 'there'}, what's your question? I've paused the lecture for you.`,
       () => { if (phaseRef.current !== 'done') startListening(); }
     );
   }, [studentName, speak]);
 
   const speakNoQuestion = useCallback(() => {
     setPhase('speaking-closing');
-    speak("No questions — let's continue the lecture.", () => finishAndClose());
+    speak(
+      isUrdu ? 'کوئی سوال نہیں — لیکچر جاری رکھتے ہیں۔' : "No questions — let's continue the lecture.",
+      () => finishAndClose()
+    );
   }, [speak, finishAndClose]);
 
   const handleQuestion = useCallback(async (question) => {
@@ -531,7 +538,7 @@ const VoiceQAOverlay = ({
       case 'transcribing':     return transcript || 'Transcribing…';
       case 'processing':       return 'Getting your answer…';
       case 'speaking-answer':  return answerText;
-      case 'speaking-closing': return "No questions — let's continue.";
+      case 'speaking-closing': return isUrdu ? 'کوئی سوال نہیں — لیکچر جاری رکھتے ہیں۔' : "No questions — let's continue.";
       default:                 return '';
     }
   };

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  StatusBar, Platform, TextInput, ActivityIndicator,
+  TextInput, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
-import ThemeToggle from '../../components/ThemeToggle';
+import AppHeader from '../../components/ui/AppHeader';
 import { blogAPI } from '../../services/apiClient';
+import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
@@ -49,15 +50,12 @@ const BlogScreen = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
-
-      <View style={[s.header, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Icon name="chevron-back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Blog</Text>
-        <ThemeToggle iconColor="#FFFFFF" />
-      </View>
+      <Helmet>
+        <title>Blog - SkillSphere Learning Resources &amp; Tips</title>
+        <meta name="description" content="Read the SkillSphere blog for learning tips, course guides, career advice, and the latest in online education and AI-powered learning in Pakistan." />
+        <link rel="canonical" href="https://skillsphere.com.pk/blog" />
+      </Helmet>
+      <AppHeader showBack={true} showDateTime={false} minimal={true} title="Blog" />
 
       <ScrollView showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 50 }}>
@@ -190,17 +188,6 @@ const BlogScreen = ({ navigation }) => {
 };
 
 const s = StyleSheet.create({
-  header: {
-    backgroundColor: NAVY, paddingHorizontal: 16, paddingBottom: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
   intro: { fontSize: 14, lineHeight: 22, marginBottom: 20 },
   emptyBox: {
     borderWidth: 1, borderRadius: 16, padding: 40,

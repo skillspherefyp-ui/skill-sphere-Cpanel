@@ -10,6 +10,7 @@ import {
   Image,
   ScrollView,
   Modal,
+  PanResponder,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -40,18 +41,22 @@ const AppHeader = ({
   showBack = true,
   rightActions,
   forceShowBack = false,
+  onBack = null,
   leftComponent,
   style,
   showDateTime = true,
   navItems = [],
   activeRoute,
   onNavigate,
+  mobileDropdownFooter = null,
+  title = null,
+  minimal = false,
 }) => {
   const { theme, isDark } = useTheme();
   const { user, logout } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
-  const { width } = useWindowDimensions();
+  const { width, height: screenHeight } = useWindowDimensions();
 
   // Live clock
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -60,6 +65,37 @@ const AppHeader = ({
   // Mobile dropdown state
   const [menuOpen, setMenuOpen] = useState(false);
   const menuAnim = useRef(new Animated.Value(0)).current;
+  const navScrollRef = useRef(null);
+  const navScrollY = useRef(0);
+  const [navContentHeight, setNavContentHeight] = useState(0);
+  const [navVisibleHeight, setNavVisibleHeight] = useState(0);
+  const navContentHeightRef = useRef(0);
+  const navVisibleHeightRef = useRef(0);
+  const navScrollAnim = useRef(new Animated.Value(0)).current;
+  const thumbDragStartScrollY = useRef(0);
+
+  const scrollbarPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        thumbDragStartScrollY.current = navScrollY.current;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const visH = navVisibleHeightRef.current;
+        const contH = navContentHeightRef.current;
+        if (visH <= 0 || contH <= visH) return;
+        const thumbH = Math.max(24, (visH / contH) * visH);
+        const maxThumbY = visH - thumbH;
+        const maxScrollY = contH - visH;
+        const startThumbY = (thumbDragStartScrollY.current / maxScrollY) * maxThumbY;
+        const newThumbY = Math.max(0, Math.min(maxThumbY, startThumbY + gestureState.dy));
+        const newScrollY = maxThumbY > 0 ? (newThumbY / maxThumbY) * maxScrollY : 0;
+        navScrollRef.current?.scrollTo({ y: newScrollY, animated: false });
+      },
+    })
+  ).current;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -82,10 +118,13 @@ const AppHeader = ({
   const isMainScreen =
     route.name === 'Login' || route.name === 'Signup' || route.name === 'Dashboard';
   const canGoBack = navigation.canGoBack() && !isMainScreen;
-  const shouldShowBack = (showBack && canGoBack) || forceShowBack;
+  const hasWebHistory = Platform.OS === 'web' && typeof window !== 'undefined' && window.history.length > 1;
+  const shouldShowBack = (showBack && (canGoBack || hasWebHistory)) || forceShowBack;
 
   const handleBack = () => {
-    if (navigation.canGoBack()) navigation.goBack();
+    if (onBack) { onBack(); return; }
+    if (navigation.canGoBack()) { navigation.goBack(); return; }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.history.back();
   };
 
   const isWeb = Platform.OS === 'web';
@@ -106,6 +145,7 @@ const AppHeader = ({
 
   // ── Mobile dropdown open/close ──────────────────────────────────────────
   const openMenu = () => {
+    navScrollY.current = 0;
     setMenuOpen(true);
     Animated.spring(menuAnim, {
       toValue: 1,
@@ -133,66 +173,34 @@ const AppHeader = ({
     setTimeout(() => logout(), 150);
   };
 
-  // ── Mobile Dropdown Menu (rendered in Modal) ─────────────────────────────
-  const MobileDropdown = () => (
-    <Modal
-      visible={menuOpen}
-      transparent
-      animationType="none"
-      onRequestClose={closeMenu}
-    >
-      {/* Backdrop */}
-      <TouchableOpacity
-        style={styles.modalBackdrop}
-        onPress={closeMenu}
-        activeOpacity={1}
-      >
-        {/* Dropdown card — positioned top-right below header */}
-        <Animated.View
-          style={[
-            styles.dropdownCard,
-            {
-              top: totalHeaderOffset + 8,
-              opacity: menuAnim,
-              transform: [
-                {
-                  translateY: menuAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-12, 0],
-                  }),
-                },
-                {
-                  scale: menuAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.95, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          {/* ── User info strip ── */}
-          {user && (
-            <View style={styles.dropdownUserRow}>
-              <View style={styles.dropdownAvatar}>
-                <Text style={styles.dropdownAvatarText}>
-                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.dropdownUserName} numberOfLines={1}>
-                  {user.name || 'Student'}
-                </Text>
-                <Text style={styles.dropdownUserRole}>
-                  ⚡ {user.role || 'Student'}
-                </Text>
-              </View>
-            </View>
+  // ── Dropdown inner content (shared across web/native) ───────────────────
+  const DropdownContent = () => (
+    <>
+      {user && (
+        <View style={styles.dropdownUserRow}>
+          <UserAvatar user={user} size={40} borderColor="rgba(255,140,66,0.4)" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dropdownUserName} numberOfLines={1}>{user.name || 'Student'}</Text>
+            <Text style={styles.dropdownUserRole}>⚡ {user.role || 'Student'}</Text>
+          </View>
+        </View>
+      )}
+      <View style={styles.dropdownDivider} />
+      <View style={{ position: 'relative' }}>
+        <ScrollView
+          ref={navScrollRef}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+          style={{ maxHeight: navItems.length > 4 ? 261 : undefined }}
+          onContentSizeChange={(_, h) => { setNavContentHeight(h); navContentHeightRef.current = h; }}
+          onLayout={(e) => { const h = e.nativeEvent.layout.height; setNavVisibleHeight(h); navVisibleHeightRef.current = h; }}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: navScrollAnim } } }],
+            { useNativeDriver: false, listener: (e) => { navScrollY.current = e.nativeEvent.contentOffset.y; } }
           )}
-
-          <View style={styles.dropdownDivider} />
-
-          {/* ── Nav items ── */}
+          scrollEventThrottle={16}
+        >
           {navItems.map((item) => {
             const isActive = activeRoute === item.route;
             return (
@@ -208,62 +216,95 @@ const AppHeader = ({
                     : <Icon name={isActive ? (item.iconActive || item.icon) : item.icon} size={18} color={isActive ? '#FFFFFF' : '#FF8C42'} />
                   }
                 </View>
-                <Text style={[styles.dropdownItemLabel, isActive && styles.dropdownItemLabelActive]}>
-                  {item.label}
-                </Text>
-                {isActive && (
-                  <View style={styles.dropdownActiveDot} />
-                )}
+                <Text style={[styles.dropdownItemLabel, isActive && styles.dropdownItemLabelActive]}>{item.label}</Text>
+                {isActive && <View style={styles.dropdownActiveDot} />}
               </TouchableOpacity>
             );
           })}
-
-          <View style={styles.dropdownDivider} />
-
-          {/* ── Theme toggle row ── */}
-          <View style={styles.dropdownItem}>
-            <View style={[styles.dropdownItemIcon, { backgroundColor: 'rgba(124,111,205,0.15)' }]}>
-              <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color="#7C6FCD" />
-            </View>
-            <Text style={styles.dropdownItemLabel}>
-              {isDark ? 'Light Mode' : 'Dark Mode'}
-            </Text>
-            <ThemeToggle iconColor={isDark ? '#F5C842' : '#7C6FCD'} />
+        </ScrollView>
+        {navItems.length > 4 && navContentHeight > navVisibleHeight && navVisibleHeight > 0 && (
+          <View style={styles.scrollTrack}>
+            <Animated.View
+              {...scrollbarPanResponder.panHandlers}
+              style={[styles.scrollThumb, {
+                height: Math.max(24, (navVisibleHeight / navContentHeight) * navVisibleHeight),
+                transform: [{ translateY: navScrollAnim.interpolate({
+                  inputRange: [0, Math.max(1, navContentHeight - navVisibleHeight)],
+                  outputRange: [0, navVisibleHeight - Math.max(24, (navVisibleHeight / navContentHeight) * navVisibleHeight)],
+                  extrapolate: 'clamp',
+                }) }],
+              }]}
+            />
           </View>
+        )}
+      </View>
+      <View style={styles.dropdownDivider} />
+      <View style={styles.dropdownItem}>
+        <View style={[styles.dropdownItemIcon, { backgroundColor: 'rgba(124,111,205,0.15)' }]}>
+          <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color="#7C6FCD" />
+        </View>
+        <Text style={styles.dropdownItemLabel}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
+        <ThemeToggle iconColor={isDark ? '#F5C842' : '#7C6FCD'} />
+      </View>
+      {typeof mobileDropdownFooter === 'function' ? mobileDropdownFooter(closeMenu) : mobileDropdownFooter}
+      {user && (
+        <TouchableOpacity style={styles.dropdownItem}
+          onPress={() => { closeMenu(); setTimeout(() => navigation.navigate('Settings'), 100); }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.dropdownItemIcon, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+            <Icon name="settings-outline" size={18} color="#FFFFFF" />
+          </View>
+          <Text style={styles.dropdownItemLabel}>Settings</Text>
+        </TouchableOpacity>
+      )}
+      {user && (
+        <TouchableOpacity style={styles.dropdownItem} onPress={handleLogout} activeOpacity={0.7}>
+          <View style={[styles.dropdownItemIcon, { backgroundColor: 'rgba(255,80,80,0.12)' }]}>
+            <Icon name="log-out-outline" size={18} color="#FF5050" />
+          </View>
+          <Text style={[styles.dropdownItemLabel, { color: '#FF5050' }]}>Sign Out</Text>
+        </TouchableOpacity>
+      )}
+    </>
+  );
 
-          {/* ── Settings row ── */}
-          {user && (
-            <TouchableOpacity
-              style={styles.dropdownItem}
-              onPress={() => { closeMenu(); setTimeout(() => navigation.navigate('Settings'), 100); }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.dropdownItemIcon, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(100,116,139,0.12)' }]}>
-                <Icon name="settings-outline" size={18} color={isDark ? '#FFFFFF' : '#64748B'} />
+  // ── Mobile Dropdown Menu (rendered in Modal) ─────────────────────────────
+  const MobileDropdown = () => (
+    <Modal visible={menuOpen} transparent animationType="none" onRequestClose={closeMenu}>
+      <View style={styles.modalBackdrop}>
+        {/* Backdrop tap-to-close — sits below the dropdown in z-order */}
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={closeMenu} activeOpacity={1} />
+        {/* Dropdown — rendered after backdrop so it sits on top, scroll gestures are not intercepted */}
+        <Animated.View style={{
+          position: 'absolute', right: 12, top: totalHeaderOffset + 8,
+          width: 234, borderRadius: 22,
+          opacity: menuAnim,
+          transform: [
+            { translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-12,0] }) },
+            { scale:      menuAnim.interpolate({ inputRange: [0,1], outputRange: [0.95,1] }) },
+          ],
+          shadowColor: '#7C6FCD', shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.4, shadowRadius: 24, elevation: 20,
+        }}>
+          {/* Web: CSS gradient border */}
+          {isWeb ? (
+            <View style={{ borderRadius: 22, padding: 2, background: 'linear-gradient(90deg, #FF8C42, #7C6FCD)' }}>
+              <View style={[styles.dropdownCard, { backgroundColor: glassBg, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }]}>
+                {DropdownContent()}
               </View>
-              <Text style={styles.dropdownItemLabel}>
-                Settings
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* ── Logout row ── */}
-          {user && (
-            <TouchableOpacity
-              style={styles.dropdownItem}
-              onPress={handleLogout}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.dropdownItemIcon, { backgroundColor: 'rgba(255,80,80,0.12)' }]}>
-                <Icon name="log-out-outline" size={18} color="#FF5050" />
+            </View>
+          ) : (
+            /* Native: LinearGradient border */
+            <LinearGradient colors={['#FF8C42', '#7C6FCD']} start={{ x:0, y:0.5 }} end={{ x:1, y:0.5 }}
+              style={{ borderRadius: 22, padding: 2 }}>
+              <View style={[styles.dropdownCard, { backgroundColor: glassBg }]}>
+                {DropdownContent()}
               </View>
-              <Text style={[styles.dropdownItemLabel, { color: '#FF5050' }]}>
-                Sign Out
-              </Text>
-            </TouchableOpacity>
+            </LinearGradient>
           )}
         </Animated.View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 
@@ -272,19 +313,8 @@ const AppHeader = ({
     <View style={styles.contentWrapper}>
       <View style={styles.content}>
 
-        {/* ── LEFT: Logo + optional back / custom menu ── */}
+        {/* ── LEFT ── */}
         <View style={styles.leftSection}>
-          <View style={styles.logoArea}>
-            <Image source={LogoImage} style={styles.logoImg} resizeMode="cover" />
-            {isDesktop && (
-              <Text style={styles.logoText}>
-                SKILL<Text style={{ color: '#FF8C42' }}>SPHERE</Text>
-              </Text>
-            )}
-          </View>
-
-          {leftComponent}
-
           {shouldShowBack && (
             <TouchableOpacity
               onPress={handleBack}
@@ -294,10 +324,23 @@ const AppHeader = ({
               <Icon name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           )}
+
+          {!minimal && (
+            <View style={styles.logoArea}>
+              <Image source={LogoImage} style={styles.logoImg} resizeMode="cover" />
+              {isDesktop && (
+                <Text style={styles.logoText}>
+                  SKILL<Text style={{ color: '#FF8C42' }}>SPHERE</Text>
+                </Text>
+              )}
+            </View>
+          )}
+
+          {!minimal && leftComponent}
         </View>
 
-        {/* ── CENTER: Nav pills — tablet/desktop only ── */}
-        {!isMobile && navItems.length > 0 && (
+        {/* ── CENTER: Nav pills or page title ── */}
+        {navItems.length > 0 && !isMobile ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -324,91 +367,102 @@ const AppHeader = ({
               );
             })}
           </ScrollView>
-        )}
+        ) : title ? (
+          <View style={styles.titleArea}>
+            <Text style={styles.pageTitle} numberOfLines={1}>{title}</Text>
+          </View>
+        ) : null}
 
         {/* ── RIGHT ── */}
         <View style={styles.rightSection}>
 
-          {/* Date/time pill — full date + time on all screen sizes */}
-          {showDateTime && (
-            <View style={styles.dateTimeWrapper}>
-              <View style={styles.dateContainer}>
-                <Icon name="calendar" size={isMobile ? 16 : 14} color="#FFFFFF" />
-                <Text style={styles.dateText}>{formatDate(currentTime)}</Text>
-              </View>
-              <View style={styles.dateTimeDivider} />
-              <View style={styles.timeContainer}>
-                <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
-                <Icon name="time" size={isMobile ? 16 : 14} color="#FFFFFF" />
-                <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Greeting + avatar — desktop only */}
-          {isDesktop && user && (
-            <View style={styles.userGreeting}>
-              <Text style={styles.greetingName}>
-                Hello, {user.name?.split(' ')[0] || 'Student'}
-              </Text>
-              <Text style={styles.greetingRole}>⚡ {user.role || 'Student'}</Text>
-            </View>
-          )}
-
-          {!isMobile && user && (
-            <UserAvatar
-              user={user}
-              size={34}
-              borderColor="rgba(255,255,255,0.3)"
-            />
-          )}
-
-          {/* Theme toggle + settings + logout — tablet/desktop only */}
-          {!isMobile && (
+          {/* Minimal mode: just ThemeToggle + optional rightActions */}
+          {minimal ? (
             <>
-              <ThemeToggle style={styles.themeToggle} iconColor="#FFFFFF" />
-              {user && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Settings')}
-                  style={styles.settingsButton}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="settings-outline" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-              )}
-              {user && (
-                <TouchableOpacity
-                  onPress={() => logout()}
-                  style={styles.logoutButton}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="log-out-outline" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-              )}
               {rightActions}
+              <ThemeToggle style={styles.themeToggle} iconColor="#FFFFFF" />
             </>
-          )}
+          ) : (
+            <>
+              {/* Date/time pill */}
+              {showDateTime && (
+                <View style={styles.dateTimeWrapper}>
+                  <View style={styles.dateContainer}>
+                    <Icon name="calendar" size={isMobile ? 16 : 14} color="#FFFFFF" />
+                    <Text style={styles.dateText}>{formatDate(currentTime)}</Text>
+                  </View>
+                  <View style={styles.dateTimeDivider} />
+                  <View style={styles.timeContainer}>
+                    <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
+                    <Icon name="time" size={isMobile ? 16 : 14} color="#FFFFFF" />
+                    <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+                  </View>
+                </View>
+              )}
 
-          {/* Mobile: apps trigger in place of theme toggle + logout */}
-          {isMobile && (
-            <TouchableOpacity
-              onPress={menuOpen ? closeMenu : openMenu}
-              style={[styles.menuTrigger, menuOpen && styles.menuTriggerOpen]}
-              activeOpacity={0.8}
-            >
-              <Animated.View
-                style={{
-                  transform: [{
-                    rotate: menuAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '90deg'],
-                    }),
-                  }],
-                }}
-              >
-                <Icon name={menuOpen ? 'close' : 'apps'} size={20} color="#FFFFFF" />
-              </Animated.View>
-            </TouchableOpacity>
+              {/* Greeting + avatar — desktop only */}
+              {isDesktop && user && (
+                <View style={styles.userGreeting}>
+                  <Text style={styles.greetingName}>
+                    Hello, {user.name?.split(' ')[0] || 'Student'}
+                  </Text>
+                  <Text style={styles.greetingRole}>⚡ {user.role || 'Student'}</Text>
+                </View>
+              )}
+
+              {!isMobile && user && (
+                <UserAvatar user={user} size={34} borderColor="rgba(255,255,255,0.3)" />
+              )}
+
+              {/* Theme toggle + settings + logout — tablet/desktop only */}
+              {!isMobile && (
+                <>
+                  <ThemeToggle style={styles.themeToggle} iconColor="#FFFFFF" />
+                  {user && (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('Settings')}
+                      style={styles.settingsButton}
+                      activeOpacity={0.7}
+                    >
+                      <Icon name="settings-outline" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                  {user && (
+                    <TouchableOpacity
+                      onPress={() => logout()}
+                      style={styles.logoutButton}
+                      activeOpacity={0.7}
+                    >
+                      <Icon name="log-out-outline" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                  {rightActions}
+                </>
+              )}
+
+              {/* Mobile: right actions + hamburger */}
+              {isMobile && rightActions}
+              {isMobile && (
+                <TouchableOpacity
+                  onPress={menuOpen ? closeMenu : openMenu}
+                  style={[styles.menuTrigger, menuOpen && styles.menuTriggerOpen]}
+                  activeOpacity={0.8}
+                >
+                  <Animated.View
+                    style={{
+                      transform: [{
+                        rotate: menuAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '90deg'],
+                        }),
+                      }],
+                    }}
+                  >
+                    <Icon name={menuOpen ? 'close' : 'apps'} size={20} color="#FFFFFF" />
+                  </Animated.View>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
@@ -416,38 +470,58 @@ const AppHeader = ({
     </View>
   );
 
+  // ── Shared glass color (header + dropdown must match) ───────────────────
+  const glassBg = isDark ? 'rgba(22,22,46,0.82)' : 'rgba(26,26,50,0.90)';
+
   // ── Web render ──────────────────────────────────────────────────────────
   if (isWeb) {
     return (
       <>
-        <View
-          style={[
-            styles.container,
-            {
-              backgroundColor: '#1A1A2E',
-              background: 'linear-gradient(135deg, #1A1A2E 0%, #1E1E38 100%)',
-            },
-            style,
-          ]}
-        >
-          {HeaderContent()}
+        <View style={{ position: 'sticky', top: 0, zIndex: 999, paddingTop: 10 }}>
+          {/* Orange-left → purple-right gradient border wrapper */}
+          <View style={{
+            marginHorizontal: 12,
+            padding: 2,
+            borderRadius: 22,
+            background: 'linear-gradient(90deg, #FF8C42, #7C6FCD)',
+          }}>
+            <View style={[styles.container, {
+              marginHorizontal: 0,
+              borderWidth: 0,
+              borderRadius: 20,
+              backgroundColor: glassBg,
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }, style]}>
+              {HeaderContent()}
+            </View>
+          </View>
         </View>
         {isMobile && MobileDropdown()}
       </>
     );
   }
 
-  // ── Native render (LinearGradient) ──────────────────────────────────────
+  // ── Native render ────────────────────────────────────────────────────────
   return (
     <>
-      <LinearGradient
-        colors={['#1A1A2E', '#1E1E38']}
-        style={[styles.container, style]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        {HeaderContent()}
-      </LinearGradient>
+      <View style={{ paddingTop: 8 }}>
+        <LinearGradient
+          colors={['#FF8C42', '#7C6FCD']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={{ marginHorizontal: 12, padding: 2, borderRadius: 22 }}
+        >
+          <View style={[styles.container, {
+            marginHorizontal: 0,
+            borderWidth: 0,
+            borderRadius: 20,
+            backgroundColor: glassBg,
+          }, style]}>
+            {HeaderContent()}
+          </View>
+        </LinearGradient>
+      </View>
       {isMobile && MobileDropdown()}
     </>
   );
@@ -460,11 +534,17 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
       height: headerHeight + (Platform.OS === 'ios' ? 44 : isWeb ? 0 : 24),
       paddingTop: Platform.OS === 'ios' ? 44 : isWeb ? 0 : 24,
       paddingHorizontal: isTablet ? 20 : 16,
+      marginHorizontal: 12,
+      marginTop: isWeb ? 0 : (Platform.OS === 'ios' ? 0 : 4),
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.35,
-      shadowRadius: 10,
-      elevation: 10,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 20,
+      elevation: 16,
     },
     contentWrapper: {
       flex: 1,
@@ -542,6 +622,21 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
       color: '#1A1A2E',
       fontSize: 11,
       fontWeight: '700',
+    },
+
+    // ── Page title (shown when no navItems) ──
+    titleArea: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    pageTitle: {
+      color: '#FFFFFF',
+      fontSize: isDesktop ? 17 : 15,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+      opacity: 0.92,
     },
 
     // ── Right ──
@@ -689,20 +784,10 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
         WebkitBackdropFilter: 'blur(14px)',
       } : {}),
     },
+    // Glass content card — sits inside gradient shell
     dropdownCard: {
-      position: 'absolute',
-      right: 12,
-      width: 230,
-      backgroundColor: isDark ? '#1E1E38' : '#FFFFFF',
       borderRadius: 20,
       paddingVertical: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
-      elevation: 20,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,140,66,0.25)' : 'rgba(255,140,66,0.2)',
       overflow: 'hidden',
     },
 
@@ -730,7 +815,7 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
       fontSize: 16,
     },
     dropdownUserName: {
-      color: isDark ? '#FFFFFF' : '#1A1A2E',
+      color: '#FFFFFF',
       fontWeight: '700',
       fontSize: 14,
     },
@@ -744,7 +829,7 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
     // Divider
     dropdownDivider: {
       height: 1,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+      backgroundColor: 'rgba(255,255,255,0.1)',
       marginVertical: 4,
       marginHorizontal: 12,
     },
@@ -761,7 +846,7 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
       gap: 12,
     },
     dropdownItemActive: {
-      backgroundColor: isDark ? 'rgba(255,140,66,0.12)' : 'rgba(255,140,66,0.08)',
+      backgroundColor: 'rgba(255,140,66,0.15)',
     },
     dropdownItemIcon: {
       width: 36,
@@ -778,7 +863,7 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
       flex: 1,
       fontSize: 14,
       fontWeight: '600',
-      color: isDark ? 'rgba(255,255,255,0.85)' : '#1A1A2E',
+      color: 'rgba(255,255,255,0.85)',
     },
     dropdownItemLabelActive: {
       color: '#FF8C42',
@@ -788,6 +873,20 @@ const getStyles = (theme, isDark, isWeb, isDesktop, isTablet, headerHeight) =>
       width: 7,
       height: 7,
       borderRadius: 4,
+      backgroundColor: '#FF8C42',
+    },
+    scrollTrack: {
+      position: 'absolute',
+      right: 4,
+      top: 6,
+      bottom: 6,
+      width: 3,
+      borderRadius: 2,
+      backgroundColor: isDark ? 'rgba(255,140,66,0.12)' : 'rgba(255,140,66,0.15)',
+    },
+    scrollThumb: {
+      width: 3,
+      borderRadius: 2,
       backgroundColor: '#FF8C42',
     },
   });

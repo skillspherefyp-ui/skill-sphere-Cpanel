@@ -51,12 +51,24 @@ const AILectureSection = sequelize.define('AILectureSection', {
   keyTerms: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
+    get() {
+      const v = this.getDataValue('keyTerms');
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+      return [];
+    }
   },
   examples: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
+    get() {
+      const v = this.getDataValue('examples');
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+      return [];
+    }
   },
   analogyIfHelpful: {
     type: DataTypes.TEXT,
@@ -86,12 +98,24 @@ const AILectureSection = sequelize.define('AILectureSection', {
   slideBullets: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
+    get() {
+      const v = this.getDataValue('slideBullets');
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+      return [];
+    }
   },
   teachingSequence: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
+    get() {
+      const v = this.getDataValue('teachingSequence');
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+      return [];
+    }
   },
   difficultyLevel: {
     type: DataTypes.STRING,
@@ -109,12 +133,25 @@ const AILectureSection = sequelize.define('AILectureSection', {
   visualData: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: {}
+    defaultValue: {},
+    get() {
+      const v = this.getDataValue('visualData');
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { return JSON.parse(v) || {}; } catch { return {}; } }
+      return {};
+    }
   },
   diagramData: {
     type: DataTypes.JSON,
     allowNull: true,
-    defaultValue: null
+    defaultValue: null,
+    get() {
+      const v = this.getDataValue('diagramData');
+      if (!v) return null;
+      if (typeof v === 'object' && !Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { return JSON.parse(v); } catch { return null; } }
+      return null;
+    }
   }
 }, {
   tableName: 'ai_lecture_sections',

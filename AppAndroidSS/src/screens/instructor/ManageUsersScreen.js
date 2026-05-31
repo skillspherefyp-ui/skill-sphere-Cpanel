@@ -14,6 +14,7 @@ import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import MainLayout from '../../components/ui/MainLayout';
+import UserAvatar from '../../components/ui/UserAvatar';
 import AppInput from '../../components/ui/AppInput';
 import AppButton from '../../components/ui/AppButton';
 import AppCard from '../../components/ui/AppCard';
@@ -293,27 +294,11 @@ const ManageUsersScreen = () => {
 
         {/* Avatar & Info */}
         <View style={styles.userHeader}>
-          <View
-            style={[
-              styles.avatar,
-              {
-                backgroundColor: userItem.isActive === false
-                  ? 'rgba(239,68,68,0.15)'
-                  : 'rgba(255,140,66,0.15)',
-                borderWidth: 2,
-                borderColor: userItem.isActive === false
-                  ? 'rgba(239,68,68,0.3)'
-                  : 'rgba(255,140,66,0.3)',
-              },
-            ]}
-          >
-            <Text style={[
-              styles.avatarText,
-              { color: userItem.isActive === false ? '#EF4444' : ORANGE },
-            ]}>
-              {userItem.name?.charAt(0)?.toUpperCase() || 'U'}
-            </Text>
-          </View>
+          <UserAvatar
+            user={userItem}
+            size={44}
+            borderColor={userItem.isActive === false ? 'rgba(239,68,68,0.3)' : 'rgba(255,140,66,0.3)'}
+          />
           <View style={styles.userInfo}>
             <Text style={[styles.userName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
               {userItem.name || 'Unknown'}

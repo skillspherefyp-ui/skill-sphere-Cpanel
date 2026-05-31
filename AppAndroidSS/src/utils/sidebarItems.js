@@ -17,6 +17,7 @@ export const getSidebarItems = (role) => {
         { label: 'Certificates',      icon: 'ribbon-outline',           iconActive: 'ribbon',           route: 'CertificateManagement' },
         { label: 'Blog',              icon: 'newspaper-outline',        iconActive: 'newspaper',        route: 'BlogManagement' },
         { label: 'Community',         icon: 'chatbubbles-outline',      iconActive: 'chatbubbles',      route: 'Discussion' },
+        { label: 'Send Email',        icon: 'mail-outline',             iconActive: 'mail',             route: 'BulkEmail' },
       ];
 
     case 'instructor':

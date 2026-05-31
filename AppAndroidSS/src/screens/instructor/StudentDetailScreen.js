@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import MainLayout from '../../components/ui/MainLayout';
+import UserAvatar from '../../components/ui/UserAvatar';
 import AppCard from '../../components/ui/AppCard';
 import AppButton from '../../components/ui/AppButton';
 import ProgressBar from '../../components/ui/ProgressBar';
@@ -19,6 +20,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { userAPI } from '../../services/apiClient';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const ORANGE = '#FF8C42';
@@ -31,7 +33,15 @@ const StudentDetailScreen = () => {
   const { user, logout } = useAuth();
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
-  const student = students.find(s => s.id === studentId);
+  const cachedStudent = students.find(s => s.id === studentId);
+  const [freshStudent, setFreshStudent] = useState(null);
+  const student = freshStudent || cachedStudent;
+
+  useEffect(() => {
+    userAPI.getById(studentId).then(res => {
+      if (res?.success && res?.user) setFreshStudent(res.user);
+    }).catch(() => {});
+  }, [studentId]);
 
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 1024;
@@ -149,18 +159,7 @@ const StudentDetailScreen = () => {
             <AppCard style={styles.heroCard}>
               <View style={styles.profileHeader}>
                 {/* Large Avatar */}
-                <View
-                  style={[
-                    styles.avatar,
-                    {
-                      backgroundColor: avatarColor,
-                      shadowColor: avatarColor,
-                      ...(Platform.OS === 'web' && { boxShadow: `0 4px 20px ${avatarColor}55` }),
-                    },
-                  ]}
-                >
-                  <Text style={styles.avatarText}>{student.name.charAt(0).toUpperCase()}</Text>
-                </View>
+                <UserAvatar user={student} size={72} />
 
                 <View style={styles.profileInfo}>
                   <Text style={[styles.studentName, { color: theme.colors.textPrimary }]}>
@@ -361,7 +360,7 @@ const StudentDetailScreen = () => {
                   <View style={styles.accountInfoContent}>
                     <Text style={[styles.accountInfoLabel, { color: theme.colors.textTertiary }]}>Last Login</Text>
                     <Text style={[styles.accountInfoValue, { color: theme.colors.textPrimary }]}>
-                      {student.lastLogin ? new Date(student.lastLogin).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never'}
+                      {student.lastLogin ? new Date(student.lastLogin).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
                     </Text>
                   </View>
                 </View>

@@ -13,15 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { certificateAPI } from '../../services/apiClient';
-
-const SIDEBAR_ITEMS = [
-  { label: 'Dashboard',      icon: 'grid-outline',    iconActive: 'grid',    route: 'Dashboard' },
-  { label: 'Browse Courses', icon: 'library-outline', iconActive: 'library', route: 'Courses' },
-  { label: 'My Learning',    icon: 'school-outline',  iconActive: 'school',  route: 'EnrolledCourses' },
-  { label: 'AI Assistant',   icon: 'sparkles-outline',iconActive: 'sparkles',route: 'AITutor' },
-  { label: 'Certificates',   icon: 'ribbon-outline',  iconActive: 'ribbon',  route: 'Certificates' },
-    { label: 'Reminders', icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', route: 'Todo' },
-];
+import { getSidebarItems } from '../../utils/sidebarItems';
 
 const METHODS = [
   { id: 'easypaisa', label: 'EasyPaisa', icon: 'cash-multiple',    color: '#00a651', type: 'mobile' },
@@ -100,10 +92,10 @@ const PaymentScreen = () => {
   return (
     <MainLayout
       showSidebar={true}
-      sidebarItems={SIDEBAR_ITEMS}
+      sidebarItems={getSidebarItems(user?.role)}
       activeRoute="Certificates"
       onNavigate={r => navigation.navigate(r)}
-      userInfo={{ name: user?.name, role: 'Student', avatar: user?.avatar }}
+      userInfo={{ name: user?.name, role: user?.role || 'Student', avatar: user?.avatar }}
       onLogout={logout}
     >
       <ScrollView

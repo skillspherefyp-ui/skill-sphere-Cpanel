@@ -23,7 +23,7 @@ import AppCard from '../../components/ui/AppCard';
 import AppButton from '../../components/ui/AppButton';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Skeleton, { SkeletonDashboardStats, SkeletonTableRow } from '../../components/ui/Skeleton';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 // ============================================
@@ -533,7 +533,7 @@ const InstructorDashboard = () => {
         sidebarItems={sidebarItems}
         activeRoute="Dashboard"
         onNavigate={handleNavigate}
-        userInfo={{ name: user?.name, role: 'Instructoristrator', avatar: user?.avatar }}
+        userInfo={{ name: user?.name, role: 'Instructor', avatar: user?.avatar }}
         onLogout={logout}
         onSettings={() => navigation.navigate('Settings')}
       >
@@ -574,7 +574,7 @@ const InstructorDashboard = () => {
       sidebarItems={sidebarItems}
       activeRoute="Dashboard"
       onNavigate={handleNavigate}
-      userInfo={{ name: user?.name, role: 'Instructoristrator', avatar: user?.avatar }}
+      userInfo={{ name: user?.name, role: 'Instructor', avatar: user?.avatar }}
       onLogout={logout}
       onSettings={() => navigation.navigate('Settings')}
     >
@@ -850,9 +850,7 @@ const InstructorDashboard = () => {
           <AppCard style={styles.tableCard}>
             {/* Table Header */}
             <View style={[styles.tableHeader, { borderBottomColor: theme.colors.border }]}>
-              <Text style={[styles.tableHeaderCell, styles.imageColumn, { color: theme.colors.textSecondary }]}>
-                Image
-              </Text>
+              <View style={styles.imageColumn} />
               <Text style={[styles.tableHeaderCell, styles.courseNameColumn, { color: theme.colors.textSecondary }]}>
                 Course Title
               </Text>
@@ -961,7 +959,7 @@ const InstructorDashboard = () => {
                           },
                         ]}
                       >
-                        {course.status === 'published' ? 'Published' : 'Not Published'}
+                        {course.status === 'published' ? (isMobile ? 'Live' : 'Published') : (isMobile ? 'Draft' : 'Not Published')}
                       </Text>
                     </View>
                   </View>
@@ -970,10 +968,10 @@ const InstructorDashboard = () => {
                   <View style={[styles.tableCell, styles.actionColumn]}>
                     <TouchableOpacity
                       style={[styles.viewDetailsButton, { borderColor: theme.colors.primary }]}
-                      onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                      onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                     >
                       <Text style={[styles.viewDetailsText, { color: theme.colors.primary }]}>
-                        View Details
+                        {isMobile ? 'View' : 'View Details'}
                       </Text>
                     </TouchableOpacity>
                   </View>

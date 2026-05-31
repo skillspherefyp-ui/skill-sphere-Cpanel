@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import MainLayout from '../../components/ui/MainLayout';
+import UserAvatar from '../../components/ui/UserAvatar';
 import AppCard from '../../components/ui/AppCard';
 import AppInput from '../../components/ui/AppInput';
 import EmptyState from '../../components/ui/EmptyState';
@@ -132,11 +133,7 @@ const FeedbackScreen = () => {
         <View style={styles.feedbackHeader}>
           {/* Reviewer Avatar + Name */}
           <View style={styles.reviewerRow}>
-            <View style={[styles.reviewerAvatar, { backgroundColor: ORANGE + '20' }]}>
-              <Text style={[styles.reviewerInitial, { color: ORANGE }]}>
-                {feedback.expertName ? feedback.expertName.charAt(0).toUpperCase() : '?'}
-              </Text>
-            </View>
+            <UserAvatar user={{ name: feedback.expertName || '?' }} size={40} />
             <View style={styles.reviewerInfo}>
               <Text style={[styles.reviewerName, { color: theme.colors.textPrimary }]}>
                 {feedback.expertName}

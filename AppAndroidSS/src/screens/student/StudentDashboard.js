@@ -27,7 +27,7 @@ import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { certificateAPI, authAPI, streakAPI, blogAPI } from '../../services/apiClient';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import PrivacyPolicyModal from '../../components/PrivacyPolicyModal';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
@@ -1099,9 +1099,9 @@ const StudentDashboard = () => {
               <View style={[styles.pageBannerIconCircle, { backgroundColor: '#FF8C42' + '20' }]}>
                 <Icon name="grid" size={24} color="#FF8C42" />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.pageBannerTitle, { color: theme.colors.textPrimary }]}>My Dashboard</Text>
-                <Text style={[styles.pageBannerSubtitle, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.pageBannerSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={2}>
                   Welcome back! Here's your learning overview.
                 </Text>
               </View>
@@ -1157,9 +1157,9 @@ const StudentDashboard = () => {
             <View style={[styles.pageBannerIconCircle, { backgroundColor: '#FF8C42' + '20' }]}>
               <Icon name="grid" size={24} color="#FF8C42" />
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={[styles.pageBannerTitle, { color: theme.colors.textPrimary }]}>My Dashboard</Text>
-              <Text style={[styles.pageBannerSubtitle, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.pageBannerSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={2}>
                 {`Welcome back, ${user?.name || 'Student'}! Here's your learning overview.`}
               </Text>
             </View>
@@ -1442,7 +1442,7 @@ const StudentDashboard = () => {
                             },
                           ]}
                         >
-                          {course.progress >= 100 ? 'Completed' : 'In Progress'}
+                          {course.progress >= 100 ? (isMobile ? 'Done' : 'Completed') : (isMobile ? 'Active' : 'In Progress')}
                         </Text>
                       </View>
                     </View>
@@ -1451,7 +1451,7 @@ const StudentDashboard = () => {
                     <View style={[styles.tableCell, styles.actionColumn]}>
                       <TouchableOpacity
                         style={[styles.viewDetailsButton, { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '12' }]}
-                        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                       >
                         <Text style={[styles.viewDetailsText, { color: theme.colors.primary }]}>
                           {course.progress >= 100 ? 'Review' : 'Continue'}
@@ -1589,7 +1589,7 @@ const StudentDashboard = () => {
                 </View>
                 <TouchableOpacity
                   style={[styles.featuredArrowBtn, { backgroundColor: isDark ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)' }]}
-                  onPress={() => navigation.navigate('CourseDetail', { courseId: coursesInProgress[0]?.id })}
+                  onPress={() => navigation.navigate('CourseDetail', { courseId: coursesInProgress[0]?.id, courseName: slugify(coursesInProgress[0]?.name) })}
                 >
                   <Icon name="arrow-forward" size={15} color={isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)'} />
                 </TouchableOpacity>
@@ -1609,7 +1609,7 @@ const StudentDashboard = () => {
                 </View>
                 <TouchableOpacity
                   style={[styles.featuredContinueBtn, { backgroundColor: isDark ? '#1A1A2E' : '#FFFFFF' }]}
-                  onPress={() => navigation.navigate('CourseDetail', { courseId: coursesInProgress[0]?.id })}
+                  onPress={() => navigation.navigate('CourseDetail', { courseId: coursesInProgress[0]?.id, courseName: slugify(coursesInProgress[0]?.name) })}
                 >
                   <Icon name="arrow-forward" size={16} color={isDark ? '#FFFFFF' : '#1A1A2E'} />
                 </TouchableOpacity>
@@ -1647,7 +1647,7 @@ const StudentDashboard = () => {
                 <TouchableOpacity
                   key={course.id}
                   style={[styles.recommendedCard, { backgroundColor: isDark ? theme.colors.card : '#FFFFFF', borderColor: isDark ? theme.colors.border : '#EEEEEE' }]}
-                  onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                  onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                 >
                   {course.thumbnailImage ? (
                     <Image

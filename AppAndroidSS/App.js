@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { NavigationContainer, getStateFromPath as defaultGetStateFromPath } from '@react-navigation/native';
 import { StatusBar, StyleSheet, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,6 +8,7 @@ import { DataProvider } from './src/context/DataContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { toastConfig } from './src/config/toastConfig';
+import { HelmetProvider } from 'react-helmet-async';
 
 // ── Static prefix list ────────────────────────────────────────────────────────
 const PREFIXES = [
@@ -19,9 +20,10 @@ const PREFIXES = [
 
 // ── Per-role screen maps ──────────────────────────────────────────────────────
 const STUDENT_SCREENS = {
+  Verify:             'verify/:certId',
   Dashboard:          'dashboard',
   Courses:            'courses',
-  CourseDetail:       'course/:courseId',
+  CourseDetail:       'course/:courseId/:courseName',
   EnrolledCourses:    'my-courses',
   Learning:           'learning',
   AILearning:         'ai-learning',
@@ -39,10 +41,11 @@ const STUDENT_SCREENS = {
 };
 
 const INSTRUCTOR_SCREENS = {
+  Verify:                'verify/:certId',
   Dashboard:             'dashboard',
   Courses:               'courses',
   CreateCourse:          'courses/create',
-  CourseDetail:          'course/:courseId',
+  CourseDetail:          'course/:courseId/:courseName',
   AddTopics:             'course/:courseId/topics',
   GenerationLogs:        'generation-logs',
   Students:              'students',
@@ -56,22 +59,24 @@ const INSTRUCTOR_SCREENS = {
 };
 
 const EXPERT_SCREENS = {
+  Verify:       'verify/:certId',
   Dashboard:    'dashboard',
   Courses:      'courses',
-  CourseDetail: 'course/:courseId',
+  CourseDetail: 'course/:courseId/:courseName',
   FeedbackForm: 'feedback',
   Notifications:'notifications',
   Settings:     'settings',
 };
 
 const ADMIN_SCREENS = {
+  Verify:                'verify/:certId',
   Dashboard:             'dashboard',
   ManageUsers:           'users',
   ManageInstructors:          'instructors',
   ManageExperts:         'experts',
   Courses:               'courses',
   CreateCourse:          'courses/create',
-  CourseDetail:          'course/:courseId',
+  CourseDetail:          'course/:courseId/:courseName',
   AddTopics:             'course/:courseId/topics',
   GenerationLogs:        'generation-logs',
   Students:              'students',
@@ -88,7 +93,16 @@ const AUTH_SCREENS = {
   Login:                'login',
   Signup:               'signup',
   ExploreCourses:       'explore',
-  ExploreCourseDetail:  'explore/:courseId',
+  ExploreCourseDetail:  'explore/:courseId/:courseName',
+  CertificateVerify:    'certificate-verify',
+  Verify:               'verify/:certId',
+  About:                'about',
+  PrivacyPolicy:        'privacy',
+  Terms:                'terms',
+  HelpCenter:           'help',
+  Blog:                 'blog',
+  BlogPost:             'blog/:postId',
+  Community:            'community',
 };
 
 const ROLE_CONFIG = {
@@ -106,6 +120,25 @@ const ROLE_CONFIG = {
 // when linking tries to resetRoot into a screen that isn't currently rendered.
 const NavigationWrapper = ({ theme }) => {
   const { user, isInitialized } = useAuth();
+  const navigationRef = useRef(null);
+
+  // After auth initializes, if the URL is /verify/:certId navigate programmatically.
+  // This is needed because getStateFromPath runs before the role is known, so the
+  // initial state targets Auth navigator. Once the role-specific navigator mounts,
+  // we navigate again to land on the correct Verify screen.
+  useEffect(() => {
+    if (!isInitialized || Platform.OS !== 'web') return;
+    if (typeof window === 'undefined') return;
+    const match = window.location.pathname.match(/^\/verify\/([^?/]+)/);
+    if (!match) return;
+    const certId = match[1];
+    const timer = setTimeout(() => {
+      if (navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('Verify', { certId });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isInitialized]);
 
   const linking = useMemo(() => {
     const role = isInitialized ? (user?.role ?? 'null') : 'null';
@@ -119,6 +152,16 @@ const NavigationWrapper = ({ theme }) => {
       prefixes: PREFIXES,
       config: { screens },
       getStateFromPath(path, options) {
+        // /verify/:certId must work for ALL roles at the root path (no role prefix)
+        const verifyMatch = path.match(/^\/verify\/([^?/]+)/);
+        if (verifyMatch) {
+          return {
+            routes: [{
+              name: rootName,
+              state: { routes: [{ name: 'Verify', params: { certId: verifyMatch[1] } }] },
+            }],
+          };
+        }
         try {
           const state = defaultGetStateFromPath(path, options);
           if (state) return state;
@@ -132,6 +175,7 @@ const NavigationWrapper = ({ theme }) => {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       linking={linking}
       theme={{
         dark: theme.mode === 'dark',
@@ -172,9 +216,11 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <HelmetProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 

@@ -1,11 +1,11 @@
 import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  StatusBar, Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
-import ThemeToggle from '../../components/ThemeToggle';
+import AppHeader from '../../components/ui/AppHeader';
+import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
@@ -67,15 +67,12 @@ const CommunityScreen = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
-
-      <View style={[s.header, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Icon name="chevron-back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Community</Text>
-        <ThemeToggle iconColor="#FFFFFF" />
-      </View>
+      <Helmet>
+        <title>Community - SkillSphere Learners</title>
+        <meta name="description" content="Join the SkillSphere learning community. Connect with fellow students, join course discussions, and grow together on Pakistan's top learning platform." />
+        <link rel="canonical" href="https://skillsphere.com.pk/community" />
+      </Helmet>
+      <AppHeader showBack={true} showDateTime={false} minimal={true} title="Community" />
 
       <ScrollView showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 50 }}>
@@ -155,22 +152,6 @@ const CommunityScreen = ({ navigation }) => {
 };
 
 const s = StyleSheet.create({
-  header: {
-    backgroundColor: NAVY, paddingHorizontal: 16, paddingBottom: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  headerIcon: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(246,139,60,0.2)',
-    justifyContent: 'center', alignItems: 'center',
-  },
   hero: {
     borderRadius: 18, borderWidth: 1, padding: 24,
     alignItems: 'center', marginBottom: 24,

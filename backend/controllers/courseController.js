@@ -55,7 +55,7 @@ exports.getTopCourses = async (req, res) => {
 
 exports.createCourse = async (req, res) => {
   try {
-    const { name, description, level, language, categoryId, duration, materials, thumbnailImage, creationMode, prerequisiteIds } = req.body;
+    const { name, description, level, language, categoryId, duration, materials, thumbnailImage, creationMode, prerequisiteIds, lectureSettings } = req.body;
 
     const accessError = ensureCourseAuthoringAccess(req.user);
     if (accessError) {
@@ -87,6 +87,7 @@ exports.createCourse = async (req, res) => {
       thumbnailImage: thumbnailImage || null,
       creationMode: creationMode || 'ai',
       prerequisiteIds: Array.isArray(prerequisiteIds) ? prerequisiteIds : [],
+      lectureSettings: lectureSettings && typeof lectureSettings === 'object' ? lectureSettings : null,
     };
 
     console.log('💾 Creating course in database with:', courseToCreate);
@@ -130,6 +131,8 @@ exports.getAllCourses = async (req, res) => {
     const level = req.query.level?.trim();
     const sort = req.query.sort || 'newest';
 
+    const instructorId = req.query.instructorId?.trim();
+
     const where = {};
     if (search) {
       where[Op.or] = [
@@ -138,6 +141,13 @@ exports.getAllCourses = async (req, res) => {
       ];
     }
     if (level && level !== 'All') where.level = level;
+
+    // Server-side enforcement: if an authenticated non-admin provides instructorId,
+    // ignore it and force filter to their own courses to prevent seeing others' courses.
+    if (instructorId) {
+      const isAdmin = req.user && ['admin', 'superadmin'].includes(req.user.role);
+      where.userId = isAdmin ? instructorId : (req.user ? req.user.id : instructorId);
+    }
 
     const categoryWhere = category && category !== 'All' ? { name: category } : undefined;
 
@@ -278,7 +288,7 @@ exports.getCourseById = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, level, language, categoryId, duration, status, thumbnailImage, creationMode, prerequisiteIds } = req.body;
+    const { name, description, level, language, categoryId, duration, status, thumbnailImage, creationMode, prerequisiteIds, lectureSettings } = req.body;
 
     const course = await Course.findByPk(id);
 
@@ -308,6 +318,7 @@ exports.updateCourse = async (req, res) => {
     if (thumbnailImage !== undefined) course.thumbnailImage = thumbnailImage;
     if (creationMode) course.creationMode = creationMode;
     if (prerequisiteIds !== undefined) course.prerequisiteIds = Array.isArray(prerequisiteIds) ? prerequisiteIds : [];
+    if (lectureSettings !== undefined) course.lectureSettings = (lectureSettings && typeof lectureSettings === 'object') ? lectureSettings : null;
 
     await course.save();
 
@@ -354,6 +365,18 @@ exports.deleteCourse = async (req, res) => {
     const accessError = ensureCourseAuthoringAccess(req.user, course);
     if (accessError) {
       return res.status(403).json({ error: accessError });
+    }
+
+    // Preserve issued certificates — null out courseId so they survive course deletion
+    try {
+      const { Certificate } = require('../models');
+      await Certificate.update(
+        { courseId: null },
+        { where: { courseId: id } }
+      );
+    } catch (certErr) {
+      // Column may still be NOT NULL (migration not yet run) — proceed with deletion anyway
+      console.warn('Could not preserve certificates before course deletion:', certErr.message);
     }
 
     // Manually delete related records first

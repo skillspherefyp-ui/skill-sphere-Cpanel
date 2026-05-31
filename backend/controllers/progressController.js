@@ -239,14 +239,17 @@ async function generateAndSendCertificate(userId, courseId) {
     });
 
     if (courseTemplateAssignment) {
-      template = await CertificateTemplate.findByPk(courseTemplateAssignment.templateId);
+      template = await CertificateTemplate.findByPk(courseTemplateAssignment.templateId, {
+        include: [{ model: User, as: 'creator', attributes: ['id', 'instructorSignature'] }]
+      });
       console.log(`Using course-specific template: ${template?.name} for course ${courseId}`);
     }
 
     // Fall back to global default active template
     if (!template) {
       template = await CertificateTemplate.findOne({
-        where: { isActive: true }
+        where: { isActive: true },
+        include: [{ model: User, as: 'creator', attributes: ['id', 'instructorSignature'] }]
       });
       console.log(`Using default template: ${template?.name || 'none'}`);
     }
@@ -255,13 +258,24 @@ async function generateAndSendCertificate(userId, courseId) {
     const certificateNumber = generateCertificateNumber(userId, courseId);
     const issueDate = new Date();
 
-    // Certificate data
+    // Snapshot template visuals for the student's frozen preview
+    const templateSnapshot = template ? {
+      primaryColor: template.primaryColor,
+      secondaryColor: template.secondaryColor,
+      backgroundColor: template.backgroundColor,
+      titleText: template.titleText,
+      subtitleText: template.subtitleText,
+      footerText: template.footerText,
+    } : null;
+
+    // Certificate data — instructorSignature from creator user
     const certificateData = {
       studentName: user.name,
       courseName: course.name,
       certificateNumber,
       issueDate,
-      frontendUrl: req.headers.origin || process.env.FRONTEND_URL,
+      frontendUrl: process.env.FRONTEND_URL,
+      instructorSignature: template?.creator?.instructorSignature || null,
     };
 
     // Generate and save PDF
@@ -275,7 +289,9 @@ async function generateAndSendCertificate(userId, courseId) {
       issuedDate: issueDate,
       verificationUrl: `/api/certificates/verify/${certificateNumber}`,
       grade: 'Pass',
-      certificateUrl
+      certificateUrl,
+      courseName: course.name,
+      templateSnapshot,
     });
 
     console.log(`Certificate generated: ${certificateNumber}`);

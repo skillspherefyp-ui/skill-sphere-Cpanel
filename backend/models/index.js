@@ -104,9 +104,9 @@ QuizResult.belongsTo(Course, { foreignKey: 'courseId', as: 'course', onDelete: '
 User.hasMany(Certificate, { foreignKey: 'userId', as: 'certificates', onDelete: 'CASCADE' });
 Certificate.belongsTo(User, { foreignKey: 'userId', as: 'user', onDelete: 'CASCADE' });
 
-// Course - Certificate
-Course.hasMany(Certificate, { foreignKey: 'courseId', as: 'certificates', onDelete: 'CASCADE' });
-Certificate.belongsTo(Course, { foreignKey: 'courseId', as: 'course', onDelete: 'CASCADE' });
+// Course - Certificate (SET NULL so certificates survive course deletion)
+Course.hasMany(Certificate, { foreignKey: 'courseId', as: 'certificates', onDelete: 'SET NULL' });
+Certificate.belongsTo(Course, { foreignKey: 'courseId', as: 'course', onDelete: 'SET NULL' });
 
 // User - Notification
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications', onDelete: 'CASCADE' });

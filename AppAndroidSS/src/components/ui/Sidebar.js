@@ -136,17 +136,17 @@ const Sidebar = ({
 
   const styles = getStyles(theme, isDark, isWeb, isPersistent);
 
-  // Glassmorphism background style — always dark navy (#1A1A2E)
+  // Glassmorphism background style
   const getGlassBackground = () => {
     if (isWeb) {
       return {
-        backgroundColor: '#1A1A2E',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        backgroundColor: isPersistent ? '#1A1A2E' : 'rgba(15,15,35,0.82)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
       };
     }
     return {
-      backgroundColor: '#1A1A2E',
+      backgroundColor: isPersistent ? '#1A1A2E' : 'rgba(15,15,35,0.9)',
     };
   };
 
@@ -353,12 +353,14 @@ const getStyles = (theme, isDark, isWeb, isPersistent) => StyleSheet.create({
     bottom: 0,
     width: SIDEBAR_WIDTH,
     zIndex: 1001,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: isDark ? 0.4 : 0.15,
-    shadowRadius: 20,
+    shadowColor: '#FF8C42',
+    shadowOffset: { width: 6, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
     elevation: 20,
     overflow: 'hidden',
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
   },
   mobileSidebar: {
     position: 'absolute',
@@ -366,7 +368,7 @@ const getStyles = (theme, isDark, isWeb, isPersistent) => StyleSheet.create({
   sidebarInner: {
     flex: 1,
     borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.08)',
+    borderRightColor: 'rgba(255,140,66,0.2)',
   },
   logoSection: {
     paddingHorizontal: 16,

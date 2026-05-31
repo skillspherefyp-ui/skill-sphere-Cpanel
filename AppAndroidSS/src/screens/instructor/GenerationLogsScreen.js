@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { aiTutorAPI } from '../../services/apiClient';
+import { slugify } from '../../utils/urlHelpers';
 import MainLayout from '../../components/ui/MainLayout';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
@@ -309,7 +310,7 @@ const GenerationLogsScreen = () => {
 
   function handleDone() {
     setShowReportModal(false);
-    navigation.navigate('CourseDetail', { courseId });
+    navigation.navigate('CourseDetail', { courseId, courseName: slugify(course?.name) });
   }
 
   function getLogColor(type) {

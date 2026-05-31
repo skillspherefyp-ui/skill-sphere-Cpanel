@@ -80,6 +80,11 @@ exports.login = async (req, res) => {
 
     const token = generateToken(user);
 
+    // Record last login time
+    const now = new Date();
+    user.lastLogin = now;
+    await user.save({ fields: ['lastLogin'] });
+
     const response = {
       success: true,
       token,
@@ -89,7 +94,9 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
-        permissions: user.permissions
+        permissions: user.permissions,
+        profilePicture: user.profilePicture,
+        lastLogin: now,
       }
     };
 
@@ -163,7 +170,7 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, profilePicture } = req.body;
+    const { name, phone, profilePicture, age, qualification } = req.body;
     const user = await User.findByPk(req.user.id);
 
     if (!user) {
@@ -173,7 +180,9 @@ exports.updateProfile = async (req, res) => {
     await user.update({
       name: name ?? user.name,
       phone: phone ?? user.phone,
-      profilePicture: profilePicture ?? user.profilePicture
+      profilePicture: profilePicture ?? user.profilePicture,
+      age: age !== undefined ? (age || null) : user.age,
+      qualification: qualification !== undefined ? (qualification || null) : user.qualification,
     });
 
     res.json({
@@ -187,7 +196,9 @@ exports.updateProfile = async (req, res) => {
         profilePicture: user.profilePicture,
         emailVerified: user.emailVerified,
         authProvider: user.authProvider,
-        permissions: user.permissions
+        permissions: user.permissions,
+        age: user.age,
+        qualification: user.qualification,
       }
     });
   } catch (error) {
@@ -380,7 +391,7 @@ exports.resendOTP = async (req, res) => {
 // Complete registration after OTP verification
 exports.completeRegistration = async (req, res) => {
   try {
-    const { email, password, name, phone } = req.body;
+    const { email, password, name, phone, age, qualification, profilePicture } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -405,6 +416,9 @@ exports.completeRegistration = async (req, res) => {
       password: password, // Will be hashed by the beforeUpdate hook
       name: name || user.name,
       phone: phone || null,
+      age: age ? parseInt(age, 10) : null,
+      qualification: qualification || null,
+      profilePicture: profilePicture || null,
       isActive: true
     });
 
@@ -433,6 +447,9 @@ exports.completeRegistration = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        age: user.age,
+        qualification: user.qualification,
+        profilePicture: user.profilePicture,
         emailVerified: user.emailVerified,
         permissions: user.permissions
       }
@@ -839,6 +856,7 @@ exports.googleAuth = async (req, res) => {
 
     // Check if user exists
     let user = await User.findOne({ where: { email } });
+    let isNewUser = false;
 
     if (user) {
       // Update existing user with Google info if not already linked
@@ -852,6 +870,7 @@ exports.googleAuth = async (req, res) => {
       }
     } else {
       // Create new user
+      isNewUser = true;
       user = await User.create({
         name: name || email.split('@')[0],
         email,
@@ -883,20 +902,28 @@ exports.googleAuth = async (req, res) => {
 
     const token = generateToken(user);
 
+    // Record last login time
+    const now = new Date();
+    user.lastLogin = now;
+    await user.save({ fields: ['lastLogin'] });
+
     console.log('✅ Google auth successful for:', email);
     res.json({
       success: true,
       token,
+      isNewUser,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
         phone: user.phone,
+        age: user.age,
         profilePicture: user.profilePicture,
         emailVerified: user.emailVerified,
         authProvider: user.authProvider,
-        permissions: user.permissions
+        permissions: user.permissions,
+        lastLogin: now,
       }
     });
   } catch (error) {

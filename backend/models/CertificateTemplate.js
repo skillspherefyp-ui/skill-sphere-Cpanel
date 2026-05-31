@@ -12,24 +12,24 @@ const CertificateTemplate = sequelize.define('CertificateTemplate', {
     allowNull: false,
     defaultValue: 'Default Template'
   },
-  backgroundImage: {
-    type: DataTypes.STRING(500),
-    allowNull: true,
-    comment: 'Optional background design image URL'
-  },
-  // NOTE: No logoImage field - logo is automatic from assets
+  // NOTE: No logoImage or backgroundImage field - logo is automatic from assets; background uses backgroundColor
   instructorSignature: {
-    type: DataTypes.STRING(500),
+    type: DataTypes.TEXT('long'),
     allowNull: true,
-    comment: 'Instructor signature image URL - uploaded by instructor'
+    comment: 'Instructor handwritten signature as base64 PNG (transparent background)'
   },
   primaryColor: {
     type: DataTypes.STRING(20),
-    defaultValue: '#4F46E5'
+    defaultValue: '#C9A84C'
   },
   secondaryColor: {
     type: DataTypes.STRING(20),
-    defaultValue: '#22D3EE'
+    defaultValue: '#7EC8E3'
+  },
+  backgroundColor: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    comment: 'Background color used when no background image is set'
   },
   fontFamily: {
     type: DataTypes.STRING(100),
@@ -45,7 +45,7 @@ const CertificateTemplate = sequelize.define('CertificateTemplate', {
   },
   footerText: {
     type: DataTypes.TEXT,
-    allowNull: true
+    defaultValue: 'This certificate is awarded upon successful completion of the course requirements.'
   },
   isActive: {
     type: DataTypes.BOOLEAN,

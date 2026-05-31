@@ -1,67 +1,49 @@
 const { CertificateTemplate, User, Certificate, Course, TemplateCourse } = require('../models');
+const { Op } = require('sequelize');
 const { generateCertificatePDF } = require('../services/certificateService');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 
-// Always use local storage
-const { templateStorage } = require('../config/localStorage');
-
-// Helper: delete local file
-const deleteLocalFile = (filePath) => {
-  try {
-    if (filePath && filePath.startsWith('/uploads/')) {
-      const fullPath = path.join(__dirname, '..', filePath);
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-        console.log('✅ Deleted local file:', filePath);
-      }
-    }
-  } catch (e) {
-    console.log('Could not delete local file:', e.message);
-  }
+// Strip raw base64 signature from template response — hasSignature comes from creator user
+const sanitizeTemplate = (tpl) => {
+  const plain = tpl.get ? tpl.get({ plain: true }) : { ...tpl };
+  // hasSignature based on creator's signature (moved from template to user)
+  plain.hasSignature = !!(plain.creator?.instructorSignature);
+  if (plain.creator) delete plain.creator.instructorSignature;
+  delete plain.instructorSignature; // legacy field, no longer used
+  return plain;
 };
 
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'), false);
-  }
-};
-
-const upload = multer({
-  storage: templateStorage,
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-});
-
-// Get all certificate templates
+// Get all certificate templates — admins see all, instructors see only their own
 exports.getAllTemplates = async (req, res) => {
   try {
+    const isAdmin = req.user.role === 'admin';
+    const where = isAdmin ? {} : { createdBy: req.user.id };
+
     const templates = await CertificateTemplate.findAll({
+      where,
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] },
         { model: Course, as: 'courses', attributes: ['id', 'name'], through: { attributes: ['isActive'] } }
       ],
       order: [['createdAt', 'DESC']]
     });
 
-    res.json({ success: true, templates });
+    res.json({ success: true, templates: templates.map(sanitizeTemplate) });
   } catch (error) {
     console.error('Get all templates error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Get active template
+// Get active template — admins see global active, instructors see their own active
 exports.getActiveTemplate = async (req, res) => {
   try {
+    const isAdmin = req.user.role === 'admin';
+    const where = isAdmin ? { isActive: true } : { isActive: true, createdBy: req.user.id };
+
     const template = await CertificateTemplate.findOne({
-      where: { isActive: true },
+      where,
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] },
         { model: Course, as: 'courses', attributes: ['id', 'name'], through: { attributes: [] } }
       ]
     });
@@ -70,7 +52,7 @@ exports.getActiveTemplate = async (req, res) => {
       return res.json({ success: true, template: null, message: 'No active template found' });
     }
 
-    res.json({ success: true, template });
+    res.json({ success: true, template: sanitizeTemplate(template) });
   } catch (error) {
     console.error('Get active template error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -84,7 +66,7 @@ exports.getTemplateById = async (req, res) => {
 
     const template = await CertificateTemplate.findByPk(id, {
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] },
         { model: Course, as: 'courses', attributes: ['id', 'name'], through: { attributes: [] } }
       ]
     });
@@ -93,7 +75,7 @@ exports.getTemplateById = async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    res.json({ success: true, template });
+    res.json({ success: true, template: sanitizeTemplate(template) });
   } catch (error) {
     console.error('Get template by ID error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -107,6 +89,7 @@ exports.createTemplate = async (req, res) => {
       name,
       primaryColor,
       secondaryColor,
+      backgroundColor,
       fontFamily,
       titleText,
       subtitleText,
@@ -122,8 +105,9 @@ exports.createTemplate = async (req, res) => {
 
     const template = await CertificateTemplate.create({
       name: name || 'New Template',
-      primaryColor: primaryColor || '#e5a448',
-      secondaryColor: secondaryColor || '#c2ee20',
+      primaryColor: primaryColor || '#C9A84C',
+      secondaryColor: secondaryColor || '#7EC8E3',
+      backgroundColor: backgroundColor || null,
       fontFamily,
       titleText,
       subtitleText,
@@ -140,12 +124,12 @@ exports.createTemplate = async (req, res) => {
     // Fetch template with courses
     const templateWithCourses = await CertificateTemplate.findByPk(template.id, {
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] },
         { model: Course, as: 'courses', attributes: ['id', 'name'], through: { attributes: [] } }
       ]
     });
 
-    res.status(201).json({ success: true, template: templateWithCourses });
+    res.status(201).json({ success: true, template: sanitizeTemplate(templateWithCourses) });
   } catch (error) {
     console.error('Create template error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -160,6 +144,7 @@ exports.updateTemplate = async (req, res) => {
       name,
       primaryColor,
       secondaryColor,
+      backgroundColor,
       fontFamily,
       titleText,
       subtitleText,
@@ -177,6 +162,7 @@ exports.updateTemplate = async (req, res) => {
     if (name !== undefined) template.name = name;
     if (primaryColor !== undefined) template.primaryColor = primaryColor;
     if (secondaryColor !== undefined) template.secondaryColor = secondaryColor;
+    if (backgroundColor !== undefined) template.backgroundColor = backgroundColor || null;
     if (fontFamily !== undefined) template.fontFamily = fontFamily;
     if (titleText !== undefined) template.titleText = titleText;
     if (subtitleText !== undefined) template.subtitleText = subtitleText;
@@ -194,12 +180,12 @@ exports.updateTemplate = async (req, res) => {
     // Fetch updated template with courses
     const updatedTemplate = await CertificateTemplate.findByPk(id, {
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] },
         { model: Course, as: 'courses', attributes: ['id', 'name'], through: { attributes: [] } }
       ]
     });
 
-    res.json({ success: true, template: updatedTemplate });
+    res.json({ success: true, template: sanitizeTemplate(updatedTemplate) });
   } catch (error) {
     console.error('Update template error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -224,7 +210,7 @@ exports.activateTemplate = async (req, res) => {
     template.isActive = true;
     await template.save();
 
-    res.json({ success: true, template, message: 'Template activated as default successfully' });
+    res.json({ success: true, template: sanitizeTemplate(template), message: 'Template activated as default successfully' });
   } catch (error) {
     console.error('Activate template error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -237,8 +223,8 @@ exports.activateTemplateForCourses = async (req, res) => {
     const { id } = req.params;
     const { courseIds } = req.body;
 
-    if (!courseIds || !Array.isArray(courseIds) || courseIds.length === 0) {
-      return res.status(400).json({ error: 'Course IDs are required' });
+    if (!courseIds || !Array.isArray(courseIds)) {
+      return res.status(400).json({ error: 'courseIds array is required' });
     }
 
     const template = await CertificateTemplate.findByPk(id);
@@ -246,44 +232,57 @@ exports.activateTemplateForCourses = async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    // Deactivate other templates for these courses
-    await TemplateCourse.update(
-      { isActive: false },
-      { where: { courseId: courseIds } }
-    );
+    if (courseIds.length === 0) {
+      // Unassign this template from all courses
+      await TemplateCourse.update(
+        { isActive: false },
+        { where: { templateId: id } }
+      );
+    } else {
+      // Deactivate other templates for the newly selected courses (allows reassignment)
+      await TemplateCourse.update(
+        { isActive: false },
+        { where: { courseId: courseIds } }
+      );
 
-    // Activate this template for the specified courses
-    for (const courseId of courseIds) {
-      // Check if association exists
-      const existing = await TemplateCourse.findOne({
-        where: { templateId: id, courseId }
-      });
+      // Deactivate this template for courses that were deselected
+      await TemplateCourse.update(
+        { isActive: false },
+        { where: { templateId: id, courseId: { [Op.notIn]: courseIds } } }
+      );
 
-      if (existing) {
-        existing.isActive = true;
-        await existing.save();
-      } else {
-        // Create association with isActive = true
-        await TemplateCourse.create({
-          templateId: id,
-          courseId,
-          isActive: true
+      // Activate this template for the specified courses
+      for (const courseId of courseIds) {
+        const existing = await TemplateCourse.findOne({
+          where: { templateId: id, courseId }
         });
+
+        if (existing) {
+          existing.isActive = true;
+          await existing.save();
+        } else {
+          await TemplateCourse.create({
+            templateId: id,
+            courseId,
+            isActive: true
+          });
+        }
       }
     }
 
     // Fetch updated template with courses
     const updatedTemplate = await CertificateTemplate.findByPk(id, {
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] },
         { model: Course, as: 'courses', attributes: ['id', 'name'], through: { attributes: ['isActive'] } }
       ]
     });
 
+    const count = courseIds.length;
     res.json({
       success: true,
-      template: updatedTemplate,
-      message: `Template activated for ${courseIds.length} course(s)`
+      template: sanitizeTemplate(updatedTemplate),
+      message: count === 0 ? 'Template unassigned from all courses' : `Template activated for ${count} course(s)`
     });
   } catch (error) {
     console.error('Activate template for courses error:', error);
@@ -291,9 +290,11 @@ exports.activateTemplateForCourses = async (req, res) => {
   }
 };
 
-// Get active templates per course (for showing which templates are active for which courses)
+// Get active templates per course — scoped to instructor's own courses
 exports.getActiveTemplatesPerCourse = async (req, res) => {
   try {
+    const isAdmin = req.user.role === 'admin';
+
     const activeAssignments = await TemplateCourse.findAll({
       where: { isActive: true },
       include: [
@@ -305,14 +306,15 @@ exports.getActiveTemplatesPerCourse = async (req, res) => {
         {
           model: Course,
           as: 'course',
-          attributes: ['id', 'name']
+          attributes: ['id', 'name'],
+          ...(isAdmin ? {} : { where: { userId: req.user.id }, required: true })
         }
       ]
     });
 
-    // Get default active template (for courses without specific assignment)
+    const templateWhere = isAdmin ? { isActive: true } : { isActive: true, createdBy: req.user.id };
     const defaultTemplate = await CertificateTemplate.findOne({
-      where: { isActive: true },
+      where: templateWhere,
       attributes: ['id', 'name', 'primaryColor', 'secondaryColor']
     });
 
@@ -338,15 +340,6 @@ exports.deleteTemplate = async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    // Delete associated local files
-    if (template.backgroundImage) {
-      deleteLocalFile(template.backgroundImage);
-    }
-
-    if (template.instructorSignature) {
-      deleteLocalFile(template.instructorSignature);
-    }
-
     await template.destroy();
 
     res.json({ success: true, message: 'Template deleted successfully' });
@@ -356,94 +349,58 @@ exports.deleteTemplate = async (req, res) => {
   }
 };
 
-// Upload background image
-exports.uploadBackground = [
-  upload.single('background'),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
+// Save instructor handwritten signature — stored on the User, applies to all their templates
+exports.saveSignature = async (req, res) => {
+  try {
+    const { signatureData } = req.body;
 
-      if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-      }
-
-      const template = await CertificateTemplate.findByPk(id);
-
-      // Local storage path
-      const fileUrl = `/uploads/templates/${req.file.filename}`;
-
-      if (!template) {
-        // Delete the uploaded file
-        deleteLocalFile(fileUrl);
-        return res.status(404).json({ error: 'Template not found' });
-      }
-
-      // Delete old background if exists
-      if (template.backgroundImage) {
-        deleteLocalFile(template.backgroundImage);
-      }
-
-      // Store file URL
-      template.backgroundImage = fileUrl;
-      await template.save();
-
-      console.log('✅ Background uploaded (Local):', fileUrl);
-
-      res.json({
-        success: true,
-        backgroundImage: template.backgroundImage,
-        message: 'Background image uploaded successfully'
-      });
-    } catch (error) {
-      console.error('Upload background error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    if (!signatureData || !signatureData.startsWith('data:image/png;base64,')) {
+      return res.status(400).json({ error: 'Invalid signature data. Expected a base64 PNG.' });
     }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.instructorSignature = signatureData;
+    await user.save();
+
+    res.json({ success: true, hasSignature: true, message: 'Signature saved successfully' });
+  } catch (error) {
+    console.error('Save signature error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-];
+};
 
-// Upload instructor signature
-exports.uploadInstructorSignature = [
-  upload.single('signature'),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
+// Clear instructor signature from user record
+exports.clearSignature = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-      if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-      }
+    user.instructorSignature = null;
+    await user.save();
 
-      const template = await CertificateTemplate.findByPk(id);
-
-      // Local storage path
-      const fileUrl = `/uploads/templates/${req.file.filename}`;
-
-      if (!template) {
-        deleteLocalFile(fileUrl);
-        return res.status(404).json({ error: 'Template not found' });
-      }
-
-      // Delete old signature if exists
-      if (template.instructorSignature) {
-        deleteLocalFile(template.instructorSignature);
-      }
-
-      // Store file URL
-      template.instructorSignature = fileUrl;
-      await template.save();
-
-      console.log('✅ Signature uploaded (Local):', fileUrl);
-
-      res.json({
-        success: true,
-        instructorSignature: template.instructorSignature,
-        message: 'Instructor signature uploaded successfully'
-      });
-    } catch (error) {
-      console.error('Upload instructor signature error:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+    res.json({ success: true, hasSignature: false, message: 'Signature cleared' });
+  } catch (error) {
+    console.error('Clear signature error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-];
+};
+
+// Get own signature (for instructor/admin to see their current signature)
+exports.getOwnSignature = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'instructorSignature']
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ success: true, signatureDataUri: user.instructorSignature || null });
+  } catch (error) {
+    console.error('Get own signature error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
 // Preview certificate with sample data
 exports.previewCertificate = async (req, res) => {
@@ -461,20 +418,20 @@ exports.previewCertificate = async (req, res) => {
     // Convert Sequelize model to plain object
     const templateData = template ? template.get({ plain: true }) : null;
 
-    console.log('Preview certificate - Template data:', {
-      id: templateData?.id,
-      name: templateData?.name,
-      instructorSignature: templateData?.instructorSignature,
-      backgroundImage: templateData?.backgroundImage,
-      primaryColor: templateData?.primaryColor
-    });
+    // Get creator's signature for the preview
+    let instructorSignature = null;
+    if (templateData?.createdBy) {
+      const creator = await User.findByPk(templateData.createdBy, { attributes: ['instructorSignature'] });
+      instructorSignature = creator?.instructorSignature || null;
+    }
 
     // Sample data for preview
     const sampleData = {
       studentName: 'John Doe',
       courseName: 'Advanced JavaScript Development',
       certificateNumber: 'CERT-PREVIEW-123456',
-      issueDate: new Date()
+      issueDate: new Date(),
+      instructorSignature,
     };
 
     // Generate PDF
@@ -490,23 +447,34 @@ exports.previewCertificate = async (req, res) => {
   }
 };
 
-// Get certificate statistics
+// Get certificate statistics — scoped to instructor's own courses/templates
 exports.getCertificateStats = async (req, res) => {
   try {
-    const totalCertificates = await Certificate.count();
+    const isAdmin = req.user.role === 'admin';
+
+    // For instructors: only count certs for their own courses
+    const courseWhere = isAdmin ? {} : { userId: req.user.id };
+    const courseInclude = {
+      model: Course, as: 'course', attributes: ['id', 'name'],
+      where: isAdmin ? undefined : courseWhere,
+      required: !isAdmin,
+    };
+
+    const totalCertificates = isAdmin
+      ? await Certificate.count()
+      : await Certificate.count({ include: [courseInclude] });
 
     const recentCertificates = await Certificate.findAll({
       limit: 10,
       order: [['createdAt', 'DESC']],
       include: [
         { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-        { model: Course, as: 'course', attributes: ['id', 'name'] }
+        courseInclude,
       ]
     });
 
-    const activeTemplate = await CertificateTemplate.findOne({
-      where: { isActive: true }
-    });
+    const templateWhere = isAdmin ? { isActive: true } : { isActive: true, createdBy: req.user.id };
+    const activeTemplate = await CertificateTemplate.findOne({ where: templateWhere });
 
     res.json({
       success: true,
@@ -519,6 +487,50 @@ exports.getCertificateStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Get certificate stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get instructor signature image for a template
+// Accessible to: admin/superadmin always; expert if they own it; student if they have an earned certificate
+exports.getSignatureImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { courseId } = req.query; // optional: courseId to verify student access
+
+    const template = await CertificateTemplate.findByPk(id, {
+      include: [{ model: User, as: 'creator', attributes: ['id', 'instructorSignature'] }]
+    });
+
+    if (!template) return res.status(404).json({ error: 'Template not found' });
+
+    const signature = template.creator?.instructorSignature || null;
+    if (!signature) return res.json({ success: true, signatureDataUri: null });
+
+    const role = req.user.role;
+
+    // Admin/superadmin: always allowed
+    if (role === 'admin' || role === 'superadmin') {
+      return res.json({ success: true, signatureDataUri: signature });
+    }
+
+    // Expert/instructor: only their own templates
+    if (role === 'expert' || role === 'instructor') {
+      if (template.createdBy !== req.user.id) return res.status(403).json({ error: 'Access denied' });
+      return res.json({ success: true, signatureDataUri: signature });
+    }
+
+    // Student: must have earned a certificate for the given courseId
+    if (role === 'student') {
+      if (!courseId) return res.status(400).json({ error: 'courseId required for student access' });
+      const cert = await Certificate.findOne({ where: { userId: req.user.id, courseId } });
+      if (!cert) return res.status(403).json({ error: 'Access denied' });
+      return res.json({ success: true, signatureDataUri: signature });
+    }
+
+    return res.status(403).json({ error: 'Access denied' });
+  } catch (error) {
+    console.error('Get signature image error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -541,11 +553,11 @@ exports.getTemplateForCourse = async (req, res) => {
     if (activeAssignment) {
       const template = await CertificateTemplate.findByPk(activeAssignment.templateId, {
         include: [
-          { model: User, as: 'creator', attributes: ['id', 'name', 'email'] }
+          { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] }
         ]
       });
       if (template) {
-        return res.json({ success: true, template, source: 'course-specific' });
+        return res.json({ success: true, template: sanitizeTemplate(template), source: 'course-specific' });
       }
     }
 
@@ -553,12 +565,12 @@ exports.getTemplateForCourse = async (req, res) => {
     const defaultTemplate = await CertificateTemplate.findOne({
       where: { isActive: true },
       include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] }
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email', 'instructorSignature'] }
       ]
     });
 
     if (defaultTemplate) {
-      return res.json({ success: true, template: defaultTemplate, source: 'default' });
+      return res.json({ success: true, template: sanitizeTemplate(defaultTemplate), source: 'default' });
     }
 
     return res.json({ success: true, template: null, message: 'No template found for this course' });

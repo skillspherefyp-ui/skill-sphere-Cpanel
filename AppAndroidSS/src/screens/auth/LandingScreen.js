@@ -16,10 +16,13 @@ import {
   Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+
 import { useTheme } from '../../context/ThemeContext';
 import ThemeToggle from '../../components/ThemeToggle';
+import AppHeader from '../../components/ui/AppHeader';
 import { courseAPI, contactAPI, categoryAPI } from '../../services/apiClient';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
+import { Helmet } from 'react-helmet-async';
 
 const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
@@ -77,17 +80,17 @@ const SEARCH_PAGES = [
   { label: 'Sign Up',              icon: 'person-add-outline',        route: 'Signup' },
 ];
 
-// ─── Nav links ────────────────────────────────────────────────────────────────
+// ─── Nav links (AppHeader format) ────────────────────────────────────────────
 const NAV_LINKS = [
-  { id: 'features', label: 'Features',     icon: 'grid-outline',        iconActive: 'grid' },
-  { id: 'how',      label: 'How It Works', icon: 'git-branch-outline',  iconActive: 'git-branch' },
-  { id: 'courses',  label: 'Courses',      icon: 'library-outline',     iconActive: 'library' },
-  { id: 'faq',      label: 'FAQ',          icon: 'help-circle-outline', iconActive: 'help-circle' },
-  { id: 'contact',  label: 'Contact',      icon: 'mail-outline',        iconActive: 'mail' },
+  { route: 'features', label: 'Features',     icon: 'grid-outline',        iconActive: 'grid' },
+  { route: 'how',      label: 'How It Works', icon: 'git-branch-outline',  iconActive: 'git-branch' },
+  { route: 'courses',  label: 'Courses',      icon: 'library-outline',     iconActive: 'library' },
+  { route: 'faq',      label: 'FAQ',          icon: 'help-circle-outline', iconActive: 'help-circle' },
+  { route: 'contact',  label: 'Contact',      icon: 'mail-outline',        iconActive: 'mail' },
 ];
 
-// ─── 1. NAVBAR ────────────────────────────────────────────────────────────────
-const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, activeSection }) => {
+// ─── 1. NAVBAR — replaced by AppHeader component ──────────────────────────────
+const _Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, activeSection }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuAnim = useRef(new Animated.Value(0)).current;
   const isWeb = Platform.OS === 'web';
@@ -113,10 +116,14 @@ const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, acti
       >
         <Animated.View style={[
           ns.dropdownCard,
+          isWeb ? {
+            backgroundColor: 'rgba(22,22,46,0.82)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+          } : { backgroundColor: 'rgba(22,22,46,0.97)' },
           {
-            backgroundColor: isDark ? '#1E1E38' : '#FFFFFF',
-            borderColor: isDark ? 'rgba(255,140,66,0.25)' : 'rgba(255,140,66,0.2)',
-            top: 70,
+            borderColor: 'rgba(255,140,66,0.25)',
+            top: 80,
             opacity: menuAnim,
             transform: [
               { translateY: menuAnim.interpolate({ inputRange: [0,1], outputRange: [-12,0] }) },
@@ -136,7 +143,7 @@ const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, acti
                     color={isActive ? '#FFFFFF' : ORANGE} />
                 </View>
                 <Text style={[ns.dropdownItemLabel,
-                  { color: isDark ? 'rgba(255,255,255,0.85)' : NAVY },
+                  { color: 'rgba(255,255,255,0.85)' },
                   isActive && ns.dropdownItemLabelActive]}>
                   {link.label}
                 </Text>
@@ -145,36 +152,36 @@ const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, acti
             );
           })}
 
-          <View style={[ns.dropdownDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]} />
+          <View style={[ns.dropdownDivider, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
 
           <View style={ns.dropdownItem}>
             <View style={[ns.dropdownItemIcon, { backgroundColor: 'rgba(124,111,205,0.15)' }]}>
               <Icon name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color="#7C6FCD" />
             </View>
-            <Text style={[ns.dropdownItemLabel, { color: isDark ? 'rgba(255,255,255,0.85)' : NAVY }]}>
+            <Text style={[ns.dropdownItemLabel, { color: 'rgba(255,255,255,0.85)' }]}>
               {isDark ? 'Light Mode' : 'Dark Mode'}
             </Text>
             <ThemeToggle iconColor={isDark ? '#F5C842' : '#7C6FCD'} />
           </View>
 
-          <View style={[ns.dropdownDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]} />
+          <View style={[ns.dropdownDivider, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
 
           <TouchableOpacity style={ns.dropdownItem}
             onPress={() => { closeMenu(); navigation.navigate('CertificateVerify'); }} activeOpacity={0.7}>
             <View style={[ns.dropdownItemIcon, { backgroundColor: 'rgba(255,140,66,0.1)' }]}>
               <Icon name="shield-checkmark-outline" size={18} color={ORANGE} />
             </View>
-            <Text style={[ns.dropdownItemLabel, { color: isDark ? 'rgba(255,255,255,0.85)' : NAVY }]}>Verify Certificate</Text>
+            <Text style={[ns.dropdownItemLabel, { color: 'rgba(255,255,255,0.85)' }]}>Verify Certificate</Text>
           </TouchableOpacity>
 
-          <View style={[ns.dropdownDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }]} />
+          <View style={[ns.dropdownDivider, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
 
           <TouchableOpacity style={ns.dropdownItem}
             onPress={() => { closeMenu(); navigation.navigate('Login'); }} activeOpacity={0.7}>
             <View style={[ns.dropdownItemIcon, { backgroundColor: 'rgba(255,140,66,0.1)' }]}>
               <Icon name="log-in-outline" size={18} color={ORANGE} />
             </View>
-            <Text style={[ns.dropdownItemLabel, { color: isDark ? 'rgba(255,255,255,0.85)' : NAVY }]}>Sign In</Text>
+            <Text style={[ns.dropdownItemLabel, { color: 'rgba(255,255,255,0.85)' }]}>Sign In</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[ns.dropdownItem, ns.getStartedRow]}
@@ -189,7 +196,7 @@ const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, acti
     </Modal>
   );
 
-  const stickyStyle = isWeb ? { position: 'sticky', top: 0, zIndex: 999 } : {};
+  const stickyStyle = isWeb ? { position: 'sticky', top: 0, zIndex: 999, paddingTop: 10 } : {};
 
   const Inner = () => (
     <View style={ns.content}>
@@ -253,10 +260,20 @@ const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, acti
     </View>
   );
 
+  const glassBg = 'rgba(22,22,46,0.82)';
+
   if (isWeb) {
     return (
       <>
-        <View style={[ns.container, { background: 'linear-gradient(135deg, #1A1A2E 0%, #1E1E38 100%)' }, stickyStyle]}>
+        <View style={[
+          ns.container,
+          {
+            backgroundColor: glassBg,
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+          },
+          stickyStyle,
+        ]}>
           <Inner />
         </View>
         {isMobile && <MobileDropdown />}
@@ -275,7 +292,7 @@ const Navbar = ({ navigation, isDark, isMobile, isDesktop, scrollToSection, acti
 };
 
 const ns = StyleSheet.create({
-  container: { height: 62, paddingHorizontal: 20, shadowColor: '#000', shadowOffset:{width:0,height:3}, shadowOpacity:0.35, shadowRadius:10, elevation:10 },
+  container: { height: 62, paddingHorizontal: 20, marginHorizontal: 12, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', shadowColor: '#000', shadowOffset:{width:0,height:8}, shadowOpacity:0.4, shadowRadius:20, elevation:16 },
   content: { flex:1, flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
   leftSection: { flexDirection:'row', alignItems:'center', gap:8, flexShrink:0 },
   logoImg: { width:46, height:46, borderRadius:13 },
@@ -359,7 +376,7 @@ const HeroSection = ({ navigation, theme, isDark, isMobile, scrollToSection }) =
   const handleSelectCourse = (course) => {
     setHeroSearch('');
     setShowDropdown(false);
-    navigation.navigate('ExploreCourseDetail', { courseId: course.id });
+    navigation.navigate('ExploreCourseDetail', { courseId: course.id, courseName: slugify(course.name) });
   };
 
   const handleSelectCategory = (cat) => {
@@ -756,10 +773,20 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
           </View>
           <Text style={{ fontSize: isMobile ? 20 : 26, fontWeight:'800', color: theme.colors.textPrimary }}>Top Courses</Text>
         </View>
-        <TouchableOpacity style={{ flexDirection:'row', alignItems:'center', gap:4 }}
-          onPress={() => navigation.navigate('ExploreCourses')}>
-          <Text style={{ color:ORANGE, fontSize:13, fontWeight:'600' }}>View All</Text>
-          <Icon name="arrow-forward" size={13} color={ORANGE} />
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            borderWidth: 1.5, borderColor: ORANGE,
+            backgroundColor: ORANGE + '12',
+            borderRadius: 20,
+            paddingHorizontal: isMobile ? 12 : 16,
+            paddingVertical: isMobile ? 7 : 9,
+          }}
+          onPress={() => navigation.navigate('ExploreCourses')}
+          activeOpacity={0.75}
+        >
+          <Text style={{ color: ORANGE, fontSize: isMobile ? 12 : 13, fontWeight: '700' }}>View All</Text>
+          <Icon name="arrow-forward" size={isMobile ? 12 : 13} color={ORANGE} />
         </TouchableOpacity>
       </View>
 
@@ -823,7 +850,7 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
             return (
               <TouchableOpacity key={course.id}
                 style={[styles.courseCard, { width:CARD_W, backgroundColor:cardBg, borderColor:cardBorder }]}
-                onPress={() => navigation.navigate('ExploreCourseDetail', { courseId:course.id })}
+                onPress={() => navigation.navigate('ExploreCourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                 activeOpacity={0.85}>
                 <View style={[styles.courseThumb, { backgroundColor: catColor+'20' }]}>
                   {thumb ? (
@@ -865,7 +892,7 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
           return (
             <TouchableOpacity key={course.id}
               style={[styles.courseCard, { width:'100%', backgroundColor:cardBg, borderColor:cardBorder, flexDirection:'row', overflow:'hidden' }]}
-              onPress={() => navigation.navigate('ExploreCourseDetail', { courseId:course.id })}
+              onPress={() => navigation.navigate('ExploreCourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
               activeOpacity={0.85}>
               <View style={{ width:110, height:110, backgroundColor: catColor+'20', justifyContent:'center', alignItems:'center', flexShrink:0 }}>
                 {thumb ? (
@@ -1179,9 +1206,9 @@ const Footer = ({ navigation, theme, isDark, isMobile, scrollToSection }) => {
   );
 
   const ColsBlock = () => (
-    <View style={{ flexDirection:'row', flexWrap:'wrap' }}>
+    <View style={{ flexDirection:'row', flexWrap: isMobile ? 'wrap' : 'nowrap', gap: isMobile ? 0 : 24 }}>
       {cols.map(col => (
-        <View key={col.title} style={{ width: isMobile ? '50%' : undefined, flex: isMobile ? undefined : 1, marginBottom:24, paddingRight:8 }}>
+        <View key={col.title} style={{ width: isMobile ? '50%' : undefined, flex: isMobile ? undefined : 1, marginBottom:24, paddingRight: isMobile ? 8 : 0 }}>
           <Text style={styles.footerColTitle}>{col.title}</Text>
           {col.links.map(link => (
             <TouchableOpacity key={link} style={{ marginBottom:9 }} onPress={() => handleFooterLink(link)}>
@@ -1326,12 +1353,90 @@ const LandingScreen = ({ navigation }) => {
   }, []);
 
   return (
-    <View style={{ flex:1, backgroundColor: theme.colors.background }}>
+    <View style={{ flex:1, backgroundColor: isDark ? NAVY : '#F8F9FF' }}>
+      <Helmet>
+        <title>SkillSphere - Online Courses &amp; AI Learning Platform Pakistan</title>
+        <meta name="description" content="Pakistan's #1 AI-powered online learning platform. Enroll in expert-led courses, learn with AI tutors, earn verified certificates, and master in-demand skills." />
+        <link rel="canonical" href="https://skillsphere.com.pk/" />
+        <meta property="og:url" content="https://skillsphere.com.pk/" />
+        <meta property="og:title" content="SkillSphere - Online Courses & AI Learning Platform Pakistan" />
+      </Helmet>
+      {/* Hero blobs extended into navbar gap — positioned to match hero section's blob exactly */}
+      <View style={{ position:'absolute', width:360, height:360, borderRadius:180, top:-8, left:-100, backgroundColor: ORANGE + (isDark ? '15' : '10'), pointerEvents:'none' }} />
       <StatusBar barStyle="light-content" backgroundColor={NAVY} />
-      <Navbar
-        navigation={navigation} isDark={isDark}
-        isMobile={isMobile} isDesktop={isDesktop}
-        scrollToSection={scrollToSection} activeSection={activeSection}
+      <AppHeader
+        showBack={false}
+        showDateTime={false}
+        navItems={NAV_LINKS}
+        activeRoute={activeSection}
+        onNavigate={(route) => {
+          const sectionIds = NAV_LINKS.map(n => n.route);
+          if (sectionIds.includes(route)) scrollToSection(route);
+          else navigation.navigate(route);
+        }}
+        leftComponent={isMobile ? (
+          <Text style={{ color:'#FFFFFF', fontWeight:'800', fontSize:15, letterSpacing:1 }}>
+            SKILL<Text style={{ color: ORANGE }}>SPHERE</Text>
+          </Text>
+        ) : null}
+        rightActions={!isMobile ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={{ flexDirection:'row', alignItems:'center', gap:5, paddingHorizontal:13, paddingVertical:7, borderRadius:10, borderWidth:1.5, borderColor:ORANGE+'60', backgroundColor:ORANGE+'12' }}
+              onPress={() => navigation.navigate('CertificateVerify')}
+            >
+              <Icon name="shield-checkmark-outline" size={14} color={ORANGE} />
+              <Text style={{ color:ORANGE, fontSize:13, fontWeight:'600' }}>Verify</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ paddingHorizontal:16, paddingVertical:8, borderRadius:10, borderWidth:1.5, borderColor:'rgba(255,255,255,0.25)' }}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={{ color:'#FFFFFF', fontSize:13, fontWeight:'600' }}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ paddingHorizontal:16, paddingVertical:8, borderRadius:10, backgroundColor:ORANGE }}
+              onPress={() => navigation.navigate('Signup')}
+            >
+              <Text style={{ color:'#FFFFFF', fontSize:13, fontWeight:'700' }}>Get Started</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        mobileDropdownFooter={(close) => (
+          <>
+            <View style={{ height:1, backgroundColor:'rgba(255,255,255,0.1)', marginVertical:4, marginHorizontal:12 }} />
+            <TouchableOpacity
+              style={{ flexDirection:'row', alignItems:'center', paddingHorizontal:12, paddingVertical:10, marginHorizontal:6, marginVertical:1, borderRadius:12, gap:12 }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('CertificateVerify'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width:36, height:36, borderRadius:10, justifyContent:'center', alignItems:'center', backgroundColor:ORANGE+'18' }}>
+                <Icon name="shield-checkmark-outline" size={18} color={ORANGE} />
+              </View>
+              <Text style={{ flex:1, fontSize:14, fontWeight:'600', color:'rgba(255,255,255,0.85)' }}>Verify Certificate</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flexDirection:'row', alignItems:'center', paddingHorizontal:12, paddingVertical:10, marginHorizontal:6, marginVertical:1, borderRadius:12, gap:12 }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('Login'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width:36, height:36, borderRadius:10, justifyContent:'center', alignItems:'center', backgroundColor:'rgba(255,255,255,0.08)' }}>
+                <Icon name="log-in-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={{ flex:1, fontSize:14, fontWeight:'600', color:'rgba(255,255,255,0.85)' }}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flexDirection:'row', alignItems:'center', paddingHorizontal:12, paddingVertical:10, marginHorizontal:6, marginVertical:1, borderRadius:12, gap:12, backgroundColor:ORANGE+'22' }}
+              onPress={() => { close(); setTimeout(() => navigation.navigate('Signup'), 100); }}
+              activeOpacity={0.7}
+            >
+              <View style={{ width:36, height:36, borderRadius:10, justifyContent:'center', alignItems:'center', backgroundColor:ORANGE+'30' }}>
+                <Icon name="rocket-outline" size={18} color={ORANGE} />
+              </View>
+              <Text style={{ flex:1, fontSize:14, fontWeight:'700', color:ORANGE }}>Get Started</Text>
+            </TouchableOpacity>
+          </>
+        )}
       />
       <ScrollView
         ref={scrollViewRef}
@@ -1480,7 +1585,7 @@ const styles = StyleSheet.create({
   footerTagline: { color:'rgba(255,255,255,0.6)', fontSize:13, lineHeight:21, marginBottom:18 },
   footerSocials: { flexDirection:'row', gap:9 },
   socialBtn: { width:36, height:36, borderRadius:9, backgroundColor:'rgba(255,255,255,0.08)', justifyContent:'center', alignItems:'center' },
-  footerCols: { flex:3, flexDirection:'row', gap:16, justifyContent:'space-between' },
+  footerCols: { flex:3 },
   footerCol: { flex:1, minWidth:90 },
   footerColTitle: { color:'#FFFFFF', fontSize:13, fontWeight:'700', marginBottom:14, letterSpacing:0.3 },
   footerLink: { color:'rgba(255,255,255,0.55)', fontSize:12, lineHeight:17 },

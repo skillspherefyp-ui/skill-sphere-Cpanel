@@ -10,6 +10,7 @@ import QuizResultScreen from '../screens/student/QuizResultScreen';
 import AIChatScreen from '../screens/student/AIChatScreen';
 import CertificatesScreen from '../screens/student/CertificatesScreen';
 import NotificationsScreen from '../screens/auth/NotificationsScreen';
+import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
 import TodoScreen from '../screens/student/TodoScreen';
 import PaymentScreen from '../screens/student/PaymentScreen';
 import CertificatePreviewScreen from '../screens/student/CertificatePreviewScreen';
@@ -41,6 +42,7 @@ const StudentNavigator = () => {
       <Stack.Screen name="Quiz" component={QuizScreen} />
       <Stack.Screen name="QuizResult" component={QuizResultScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
       <Stack.Screen name="Todo" component={TodoScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="ProgressDetail" component={ProgressDetailScreen} />
@@ -55,6 +57,7 @@ const StudentNavigator = () => {
       <Stack.Screen name="Blog" component={BlogScreen} />
       <Stack.Screen name="BlogPost" component={BlogPostScreen} />
       <Stack.Screen name="CertificateVerify" component={CertificateVerificationScreen} />
+      <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
     </Stack.Navigator>
   );
 };

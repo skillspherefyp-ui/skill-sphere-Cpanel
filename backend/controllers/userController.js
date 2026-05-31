@@ -25,7 +25,7 @@ exports.getAllStudents = async (req, res) => {
     if (isAdmin || canManageAllStudents) {
       result = await User.findAndCountAll({
         where: baseWhere,
-        attributes: ['id', 'name', 'email', 'phone', 'isActive', 'createdAt'],
+        attributes: ['id', 'name', 'email', 'phone', 'isActive', 'profilePicture', 'lastLogin', 'age', 'qualification', 'createdAt'],
         order: [['createdAt', 'DESC']],
         limit,
         offset,
@@ -47,7 +47,7 @@ exports.getAllStudents = async (req, res) => {
       if (studentIds.length > 0) {
         result = await User.findAndCountAll({
           where: { ...baseWhere, id: { [Op.in]: studentIds } },
-          attributes: ['id', 'name', 'email', 'phone', 'isActive', 'createdAt'],
+          attributes: ['id', 'name', 'email', 'phone', 'isActive', 'profilePicture', 'lastLogin', 'age', 'qualification', 'createdAt'],
           order: [['createdAt', 'DESC']],
           limit,
           offset,
@@ -75,7 +75,7 @@ exports.getAllExperts = async (req, res) => {
   try {
     const experts = await User.findAll({
       where: { role: 'expert' },
-      attributes: ['id', 'name', 'email', 'phone', 'isActive', 'permissions', 'createdAt'],
+      attributes: ['id', 'name', 'email', 'phone', 'isActive', 'permissions', 'profilePicture', 'lastLogin', 'createdAt'],
       order: [['createdAt', 'DESC']]
     });
 
@@ -301,7 +301,7 @@ exports.exportUsersCSV = async (req, res) => {
   try {
     const students = await User.findAll({
       where: { role: 'student' },
-      attributes: ['id', 'name', 'email', 'phone', 'isActive', 'createdAt'],
+      attributes: ['id', 'name', 'email', 'phone', 'isActive', 'profilePicture', 'lastLogin', 'age', 'qualification', 'createdAt'],
       order: [['createdAt', 'DESC']],
     });
     const header = 'ID,Name,Email,Phone,Active,Joined\n';

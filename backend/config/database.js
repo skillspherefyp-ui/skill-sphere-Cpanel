@@ -25,9 +25,14 @@ const createDatabaseIfNotExists = async () => {
 };
 
 // Initialize Sequelize - supports both connection URL and individual credentials
+const dialectOptions = {
+  charset: 'utf8mb4',
+};
+
 const sequelize = process.env.MYSQL_URL
   ? new Sequelize(process.env.MYSQL_URL, {
       dialect: 'mysql',
+      dialectOptions,
       logging: process.env.NODE_ENV === 'development' ? console.log : false,
       pool: {
         max: 5,
@@ -44,6 +49,7 @@ const sequelize = process.env.MYSQL_URL
         host: process.env.MYSQL_HOST,
         port: process.env.MYSQL_PORT,
         dialect: 'mysql',
+        dialectOptions,
         logging: process.env.NODE_ENV === 'development' ? console.log : false,
         pool: {
           max: 5,

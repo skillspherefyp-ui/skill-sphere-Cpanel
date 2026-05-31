@@ -9,6 +9,7 @@ import ExploreCoursesScreen from '../screens/auth/ExploreCoursesScreen';
 import ExploreCourseDetailScreen from '../screens/auth/ExploreCourseDetailScreen';
 import SignupOTPScreen from '../screens/auth/SignupOTPScreen';
 import SignupDetailsScreen from '../screens/auth/SignupDetailsScreen';
+import GoogleProfileCompletionScreen from '../screens/auth/GoogleProfileCompletionScreen';
 import LoginOTPScreen from '../screens/auth/LoginOTPScreen';
 import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
 import AboutScreen from '../screens/static/AboutScreen';
@@ -63,8 +64,10 @@ const AuthNavigator = () => {
       <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       <Stack.Screen name="SignupOTP" component={SignupOTPScreen} />
       <Stack.Screen name="SignupDetails" component={SignupDetailsScreen} />
+      <Stack.Screen name="GoogleProfileCompletion" component={GoogleProfileCompletionScreen} />
       <Stack.Screen name="LoginOTP" component={LoginOTPScreen} />
       <Stack.Screen name="CertificateVerify" component={CertificateVerificationScreen} />
+      <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="Terms" component={TermsScreen} />

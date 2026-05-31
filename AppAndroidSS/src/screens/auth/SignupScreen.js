@@ -109,7 +109,8 @@ const SignupScreen = ({ navigation }) => {
       if (!gr.success) { setGoogleLoading(false); if (gr.error !== 'Sign in was cancelled') setError(gr.error); return; }
       const result = await googleSignIn(gr.idToken);
       setGoogleLoading(false);
-      if (!result.success) setError(result.error || 'Google sign in failed');
+      if (!result.success) { setError(result.error || 'Google sign in failed'); return; }
+      if (result.isNewUser) navigation.navigate('GoogleProfileCompletion', { user: result.user });
     } catch (err) { setGoogleLoading(false); setError('Google sign in failed. Please try again.'); }
   };
 

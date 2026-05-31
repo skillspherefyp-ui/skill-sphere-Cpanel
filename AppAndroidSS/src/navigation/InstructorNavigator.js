@@ -13,8 +13,10 @@ import CertificateManagementScreen from '../screens/instructor/CertificateManage
 import FeedbackScreen from '../screens/instructor/FeedbackScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import SettingsScreen from '../screens/auth/SettingsScreen';
+import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
 import ManageUsersScreen from '../screens/instructor/ManageUsersScreen';
 import NotificationsScreen from '../screens/auth/NotificationsScreen';
+import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
 import DiscussionScreen from '../screens/auth/DiscussionScreen';
 import DiscussionThreadScreen from '../screens/auth/DiscussionThreadScreen';
 
@@ -43,8 +45,10 @@ const InstructorNavigator = () => {
       <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
       <Stack.Screen name="ManageUsers" component={ManageUsersScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
       <Stack.Screen name="Discussion" component={DiscussionScreen} />
       <Stack.Screen name="DiscussionThread" component={DiscussionThreadScreen} />
+      <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
     </Stack.Navigator>
   );
 };

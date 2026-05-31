@@ -49,6 +49,54 @@ function getJsonFromCompletion(completion) {
   }
 }
 
+function buildLectureSettingsInstructions(settings) {
+  if (!settings || typeof settings !== 'object') return '';
+
+  const lines = [];
+
+  const styleMap = {
+    step_by_step:    'Prefer step-by-step breakdowns in spoken explanations. Lead learners through processes one step at a time.',
+    example_first:   'Lead every chunk\'s spoken explanation with a concrete real-world example before introducing theory.',
+    analogy_driven:  'Use analogies heavily. Every chunk must have a strong memorable analogy connecting new concepts to familiar ideas.',
+    concise:         'Keep spoken explanations concise and direct — maximum 3 sentences per chunk. Prioritize clarity over depth.',
+  };
+  if (settings.explanationStyle && styleMap[settings.explanationStyle]) {
+    lines.push(`EXPLANATION STYLE: ${styleMap[settings.explanationStyle]}`);
+  }
+
+  const codeMap = {
+    none:    'Do NOT use visual_mode "code" for any chunk. Skip code examples entirely even if the topic involves programming.',
+    minimal: 'Use visual_mode "code" only when code is truly essential to understanding the concept — avoid it otherwise.',
+    heavy:   'Prioritize visual_mode "code" whenever a chunk could reasonably benefit from a code example. Show more snippets and terminal commands.',
+  };
+  if (settings.codeDepth && codeMap[settings.codeDepth]) {
+    lines.push(`CODE DEPTH: ${codeMap[settings.codeDepth]}`);
+  }
+
+  const visualMap = {
+    diagrams:    'Prefer visual_mode "diagram" when in doubt. Use diagrams to show concept relationships even for non-technical topics.',
+    flowcharts:  'Prefer visual_mode "flowchart" when in doubt. Use flowcharts to visualize processes and decisions.',
+    slides:      'Prefer visual_mode "slide" when in doubt. Summarize content in structured bullet-point slides.',
+    whiteboards: 'Prefer visual_mode "whiteboard" when in doubt. Use whiteboard notes to highlight key terms and definitions.',
+    code:        'Prefer visual_mode "code" whenever possible. Include practical code examples, terminal commands, and runnable snippets even for conceptual chunks.',
+    mixed:       'Use a rich variety of visual modes — spread evenly across diagrams, flowcharts, comparisons, slides, and whiteboards.',
+  };
+  if (settings.visualPreference && visualMap[settings.visualPreference]) {
+    lines.push(`VISUAL PREFERENCE: ${visualMap[settings.visualPreference]}`);
+  }
+
+  const audienceMap = {
+    professional: 'AUDIENCE: Working professionals. Use business/industry language, reference real-world work scenarios, and assume existing domain familiarity.',
+    academic:     'AUDIENCE: Academic learners. Use formal language, reference theoretical context, and include academic framing where helpful.',
+    kids:         'AUDIENCE: Children ages 10–15. Use very simple language, short sentences, fun analogies, and avoid all jargon.',
+  };
+  if (settings.audienceType && audienceMap[settings.audienceType]) {
+    lines.push(audienceMap[settings.audienceType]);
+  }
+
+  return lines.length > 0 ? `\nCOURSE-SPECIFIC INSTRUCTOR PREFERENCES (override defaults where they conflict):\n${lines.map(l => `- ${l}`).join('\n')}` : '';
+}
+
 async function generateLecturePackage({
   course,
   topic,
@@ -57,7 +105,8 @@ async function generateLecturePackage({
   nextTopicTitle,
   outlineText,
   compactMode = false,
-  minimalMode = false
+  minimalMode = false,
+  lectureSettings = null
 }) {
   const client = getClient();
   const model = process.env.OPENAI_MODEL_LECTURE;
@@ -196,14 +245,45 @@ async function generateLecturePackage({
   };
 
   const languageInstruction = course.language === 'Urdu'
-    ? '\n\nCRITICAL LANGUAGE REQUIREMENT: This course is in Urdu. You MUST write ALL content entirely in Urdu script (اردو / نستعلیق). This includes every single field: title, summary, teachingScript, spoken_explanation, whiteboard_explanation, slide_bullets, key_terms, examples, analogy_if_helpful, checkpoint_question_if_any, visual_caption, visual_query, cue strings, section titles/summaries/explanations, flashcard fronts and backs, quiz instructions, quiz question prompts, quiz options, and quiz explanations. Do NOT use English or Roman Urdu (Romanized Urdu). Every word must be written in proper Urdu script only.'
+    ? `\n\nCRITICAL LANGUAGE REQUIREMENT — URDU COURSE:
+
+=== URDU SCRIPT REQUIRED (these fields must be 100% Urdu اردو — zero English, zero Roman Urdu) ===
+- title, summary, teachingScript
+- slideOutline[].title, slideOutline[].bullets[], slideOutline[].notes
+- sections[].title, sections[].summary, sections[].learningObjective, sections[].explanation
+- sections[].examples[], sections[].visualSuggestion, sections[].whiteboardSuggestion, sections[].slideBullets[]
+- chunks[].title, chunks[].learning_objective, chunks[].spoken_explanation
+- chunks[].whiteboard_explanation, chunks[].slide_bullets[], chunks[].key_terms[]
+- chunks[].examples[], chunks[].analogy_if_helpful, chunks[].checkpoint_question_if_any
+- chunks[].visual_caption, chunks[].code_example.explanation
+- chunks[].diagram.steps[].cue
+- flashcards[].front, flashcards[].back
+- quiz.instructions, quiz.questions[].prompt, quiz.questions[].options[], quiz.questions[].explanation
+
+=== ENGLISH ONLY — DO NOT TRANSLATE THESE (keep exactly as English) ===
+- chunks[].code_example.snippet  ← ALWAYS English code/commands
+- chunks[].code_example.language  ← always e.g. "python", "javascript"
+- chunks[].diagram.nodes[].id  ← ALWAYS English identifier
+- chunks[].diagram.nodes[].label  ← ALWAYS English (e.g. "CPU", "Memory", "Process A")
+- chunks[].diagram.edges[].label  ← ALWAYS English
+- chunks[].visual_query  ← ALWAYS English (used as image search query, e.g. "cpu memory diagram")
+- chunks[].visual_mode value  ← always one of: none|slide|whiteboard|diagram|flowchart|comparison_table|code|mixed
+- chunks[].teaching_sequence values  ← always: speak|slide|diagram|whiteboard|visual|code
+- chunks[].difficulty_level value  ← always: introductory|intermediate|advanced
+
+=== BANNED ENGLISH PHRASES — NEVER write these in Urdu text fields ===
+"Next, let's" → آئیے اب | "For example" → مثال کے طور پر | "A simple way to picture it" → اسے سمجھنے کا آسان طریقہ | "Before we move on" → آگے بڑھنے سے پہلے | "Think about this" → اس پر غور کریں | "Let's explore" → آئیے دیکھتے ہیں | "First," → پہلے، | "Finally," → آخر میں، | "In summary" → خلاصہ یہ ہے کہ | "This means" → اس کا مطلب ہے
+
+FAILURE MODE TO AVOID: Do NOT mix languages. "Next, let's make [Urdu title] clear" is wrong. Write the full sentence in Urdu only.`
     : '';
+
+  const settingsInstructions = buildLectureSettingsInstructions(lectureSettings);
 
   const prompt = `
 You are preparing a production-ready stored lecture package for a tutoring system.
 Return valid JSON only. Do not wrap in markdown. Follow this schema exactly:
 ${JSON.stringify(schemaDescription, null, 2)}
-${languageInstruction}
+${languageInstruction}${settingsInstructions}
 Constraints:
 - Produce a complete lecture package for one topic.
 - Make explanations clear, accurate, teacher-like, and directly tied to the topic.
@@ -213,7 +293,7 @@ Constraints:
 - Every chunk must contain a real spoken explanation in full sentences.
 - VISUAL MODE DECISION RULES — choose exactly one visual_mode per chunk using this decision tree in order:
   1. CODE → visual_mode: "code" — if the chunk explains syntax, a command, a script, a config file, an API call, SQL, a code example, or any text a student would type into a terminal or editor. When chosen, you MUST include the code_example field with the real snippet, language, and a one-line explanation.
-  2. DIAGRAM → visual_mode: "diagram" — if the chunk explains relationships, architecture, components, or concept connections (e.g. "how X connects to Y"). When chosen, include the diagram field with 3–6 nodes and 2–5 edges. Assign colors: #3b82f6 primary, #8b5cf6 secondary, #10b981 outcome, #f59e0b decision.
+  2. DIAGRAM → visual_mode: "diagram" — if the chunk explains relationships, architecture, components, or concept connections (e.g. "how X connects to Y"). When chosen, you MUST include the diagram field with 3–6 nodes and 2–5 edges. Node labels and edge labels MUST always be in English regardless of course language — use short English concept names (e.g. "Harappa", "Trade Routes", "Agriculture", "City Planning"). Never omit the diagram field when visual_mode is "diagram". Assign colors: #3b82f6 primary, #8b5cf6 secondary, #10b981 outcome, #f59e0b decision.
   3. FLOWCHART → visual_mode: "flowchart" — if the chunk explains a process, ordered steps, a workflow, lifecycle, or procedure. No diagram nodes/edges needed; steps go in diagram.steps.
   4. COMPARISON TABLE → visual_mode: "comparison_table" — if the chunk directly compares two or more concepts, tools, protocols, or approaches side by side.
   5. WHITEBOARD → visual_mode: "whiteboard" — if the chunk defines key terms, writes short phrases, or gives a teacher's notes that belong on a board. whiteboard_explanation MUST contain only real text: key phrases, short definitions, bullet-style notes. NEVER put drawing instructions in whiteboard_explanation.
@@ -246,7 +326,7 @@ ${JSON.stringify(compactTopicContext, null, 2)}
       messages: [
         {
           role: 'system',
-          content: `You generate strict JSON lecture packages for an educational tutoring platform.${course.language === 'Urdu' ? ' The course language is Urdu. ALL content in the JSON must be written entirely in Urdu script (اردو). No English or Roman Urdu.' : ''}`
+          content: `You generate strict JSON lecture packages for an educational tutoring platform.${course.language === 'Urdu' ? ' STRICT RULE: Course language is Urdu (اردو). All text/explanation fields must be 100% Urdu script. EXCEPTIONS that must stay in English: code_example.snippet, code_example.language, diagram nodes[].id, diagram nodes[].label, diagram edges[].label, visual_query. NEVER mix English transition words into Urdu sentences.' : ''}`
         },
         {
           role: 'user',
@@ -394,7 +474,7 @@ async function planChunkTeaching({
             'Return valid JSON only.',
             'Do not regenerate the lesson.',
             'Only decide how the current chunk should be taught like a real teacher.',
-            ...(isUrdu ? ['CRITICAL: The lecture language is Urdu. All string fields in your JSON (transition_text, checkpoint_text, likely_confusion_points, reinforcement_points, teacher_tone) MUST be written entirely in Urdu script (اردو). No English or Roman Urdu.'] : [])
+            ...(isUrdu ? ['CRITICAL: The lecture language is Urdu. All string fields in your JSON (transition_text, checkpoint_text, likely_confusion_points, reinforcement_points, teacher_tone) MUST be 100% Urdu script (اردو). No English words, no Roman Urdu. BANNED phrases — never use: "Next, let\'s", "For example", "Before we move on", "Think about this", "Let\'s explore", "In summary", "First,", "Finally,". Use Urdu equivalents: آئیے اب، مثال کے طور پر، آگے بڑھنے سے پہلے، اس پر غور کریں، خلاصہ، پہلے، آخر میں'] : [])
           ].join(' ')
         },
         {

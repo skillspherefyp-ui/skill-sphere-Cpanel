@@ -27,7 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { lectureChatAPI } from '../../services/apiClient';
 import VoiceQAOverlay from '../../components/VoiceQAOverlay';
-import { resolveFileUrl } from '../../utils/urlHelpers';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
@@ -213,7 +213,7 @@ const LearningScreen = () => {
           text1: 'Not Enrolled',
           text2: 'You need to enroll in this course first!',
         });
-        navigation.navigate('CourseDetail', { courseId });
+        navigation.navigate('CourseDetail', { courseId, courseName: slugify(course?.name) });
       }
     }
     setEnrollmentLoading(false);

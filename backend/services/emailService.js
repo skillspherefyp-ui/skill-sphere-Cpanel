@@ -1,11 +1,29 @@
+const nodemailer = require('nodemailer');
+const path = require('path');
+
+const LOGO_PATH = path.join(__dirname, '../assets/skillsphere-logo.png');
+
 // Log Email Service Configuration
 console.log('📧 Email Service Configuration:');
-console.log(`   BREVO_API_KEY: ${process.env.BREVO_API_KEY ? '***configured***' : 'NOT SET'}`);
+console.log(`   SMTP_HOST: ${process.env.SMTP_HOST || 'NOT SET'}`);
+console.log(`   SMTP_PORT: ${process.env.SMTP_PORT || 'NOT SET'}`);
+console.log(`   SMTP_USER: ${process.env.SMTP_USER || 'NOT SET'}`);
 console.log(`   SMTP_FROM_EMAIL: ${process.env.SMTP_FROM_EMAIL || 'NOT SET'}`);
-console.log('   Using: Brevo HTTP API (not SMTP)');
+console.log('   Using: Nodemailer SMTP');
 
-// Brevo API endpoint
-const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+// Create Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587', 10),
+  secure: parseInt(process.env.SMTP_PORT || '587', 10) === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
 
 // ── Brand colors (matches app theme) ─────────────────────────────────────────
 const BRAND = {
@@ -35,69 +53,58 @@ const BRAND = {
   border:      '#E2E8F0',
 };
 
-// Send email using Brevo HTTP API
+// Send email using Nodemailer SMTP
 const sendEmailWithBrevoAPI = async (emailData) => {
-  const apiKey = process.env.BREVO_API_KEY;
-  const fromEmail = process.env.SMTP_FROM_EMAIL || 'skillspherefyp@gmail.com';
-
-  if (!apiKey) {
-    throw new Error('BREVO_API_KEY is not configured');
-  }
+  const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'support@skillsphere.com.pk';
+  const unsubscribeEmail = `support@skillsphere.com.pk`;
 
   console.log(`📧 Sending email to: ${emailData.to}`);
   console.log(`📧 Subject: ${emailData.subject}`);
-  console.log(`📧 Using: Brevo HTTP API`);
+  console.log(`📧 Using: Nodemailer SMTP (${process.env.SMTP_HOST})`);
 
-  const payload = {
-    sender: { name: 'SkillSphere', email: fromEmail },
-    to: [{ email: emailData.to, name: emailData.toName || emailData.to }],
+  const mailOptions = {
+    from: `"SkillSphere" <${fromEmail}>`,
+    replyTo: `"SkillSphere Support" <${unsubscribeEmail}>`,
+    to: emailData.toName ? `"${emailData.toName}" <${emailData.to}>` : emailData.to,
     subject: emailData.subject,
-    htmlContent: emailData.html,
-    textContent: emailData.text
+    html: emailData.html,
+    text: emailData.text,
+    headers: {
+      'List-Unsubscribe': `<mailto:${unsubscribeEmail}?subject=unsubscribe>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'Precedence': 'bulk',
+      'X-Mailer': 'SkillSphere Mailer',
+    },
   };
 
-  // Add attachments if present (for certificates)
+  // Always attach logo as inline CID (used in email header)
+  mailOptions.attachments = [
+    { filename: 'skillsphere-logo.png', path: LOGO_PATH, cid: 'skillsphere-logo', contentDisposition: 'inline' },
+  ];
+
+  // Add any extra attachments (e.g. certificate PDF)
   if (emailData.attachments && emailData.attachments.length > 0) {
-    payload.attachment = emailData.attachments
+    emailData.attachments
       .filter(att => att.content && att.filename)
-      .map(att => ({
-        name: att.filename,
-        content: att.content.toString('base64')
-      }));
+      .forEach(att => mailOptions.attachments.push({ filename: att.filename, content: att.content }));
   }
 
   try {
-    const response = await fetch(BREVO_API_URL, {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api-key': apiKey,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('❌ Brevo API error:', data);
-      throw new Error(data.message || `Brevo API error: ${response.status}`);
-    }
-
-    console.log(`✅ Email sent successfully! Message ID: ${data.messageId}`);
-    return { success: true, messageId: data.messageId };
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent successfully! Message ID: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Email failed:', error.message);
     throw error;
   }
 };
 
-// ── Shared logo block (text-based, reliable across all email clients) ─────────
+// ── Shared logo block ─────────────────────────────────────────────────────────
 const logoBlock = `
   <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto 20px auto;">
     <tr>
-      <td style="background: rgba(255,255,255,0.12); border-radius: 14px; padding: 10px 22px; border: 1.5px solid rgba(255,255,255,0.2);">
-        <span style="font-size: 11px; font-weight: 800; letter-spacing: 3px; color: rgba(255,255,255,0.55); text-transform: uppercase; display: block; text-align: center; margin-bottom: 2px;">✦ PLATFORM ✦</span>
+      <td style="text-align: center;">
+        <img src="cid:skillsphere-logo" alt="SkillSphere" width="90" height="90" style="display:block;margin:0 auto 10px auto;border-radius:50%;border:2px solid rgba(255,140,66,0.4);">
         <span style="font-size: 26px; font-weight: 900; color: #FFFFFF; letter-spacing: -0.5px;">Skill</span><span style="font-size: 26px; font-weight: 900; color: ${BRAND.orange}; letter-spacing: -0.5px;">Sphere</span>
       </td>
     </tr>
@@ -157,6 +164,7 @@ const generateEmailTemplate = ({ title, subtitle, content, accentColor = BRAND.o
                   <td align="center">
                     <p style="color:${BRAND.textLight};margin:0;font-size:12px;line-height:1.5;">Empower your skills, Expand your sphere</p>
                     <p style="color:${BRAND.textMuted};margin:10px 0 0 0;font-size:11px;">&copy; ${new Date().getFullYear()} SkillSphere. All rights reserved.</p>
+                    <p style="color:${BRAND.textMuted};margin:8px 0 0 0;font-size:11px;">To stop receiving these emails, <a href="mailto:support@skillsphere.com.pk" style="color:${BRAND.orange};text-decoration:none;">contact us</a>.</p>
                   </td>
                 </tr>
               </table>
@@ -273,7 +281,7 @@ const sendWelcomeEmail = async (email, name) => {
     toName: name,
     subject: 'Welcome to SkillSphere — Let\'s Start Learning!',
     html: generateEmailTemplate({ title: 'Welcome to SkillSphere!', subtitle: 'Your learning journey begins now', content }),
-    text: `Welcome ${name}!\n\nYour account has been created successfully.\n\nYou can now:\n- Browse and enroll in courses\n- Track your learning progress\n- Earn certificates upon completion\n- Chat with your AI learning assistant\n\nStart exploring today!\n\nSkillSphere`
+    text: `Welcome ${name}!\n\nYour account has been created successfully.\n\nYou can now:\n- Browse and enroll in courses\n- Track your learning progress\n- Earn certificates upon completion\n- Chat with your AI learning assistant\n\nStart exploring today!\n\nSkillSphere\n\nTo stop receiving these emails, contact support@skillsphere.com.pk`
   });
 };
 
@@ -406,9 +414,9 @@ const sendCertificateEmail = async (email, studentName, courseName, certificateN
   return await sendEmailWithBrevoAPI({
     to: email,
     toName: studentName,
-    subject: `🏆 Your Certificate for "${courseName}" — SkillSphere`,
+    subject: `Your Course Completion Document — ${courseName} — SkillSphere`,
     html: generateEmailTemplate({ title: 'Certificate Earned!', subtitle: 'You\'ve achieved something great', content }),
-    text: `Congratulations ${studentName}!\n\nYou have successfully completed: ${courseName}\n\nCertificate ID: ${certificateNumber}\nIssue Date: ${issueDate}\n\nYour certificate is attached to this email.\n\nKeep up the great work!\n\nSkillSphere`,
+    text: `Well done, ${studentName}!\n\nYou have successfully completed: ${courseName}\n\nCertificate ID: ${certificateNumber}\nIssue Date: ${issueDate}\n\nYour certificate is attached to this email.\n\nSkillSphere`,
     attachments: [{ filename: `Certificate_${certificateNumber}.pdf`, content: pdfBuffer }]
   });
 };
@@ -504,7 +512,7 @@ const sendEnrollmentEmail = async (email, studentName, course) => {
     toName: studentName,
     subject: `You're enrolled in "${course.name}" — SkillSphere`,
     html: generateEmailTemplate({ title: 'Enrollment Confirmed!', subtitle: 'Your learning journey starts now', content }),
-    text: `Hi ${studentName},\n\nYou're now enrolled in: ${course.name}\n\nLevel: ${level}\nLanguage: ${language}\nEnrolled On: ${enrollDate}\n${topicCount ? `Topics: ${topicCount}\n` : ''}\nComplete all topics to earn your certificate.\n\nSkillSphere`
+    text: `Hi ${studentName},\n\nYou're now enrolled in: ${course.name}\n\nLevel: ${level}\nLanguage: ${language}\nEnrolled On: ${enrollDate}\n${topicCount ? `Topics: ${topicCount}\n` : ''}\nComplete all topics to earn your certificate.\n\nSkillSphere\n\nTo stop receiving these emails, contact support@skillsphere.com.pk`
   });
 };
 
@@ -555,7 +563,7 @@ const sendAccountSuspensionEmail = async (email, name, reason) => {
             <tr>
               <td style="padding:13px 16px;">
                 <p style="color:#92400E;margin:0;font-size:13px;font-weight:500;">
-                  If you believe this is a mistake, please contact our support team at <a href="mailto:skillspherefyp@gmail.com" style="color:${BRAND.orange};font-weight:700;">skillspherefyp@gmail.com</a>
+                  If you believe this is a mistake, please contact our support team at <a href="mailto:support@skillsphere.com.pk" style="color:${BRAND.orange};font-weight:700;">support@skillsphere.com.pk</a>
                 </p>
               </td>
             </tr>
@@ -575,7 +583,7 @@ const sendAccountSuspensionEmail = async (email, name, reason) => {
     toName: name,
     subject: 'Your SkillSphere Account Has Been Suspended',
     html: generateEmailTemplate({ title: 'Account Suspended', subtitle: 'Action required on your account', content, accentColor: BRAND.red }),
-    text: `Hello ${name},\n\nYour SkillSphere account has been suspended.\n\nReason: ${reason}\nDate: ${suspendDate}\n\nIf you believe this is a mistake, contact us at skillspherefyp@gmail.com\n\nSkillSphere`
+    text: `Hello ${name},\n\nYour SkillSphere account has been suspended.\n\nReason: ${reason}\nDate: ${suspendDate}\n\nIf you believe this is a mistake, contact us at support@skillsphere.com.pk\n\nSkillSphere`
   });
 };
 
@@ -726,9 +734,9 @@ const sendReminderEmail = async (email, name, reminderText, scheduledAt) => {
   return await sendEmailWithBrevoAPI({
     to: email,
     toName: name,
-    subject: `⏰ Reminder in 30 min: "${reminderText}" — SkillSphere`,
+    subject: `Upcoming Reminder: "${reminderText}" — SkillSphere`,
     html: generateEmailTemplate({ title: 'Reminder Alert', subtitle: '30 minutes to go!', content, accentColor: BRAND.amber }),
-    text: `Hey ${name}!\n\nYour reminder is coming up in 30 minutes:\n\n"${reminderText}"\n\nScheduled for: ${formattedTime}\n\nStay on track!\n\nSkillSphere`
+    text: `Hey ${name}!\n\nYour reminder is coming up in 30 minutes:\n\n"${reminderText}"\n\nScheduled for: ${formattedTime}\n\nStay on track!\n\nSkillSphere\n\nTo stop receiving these emails, contact support@skillsphere.com.pk`
   });
 };
 
@@ -783,7 +791,7 @@ const sendContactEmail = async (senderName, senderEmail, message) => {
   `;
 
   return await sendEmailWithBrevoAPI({
-    to: 'skillspherefyp@gmail.com',
+    to: 'support@skillsphere.com.pk',
     toName: 'SkillSphere Team',
     subject: `Contact Form: ${senderName} — SkillSphere`,
     html: generateEmailTemplate({ title: 'New Contact Message', subtitle: `From ${senderName}`, content }),
@@ -832,7 +840,7 @@ const sendNewBlogPostEmail = async (subscriberEmail, post) => {
               <td style="padding:16px 20px;">
                 <p style="color:${BRAND.textLight};margin:0;font-size:13px;line-height:1.6;">
                   You're receiving this because you subscribed to the SkillSphere Blog Newsletter.
-                  <a href="mailto:skillspherefyp@gmail.com" style="color:${BRAND.orange};">Unsubscribe</a>
+                  <a href="mailto:support@skillsphere.com.pk" style="color:${BRAND.orange};">Unsubscribe</a>
                 </p>
               </td>
             </tr>
@@ -851,6 +859,41 @@ const sendNewBlogPostEmail = async (subscriberEmail, post) => {
   });
 };
 
+// ── Send Bulk Custom Email (Admin broadcast) ──────────────────────────────────
+const sendBulkCustomEmail = async (email, name, subject, message) => {
+  const content = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td>
+          <p style="color:${BRAND.textDark};margin:0 0 6px 0;font-size:18px;font-weight:700;">Hello, ${name}!</p>
+          <p style="color:${BRAND.textLight};margin:0 0 24px 0;font-size:15px;line-height:1.7;white-space:pre-line;">${message}</p>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.orangePale};border-radius:12px;border-left:4px solid ${BRAND.orange};">
+            <tr>
+              <td style="padding:13px 16px;">
+                <p style="color:#92400E;margin:0;font-size:13px;font-weight:500;">
+                  This message was sent to you by the SkillSphere admin team.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  return await sendEmailWithBrevoAPI({
+    to: email,
+    toName: name,
+    subject,
+    html: generateEmailTemplate({ title: subject, subtitle: 'A message from SkillSphere', content }),
+    text: `Hello ${name},\n\n${message}\n\nSkillSphere Team`,
+  });
+};
+
 module.exports = {
   sendOTPEmail,
   sendWelcomeEmail,
@@ -862,4 +905,5 @@ module.exports = {
   sendReminderEmail,
   sendContactEmail,
   sendNewBlogPostEmail,
+  sendBulkCustomEmail,
 };

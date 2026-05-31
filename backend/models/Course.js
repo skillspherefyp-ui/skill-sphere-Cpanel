@@ -75,6 +75,20 @@ const Course = sequelize.define('Course', {
       this.setDataValue('prerequisiteIds', Array.isArray(parsed) ? parsed : []);
     }
   },
+  lectureSettings: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    get() {
+      const raw = this.getDataValue('lectureSettings');
+      if (!raw) return null;
+      if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return null; }
+      }
+      return null;
+    }
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

@@ -623,6 +623,13 @@ const InstructorDashboard = () => {
               <Icon name="add" size={16} color="#FFFFFF" />
               <Text style={styles.createBtnText}>Create New Course</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.analyticsBtn}
+              onPress={() => navigation.navigate('AIAnalytics')}
+            >
+              <Icon name="bar-chart-outline" size={15} color="#7c3aed" />
+              <Text style={styles.analyticsBtnText}>AI Analytics</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1079,6 +1086,22 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
     createBtnText: {
       color: '#FFFFFF',
       fontSize: 14,
+      fontWeight: '700',
+    },
+    analyticsBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 10,
+      backgroundColor: 'rgba(124,58,237,0.1)',
+      borderWidth: 1,
+      borderColor: 'rgba(124,58,237,0.3)',
+    },
+    analyticsBtnText: {
+      color: '#7c3aed',
+      fontSize: 13,
       fontWeight: '700',
     },
 

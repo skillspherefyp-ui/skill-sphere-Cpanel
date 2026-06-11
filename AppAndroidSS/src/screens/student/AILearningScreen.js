@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Animated as RNAnimated,
   ScrollView,
@@ -27,10 +28,108 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { aiTutorAPI, API_BASE } from '../../services/apiClient';
 import DiagramCanvas from '../../components/DiagramCanvas';
 import VoiceQAOverlay from '../../components/VoiceQAOverlay';
+import { Reveal, StageCaption, BeatTimeline, buildTeachingBeats, activeBeatFor, beatActivity } from '../../components/classroom/LiveStage';
+import AITeacherAvatar from '../../components/classroom/AITeacherAvatar';
+import IntelligentWhiteboard from '../../components/classroom/IntelligentWhiteboard';
 import MarkdownText from '../../components/ui/MarkdownText';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+// ─── Eye-catching "AI is thinking" animation ───────────────────────────────
+// A glowing brain orb: two breathing halo rings, a spinning accent arc, a
+// soft pulsing core and a gently floating brain icon + bouncing dots. Used
+// while the tutor is composing an answer to a student's question.
+const ThinkingIndicator = ({ accent = '#f59e0b', label = 'Let me think about that…' }) => {
+  const ring1 = useRef(new RNAnimated.Value(0)).current;
+  const ring2 = useRef(new RNAnimated.Value(0)).current;
+  const spin = useRef(new RNAnimated.Value(0)).current;
+  const float = useRef(new RNAnimated.Value(0)).current;
+  const dot0 = useRef(new RNAnimated.Value(0)).current;
+  const dot1 = useRef(new RNAnimated.Value(0)).current;
+  const dot2 = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    // A breathing halo that expands and fades, then snaps back to restart.
+    const halo = (val) =>
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(val, { toValue: 1, duration: 2000, useNativeDriver: USE_NATIVE_DRIVER }),
+          RNAnimated.timing(val, { toValue: 0, duration: 0, useNativeDriver: USE_NATIVE_DRIVER }),
+        ])
+      );
+    const a1 = halo(ring1);
+    // Second halo offset by ~1s so the rings ripple outward in sequence.
+    const a2 = RNAnimated.sequence([RNAnimated.delay(1000), halo(ring2)]);
+    const a3 = RNAnimated.loop(
+      RNAnimated.timing(spin, { toValue: 1, duration: 3200, useNativeDriver: USE_NATIVE_DRIVER })
+    );
+    const a4 = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(float, { toValue: 1, duration: 1300, useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(float, { toValue: 0, duration: 1300, useNativeDriver: USE_NATIVE_DRIVER }),
+      ])
+    );
+    const bounce = (val, delay) =>
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.delay(delay),
+          RNAnimated.timing(val, { toValue: 1, duration: 380, useNativeDriver: USE_NATIVE_DRIVER }),
+          RNAnimated.timing(val, { toValue: 0, duration: 380, useNativeDriver: USE_NATIVE_DRIVER }),
+          RNAnimated.delay(760 - delay),
+        ])
+      );
+    const d0 = bounce(dot0, 0);
+    const d1 = bounce(dot1, 190);
+    const d2 = bounce(dot2, 380);
+    const all = [a1, a2, a3, a4, d0, d1, d2];
+    all.forEach((a) => a.start());
+    return () => all.forEach((a) => a.stop());
+  }, []);
+
+  const haloStyle = (val) => ({
+    borderColor: accent,
+    opacity: val.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+    transform: [{ scale: val.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.9] }) }],
+  });
+  const dotStyle = (val) => ({
+    backgroundColor: accent,
+    opacity: val.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+    transform: [{ translateY: val.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }],
+  });
+
+  return (
+    <View style={styles.thinkWrap}>
+      <View style={styles.thinkOrb}>
+        <RNAnimated.View style={[styles.thinkHalo, haloStyle(ring1)]} />
+        <RNAnimated.View style={[styles.thinkHalo, haloStyle(ring2)]} />
+        <View style={[styles.thinkGlow, { backgroundColor: `${accent}22` }]} />
+        <RNAnimated.View
+          style={[
+            styles.thinkArc,
+            {
+              borderTopColor: accent,
+              transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+            },
+          ]}
+        />
+        <RNAnimated.View
+          style={{ transform: [{ translateY: float.interpolate({ inputRange: [0, 1], outputRange: [3, -3] }) }] }}
+        >
+          <MaterialIcon name="brain" size={28} color={accent} />
+        </RNAnimated.View>
+      </View>
+      <View style={styles.thinkLabelRow}>
+        <Text style={[styles.thinkLabel, { color: accent }]}>{label}</Text>
+        <View style={styles.thinkDots}>
+          <RNAnimated.View style={[styles.thinkDot, dotStyle(dot0)]} />
+          <RNAnimated.View style={[styles.thinkDot, dotStyle(dot1)]} />
+          <RNAnimated.View style={[styles.thinkDot, dotStyle(dot2)]} />
+        </View>
+      </View>
+    </View>
+  );
+};
 
 const AILearningScreen = () => {
   const navigation = useNavigation();
@@ -70,6 +169,26 @@ const AILearningScreen = () => {
   const [showTopicsSidebar, setShowTopicsSidebar] = useState(false);
   const [revealedFlashcards, setRevealedFlashcards] = useState({});
   const [teachingProgress, setTeachingProgress] = useState(0);
+
+  // On a new chunk, forget old screenshot offsets and snap the board back to top.
+  useEffect(() => {
+    guidedOffsetsRef.current = {};
+    guidedActiveRef.current = -1;
+    guidedScrolledRef.current = -1;
+    boardScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentChunk?.id]);
+
+  // As the tutor narrates each install/setup screenshot, glide the board so the
+  // step they're talking about stays in view (synced to teachingProgress).
+  useEffect(() => {
+    const target = guidedActiveRef.current;
+    if (target < 0 || target === guidedScrolledRef.current) return;
+    const y = guidedOffsetsRef.current[target];
+    if (typeof y !== 'number') return;
+    guidedScrolledRef.current = target;
+    boardScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  }, [teachingProgress, isPlaying]);
+
   const [quizPreview, setQuizPreview] = useState(null);
   const [quizPreviewLoading, setQuizPreviewLoading] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
@@ -79,22 +198,58 @@ const AILearningScreen = () => {
   const [diagramStep, setDiagramStep] = useState(-1);
   const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(false);
   const [isSpeakingChunk, setIsSpeakingChunk] = useState(false);
-  const [showLiveText, setShowLiveText] = useState(false);
+  const [showLiveText, setShowLiveText] = useState(true);
   const [showVoiceQA, setShowVoiceQA] = useState(false);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
+  // ── Inline "raise your hand" Q&A, answered right on the classroom board ──
+  const [qaActive, setQaActive] = useState(false);
+  const [qaPhase, setQaPhase] = useState('composing'); // composing | thinking | answering | done
+  const [qaQuestion, setQaQuestion] = useState('');
+  const [qaAnswer, setQaAnswer] = useState('');
+  const [qaVisual, setQaVisual] = useState(null);
+  const [qaInput, setQaInput] = useState('');
+  const [qaListening, setQaListening] = useState(false);
+  const [qaGreeting, setQaGreeting] = useState('');
+  const [qaGreetingPlaying, setQaGreetingPlaying] = useState(false);
+  const qaAudioRef = useRef(null);
+  const qaRecognitionRef = useRef(null);
+  const qaRecorderRef = useRef(null);
+  const qaStreamRef = useRef(null);
+  const qaChunksRef = useRef([]);
+  const qaSubmitOnStopRef = useRef(true);
+  const qaSubmitAfterStopRef = useRef(false);
+  const greetingAudioRef = useRef(null); // { text, audio } — pre-warmed greeting for instant playback
+  const [qaTranscribing, setQaTranscribing] = useState(false);
 
   const chatScrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const playbackRef = useRef(null);
   const audioRef = useRef(null);
   const utteranceRef = useRef(null);
+  // Monotonic token: every playback start claims one; stop/skip bumps it. A stale
+  // (superseded) async playChunk checks this and aborts — prevents two TTS voices
+  // overlapping when chunks are skipped/advanced quickly.
+  const playbackTokenRef = useRef(0);
   const handRaiseTimeoutRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const mediaChunksRef = useRef([]);
   const pulseAnim = useRef(new RNAnimated.Value(1)).current;
   const diagramTimersRef = useRef([]);
+  // ── Resume mid-chunk: remember where the voice was when the student hit pause ──
+  const resumeAtRef = useRef(0);       // seconds into the current chunk's audio
+  const resumeChunkRef = useRef(null); // which chunk that position belongs to
+  // ── Auto-scroll the guided-steps board to whatever screenshot the tutor is on ──
+  const boardScrollRef = useRef(null);
+  const guidedOffsetsRef = useRef({}); // step index → y offset inside the board scroll
+  const guidedActiveRef = useRef(-1);  // step the tutor is currently narrating
+  const guidedScrolledRef = useRef(-1); // last step we already scrolled to
   const baseHost = API_BASE.replace(/\/api$/, '');
   const isMobile = width < 768;
+  // Stage layout breakpoints: keep the living-teacher column + board readable.
+  const showTutorColumn = width >= 980;   // full avatar column beside the board
+  const showVisualRail = width >= 1180;   // extra Live Visual / Key Points rail
 
   // Auto-scroll chat to bottom on new messages
   useEffect(() => {
@@ -162,6 +317,42 @@ const AILearningScreen = () => {
       : isPlaying
         ? { label: currentModeLabel, detail: transitionText || (currentDelivery?.next_action ? `Sequence: ${(currentDelivery.teaching_sequence || []).join(' -> ')}.` : (voiceMode ? 'Voice delivery is active for this section.' : 'Stored lecture chunks are advancing in text mode.')), tone: '#3b82f6' }
         : { label: 'Ready to resume', detail: 'Resume when you are ready for the next chunk.', tone: '#6366f1' };
+
+  // ─── Stage Director: decompose the live chunk into choreographed teaching beats ───
+  const teachingBeats = useMemo(
+    () => buildTeachingBeats({ chunk: currentChunk, delivery: currentDelivery, narration: currentNarration }),
+    [currentChunk?.id, currentDelivery, currentNarration]
+  );
+  const activeBeat = useMemo(
+    () => activeBeatFor(teachingBeats, teachingProgress),
+    [teachingBeats, teachingProgress]
+  );
+  const beatProgress = activeBeat
+    ? Math.max(0, Math.min(1, (teachingProgress - activeBeat.start) / Math.max(0.0001, activeBeat.end - activeBeat.start)))
+    : 0;
+  // Board art should finish drawing by the time the explain beat ends, so the
+  // visual is complete before the tutor moves on to the example / checkpoint.
+  const boardReveal = (() => {
+    const explainBeat = teachingBeats.find((b) => b.kind === 'explain');
+    return explainBeat ? Math.min(1, teachingProgress / Math.max(0.15, explainBeat.end)) : teachingProgress;
+  })();
+  const avatarState = lectureCompleted
+    ? 'complete'
+    : (showQuestionPanel || isRecording)
+      ? 'listening'
+      : (isAdvancing || isPreparing)
+        ? 'thinking'
+        : !isPlaying
+          ? 'idle'
+          : activeBeat?.kind === 'checkpoint'
+            ? 'thinking'
+            : 'speaking';
+  const activity = beatActivity(activeBeat);
+  const activityColor = activity.color;
+  const captionPlaying = (isPlaying || isAdvancing || isPreparing) && !showQuestionPanel && !lectureCompleted;
+  const captionText = (isAdvancing || isPreparing)
+    ? (transitionText || 'Let me walk you through the next idea…')
+    : (activeBeat?.text || currentNarration);
 
   useEffect(() => {
     const pulse = RNAnimated.loop(
@@ -260,6 +451,29 @@ const AILearningScreen = () => {
     return () => stopPlayback();
   }, [session?.id, currentChunk?.id, isPlaying, showQuestionPanel, lectureCompleted, voiceMode]);
 
+  // Pre-warm + preload the "Ask Question" greeting so it speaks INSTANTLY on click
+  // (no waiting for TTS generation). Runs quietly in the background.
+  useEffect(() => {
+    if (!session?.id || Platform.OS !== 'web') return undefined;
+    const name = `${user?.name || user?.fullName || user?.email?.split('@')[0] || ''}`.trim().split(' ')[0] || 'there';
+    const text = `Hello ${name}, what's your question?`;
+    if (greetingAudioRef.current?.text === text && greetingAudioRef.current?.audio) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await aiTutorAPI.speakText({ lectureId: lecture?.id, sessionId: session?.id, assetType: 'qa_answer', text });
+        const url = res?.asset?.urlPath ? `${baseHost}${res.asset.urlPath}` : res?.audioUrl;
+        if (url && !cancelled) {
+          const audio = new Audio(url);
+          audio.preload = 'auto';
+          try { audio.load(); } catch (_) {}
+          greetingAudioRef.current = { text, audio };
+        }
+      } catch (_) { /* greeting will fall back to instant speech-synth */ }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.id, user?.name]);
+
   useEffect(() => {
     setTeachingProgress(0);
     diagramTimersRef.current.forEach(clearTimeout);
@@ -293,25 +507,38 @@ const AILearningScreen = () => {
     const duration = recommendedDurationMs || Math.min(12000, Math.max(3600, currentNarration.length * 28));
     const startedAt = Date.now();
 
-    // Poll at 80ms — if audio element is playing, sync from its real position
-    // otherwise fall back to wall-clock timer
+    // Poll ~7×/sec (lighter than before to keep the screen smooth). Only push a
+    // state update when the value actually moved, to avoid needless re-renders.
+    const apply = (next) => setTeachingProgress((prev) => (Math.abs(next - prev) >= 0.004 || next >= 1 ? next : prev));
+    // Caption sync: a small lead fixes the start latency, and a slight speed
+    // multiplier stops it drifting behind as the chunk plays (TTS files carry a
+    // little trailing silence + our per-beat length estimate isn't exact, so a
+    // pure linear map slowly lags). Together they keep words on the spoken word.
+    const CAPTION_LEAD_S = 0.45;
+    const CAPTION_SPEED = 1.08;
     const timer = setInterval(() => {
       const audio = audioRef.current;
       if (audio && !audio.paused && audio.duration > 0) {
-        // Precise sync: use actual audio playback position
-        setTeachingProgress(Math.min(1, audio.currentTime / audio.duration));
-      } else {
-        // Fallback: time-based progress (no audio, or audio not loaded yet)
-        const nextProgress = Math.min(1, (Date.now() - startedAt) / duration);
-        setTeachingProgress(nextProgress);
-        if (nextProgress >= 1) clearInterval(timer);
+        // Voice is actually playing → caption/board track the real audio position.
+        apply(Math.min(1, (audio.currentTime * CAPTION_SPEED + CAPTION_LEAD_S) / audio.duration));
+      } else if (!voiceMode) {
+        // Text mode has no spoken audio → wall-clock drives the board reveal.
+        const next = Math.min(1, (Date.now() - startedAt) / duration);
+        apply(next);
+        if (next >= 1) clearInterval(timer);
       }
-    }, 80);
+      // voiceMode but audio not started yet (TTS still generating) → HOLD at the
+      // current value so subtitles don't run ahead of the tutor's voice.
+    }, 90);
 
     return () => clearInterval(timer);
   }, [currentChunk?.id, isPlaying, showQuestionPanel, lectureCompleted, recommendedDurationMs, currentNarration]);
 
   const stopPlayback = () => {
+    // Invalidate any in-flight playChunk so a late TTS response never starts a
+    // second voice on top of the current one.
+    playbackTokenRef.current += 1;
+    setIsPreparing(false);
     if (playbackRef.current) {
       clearTimeout(playbackRef.current);
       playbackRef.current = null;
@@ -409,6 +636,26 @@ const AILearningScreen = () => {
         }
       }
 
+      // Warm the first chunk's TTS during the loading screen so the tutor starts
+      // speaking the instant the stage appears (no long dead silence on open).
+      if (voiceMode && Platform.OS === 'web' && response.chunk) {
+        const firstNarration = response.chunk.delivery?.narration_text
+          || response.chunk.spokenExplanation || response.chunk.text || '';
+        if (firstNarration) {
+          try {
+            await Promise.race([
+              aiTutorAPI.speakText({
+                lectureId: response.lecture?.id,
+                sessionId: response.session?.id,
+                assetType: 'lecture_chunk',
+                text: firstNarration,
+              }),
+              new Promise((resolve) => setTimeout(resolve, 9000)),
+            ]);
+          } catch (_) { /* best-effort warm */ }
+        }
+      }
+
       setLecture(nextLecture);
       setSession(response.session);
       setCurrentChunk(response.chunk);
@@ -433,11 +680,15 @@ const AILearningScreen = () => {
 
   const speakChunk = async (text) => {
     if (!text || !autoSpeakEnabled) return;
+    const myToken = (playbackTokenRef.current += 1);
     setIsSpeakingChunk(true);
     try {
       const res = await aiTutorAPI.speakText({ text: text.slice(0, 800), voice: 'nova' });
+      // Superseded while generating → don't start a (now overlapping) voice.
+      if (playbackTokenRef.current !== myToken) { setIsSpeakingChunk(false); return; }
       if (res.audioUrl && Platform.OS === 'web') {
         const audio = new Audio(res.audioUrl);
+        audioRef.current = audio;
         audio.onended = () => setIsSpeakingChunk(false);
         audio.onerror = () => setIsSpeakingChunk(false);
         audio.play();
@@ -456,9 +707,16 @@ const AILearningScreen = () => {
 
     stopPlayback();
     playbackRef.current = setTimeout(async () => {
+      // Show a "moving on" beat so the gap between chunks feels like the teacher
+      // is transitioning, not frozen.
+      const advToken = playbackTokenRef.current;
+      setIsAdvancing(true);
       try {
         const response = await aiTutorAPI.getNextChunk(session.id);
+        // A manual skip/stop happened during the fetch → drop this stale advance.
+        if (playbackTokenRef.current !== advToken) { setIsAdvancing(false); return; }
         if (response.lectureCompleted || !response.chunk) {
+          setIsAdvancing(false);
           setLectureCompleted(true);
           setIsPlaying(false);
           setShowCompleteDialog(true);
@@ -466,12 +724,37 @@ const AILearningScreen = () => {
           return;
         }
 
+        // Warm the next chunk's TTS while still showing the "moving on" state, so
+        // the voice starts the instant the new board appears (no silent gap).
+        if (voiceMode && Platform.OS === 'web') {
+          const nextNarration = response.chunk.delivery?.narration_text
+            || response.chunk.spokenExplanation || response.chunk.text || '';
+          if (nextNarration) {
+            try {
+              await Promise.race([
+                aiTutorAPI.speakText({
+                  lectureId: lecture?.id,
+                  sessionId: response.session?.id,
+                  assetType: 'lecture_chunk',
+                  text: nextNarration,
+                }),
+                new Promise((resolve) => setTimeout(resolve, 9000)),
+              ]);
+            } catch (_) { /* best-effort warm */ }
+          }
+        }
+
+        // Skipped/stopped during the warm → don't apply this stale chunk.
+        if (playbackTokenRef.current !== advToken) { setIsAdvancing(false); return; }
+
         setSession(response.session);
         setCurrentChunk(response.chunk);
+        setIsAdvancing(false);
         if (autoSpeakEnabled && !voiceMode) {
           speakChunk(response.chunk?.spokenExplanation || response.chunk?.text || '');
         }
       } catch (error) {
+        setIsAdvancing(false);
         setIsPlaying(false);
         Toast.show({
           type: 'error',
@@ -484,6 +767,17 @@ const AILearningScreen = () => {
 
   const playChunk = async () => {
     if (!currentNarration) return;
+
+    // Claim this playback. If a stop/skip/advance happens during the async TTS
+    // fetch below, our token becomes stale and we abort instead of double-playing.
+    const myToken = (playbackTokenRef.current += 1);
+
+    // Resuming this very chunk after a pause? Pick up where the voice left off
+    // instead of replaying it from the start. Consume the snapshot once.
+    const resuming = resumeChunkRef.current === currentChunk?.id && resumeAtRef.current > 0.2;
+    const resumeAt = resuming ? resumeAtRef.current : 0;
+    resumeChunkRef.current = null;
+    resumeAtRef.current = 0;
 
     const diagramData = currentChunk?.diagramData;
     const fallbackDelay = Math.min(12000, Math.max(3600, currentNarration.length * 28));
@@ -498,6 +792,9 @@ const AILearningScreen = () => {
     }
 
     if (Platform.OS === 'web') {
+      // The TTS for this chunk takes a moment to generate — show the teacher as
+      // "thinking / moving on" instead of a dead pause until audio actually starts.
+      setIsPreparing(true);
       try {
         const audioResponse = await aiTutorAPI.speakText({
           lectureId: lecture?.id,
@@ -506,27 +803,45 @@ const AILearningScreen = () => {
           text: currentNarration,
         });
 
+        // A newer chunk/stop superseded us while TTS was generating → abort.
+        if (playbackTokenRef.current !== myToken) { setIsPreparing(false); return; }
+
         if (audioResponse?.asset?.urlPath) {
           const audio = new Audio(`${baseHost}${audioResponse.asset.urlPath}`);
           audioRef.current = audio;
+          audio.onplaying = () => setIsPreparing(false);
+          // Seek back to the paused spot (a hair earlier so the word isn't clipped).
+          const seekIfResuming = () => {
+            if (resuming) { try { audio.currentTime = Math.max(0, resumeAt - 0.6); } catch (_) {} }
+          };
           audio.onloadedmetadata = () => {
-            if (diagramData?.nodes?.length) {
+            seekIfResuming();
+            // Don't rewind/replay the diagram on resume — just show it filled in.
+            if (resuming && diagramData?.nodes?.length) {
+              setDiagramStep(diagramData.nodes.length - 1);
+            } else if (diagramData?.nodes?.length) {
               const durationMs = (audio.duration || estimatedDuration / 1000) * 1000;
               scheduleDiagramSteps(currentNarration, diagramData, durationMs);
             }
           };
-          audio.onended = () => scheduleNext(600);
+          if (audio.readyState >= 1) seekIfResuming(); // metadata already cached
+          audio.onended = () => scheduleNext(250);
           audio.onerror = () => scheduleNext(4000);
-          if (diagramData?.nodes?.length) {
+          if (!resuming && diagramData?.nodes?.length) {
             // Schedule based on estimated duration as fallback while audio loads
             scheduleDiagramSteps(currentNarration, diagramData, estimatedDuration);
           }
           await audio.play();
+          setIsPreparing(false);
           return;
         }
       } catch (_) {
       }
 
+      // Superseded during the await/catch → don't start the speech-synth fallback.
+      if (playbackTokenRef.current !== myToken) { setIsPreparing(false); return; }
+
+      setIsPreparing(false);
       if (window?.speechSynthesis) {
         if (diagramData?.nodes?.length) {
           scheduleDiagramSteps(currentNarration, diagramData, estimatedDuration);
@@ -540,7 +855,7 @@ const AILearningScreen = () => {
             setTeachingProgress(Math.min(1, event.charIndex / currentNarration.length));
           }
         };
-        utterance.onend = () => { utteranceRef.current = null; setTeachingProgress(1); scheduleNext(600); };
+        utterance.onend = () => { utteranceRef.current = null; setTeachingProgress(1); scheduleNext(250); };
         utterance.onerror = () => { utteranceRef.current = null; scheduleNext(4000); };
         window.speechSynthesis.cancel();
         // Small delay after cancel avoids Chrome's "interrupted" error
@@ -555,23 +870,38 @@ const AILearningScreen = () => {
     scheduleNext(estimatedDuration);
   };
 
+  // Snapshot the voice position so resuming continues this chunk instead of
+  // restarting it from the top. Call this BEFORE stopPlayback() nulls the audio.
+  const rememberResumePoint = () => {
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(audio.currentTime) && audio.currentTime > 0.2) {
+      resumeAtRef.current = audio.currentTime;
+      resumeChunkRef.current = currentChunk?.id ?? null;
+    }
+  };
+
   const pauseLectureSession = async () => {
     if (!session || !isPlaying) {
       return true;
     }
 
-    const response = await aiTutorAPI.pauseSession(session.id);
-    if (!response.success) {
-      throw new Error(response.error || 'Unable to pause tutor session');
-    }
-
+    // Always pause locally first so the student is never stuck even if the
+    // backend write hiccups (e.g. a transient DB error).
+    rememberResumePoint();
     stopPlayback();
     setIsPlaying(false);
+
+    try {
+      await aiTutorAPI.pauseSession(session.id);
+    } catch (_) {
+      // Non-fatal: playback is already paused on the client.
+    }
     return true;
   };
 
   // Instantly stops local TTS/audio without a server round-trip (used by Voice Q&A)
   const pauseLecturePlayback = () => {
+    rememberResumePoint();
     stopPlayback();
     setIsPlaying(false);
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -616,6 +946,26 @@ const AILearningScreen = () => {
         text1: 'Session Error',
         text2: error.message || 'Unable to update tutor state.',
       });
+    }
+  };
+
+  const handleExitLecture = async () => {
+    // Stop the lecture right here before leaving the page.
+    setIsPlaying(false);
+    stopPlayback();
+    stopRecognition();
+    try {
+      if (session?.id) {
+        // Best-effort: persist the pause so resuming later returns to this chunk.
+        await aiTutorAPI.pauseSession(session.id);
+      }
+    } catch (_) {
+      // Leaving anyway — don't block navigation on a pause failure.
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('EnrolledCourses');
     }
   };
 
@@ -942,9 +1292,521 @@ const AILearningScreen = () => {
   };
 
   const handleRaiseHand = () => {
+    openInlineQA();
+  };
+
+  // ── Inline classroom Q&A ────────────────────────────────────────────────
+  const stopQaAudio = () => {
+    if (qaAudioRef.current) { try { qaAudioRef.current.pause(); } catch (_) {} qaAudioRef.current = null; }
+    if (typeof window !== 'undefined' && window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (_) {} }
+  };
+
+  const cleanupQaRecorder = () => {
+    qaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+    qaStreamRef.current = null;
+    qaRecorderRef.current = null;
+    qaChunksRef.current = [];
+    setQaListening(false);
+  };
+
+  // Record the spoken question and transcribe it server-side (Whisper). This is
+  // far more reliable across browsers (incl. Opera) than the Web Speech API.
+  const startQaListening = async () => {
+    if (Platform.OS !== 'web') return;
+    if (qaRecorderRef.current) {
+      // Already recording → stop and submit.
+      stopQaListening();
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      Toast.show({ type: 'error', text1: 'Mic not supported', text2: 'Please type your question instead.' });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      qaStreamRef.current = stream;
+      qaChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      qaRecorderRef.current = recorder;
+      recorder.onstart = () => setQaListening(true);
+      recorder.ondataavailable = (e) => { if (e.data?.size) qaChunksRef.current.push(e.data); };
+      recorder.onerror = () => cleanupQaRecorder();
+      recorder.onstop = async () => {
+        const shouldSubmit = qaSubmitOnStopRef.current;
+        const chunks = qaChunksRef.current;
+        const mime = recorder.mimeType || 'audio/webm';
+        cleanupQaRecorder();
+        if (!shouldSubmit) return;
+        try {
+          const blob = new Blob(chunks, { type: mime });
+          if (!blob.size) return;
+          setQaTranscribing(true);
+          const ext = mime.includes('ogg') ? 'ogg' : 'webm';
+          const formData = new FormData();
+          formData.append('audio', blob, `lecture-question.${ext}`);
+          const response = await aiTutorAPI.transcribeAudio(formData);
+          // Backend returns transcript as { model, text } — pull the string out.
+          const t = response?.transcript;
+          const transcript = `${(typeof t === 'string' ? t : (t?.text || '')) || ''}`.trim();
+          if (transcript) {
+            // Drop the transcript into the field. If the student finished via the
+            // Tick/Enter (submit-after-stop), send it straight through.
+            setQaInput((prev) => {
+              const combined = `${prev ? `${prev} ` : ''}${transcript}`.trim();
+              if (qaSubmitAfterStopRef.current) {
+                qaSubmitAfterStopRef.current = false;
+                setTimeout(() => submitInlineQA(combined), 0);
+              }
+              return combined;
+            });
+          } else {
+            qaSubmitAfterStopRef.current = false;
+            Toast.show({ type: 'info', text1: 'Didn\'t catch that', text2: 'Try again, a bit closer to the mic.' });
+          }
+        } catch (error) {
+          Toast.show({ type: 'error', text1: 'Voice failed', text2: error.message || 'Please type your question instead.' });
+        } finally {
+          setQaTranscribing(false);
+        }
+      };
+      qaSubmitOnStopRef.current = true;
+      recorder.start();
+    } catch (error) {
+      cleanupQaRecorder();
+      Toast.show({ type: 'error', text1: 'Microphone blocked', text2: error.message || 'Allow mic access, or type your question.' });
+    }
+  };
+
+  const stopQaListening = () => {
+    qaSubmitOnStopRef.current = true;
+    if (qaRecorderRef.current) {
+      try { qaRecorderRef.current.stop(); } catch (_) { cleanupQaRecorder(); }
+    } else {
+      cleanupQaRecorder();
+    }
+  };
+
+  const abortQaListening = () => {
+    qaSubmitOnStopRef.current = false;
+    if (qaRecorderRef.current) {
+      try { qaRecorderRef.current.stop(); } catch (_) {}
+    }
+    cleanupQaRecorder();
+  };
+
+  // One smart mic button: recording → stop & transcribe; text waiting → submit;
+  // empty → start recording (also interrupts the greeting if it's still playing).
+  const handleQaMic = () => {
+    if (qaListening) {
+      stopQaListening();
+    } else if (qaTranscribing) {
+      // wait for transcription to land
+    } else {
+      // Start (re)recording — interrupt the greeting if it's still talking.
+      stopQaAudio();
+      setQaGreetingPlaying(false);
+      startQaListening();
+    }
+  };
+
+  // Tick / Enter — finish and send: if still recording, stop → transcribe → send;
+  // otherwise send the typed text.
+  const finishAndSubmit = () => {
+    if (qaPhase === 'thinking') return;
+    if (qaListening) {
+      qaSubmitAfterStopRef.current = true;
+      stopQaListening();
+    } else if (`${qaInput || ''}`.trim()) {
+      submitInlineQA(qaInput);
+    }
+  };
+
+  // Voice-first: greet the student by name INSTANTLY, then open the mic.
+  const playGreetingThenListen = () => {
+    const name = `${studentName || ''}`.trim().split(' ')[0] || 'there';
+    const greeting = `Hello ${name}, what's your question?`;
+    setQaGreeting(greeting);
+    setQaGreetingPlaying(true);
+    const beginListening = () => {
+      setQaGreetingPlaying(false);
+      // Only auto-start if the student hasn't already started typing/recording.
+      if (!qaRecorderRef.current && !`${qaInput || ''}`.trim()) startQaListening();
+    };
+    if (Platform.OS !== 'web') { beginListening(); return; }
+
+    // 1) Instant: pre-warmed greeting audio (consistent tutor voice).
+    const warm = greetingAudioRef.current;
+    if (warm?.text === greeting && warm.audio) {
+      try {
+        const audio = warm.audio;
+        audio.currentTime = 0;
+        audio.onended = () => beginListening();
+        audio.onerror = () => beginListening();
+        qaAudioRef.current = audio;
+        const p = audio.play();
+        if (p && typeof p.then === 'function') p.catch(() => beginListening());
+        return;
+      } catch (_) { /* fall through */ }
+    }
+
+    // 2) Instant fallback: browser speech synthesis (no generation wait).
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        const u = new SpeechSynthesisUtterance(greeting);
+        u.rate = 1.0;
+        u.onend = beginListening;
+        u.onerror = beginListening;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+        return;
+      } catch (_) { /* fall through */ }
+    }
+
+    beginListening();
+  };
+
+  const openInlineQA = () => {
     pauseLecturePlayback();
+    stopQaAudio();
+    setShowVoiceQA(false);
+    setActiveToolPanel(null);
     setHandRaised(true);
-    setShowVoiceQA(true);
+    setQaQuestion('');
+    setQaAnswer('');
+    setQaVisual(null);
+    setQaInput('');
+    setQaGreeting('');
+    setQaPhase('composing');
+    setQaActive(true);
+    // Voice-first greeting → auto mic.
+    playGreetingThenListen();
+  };
+
+  const speechFromMarkdown = (md) => `${md || ''}`
+    .replace(/```[\s\S]*?```/g, ' — see the code on the board — ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[#*_>|]/g, ' ')
+    .replace(/^\s*[-•]\s*/gm, ', ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const speakInlineAnswer = async (text) => {
+    const speech = speechFromMarkdown(text).slice(0, 900);
+    if (!speech || Platform.OS !== 'web') { setQaPhase('done'); return; }
+    try {
+      const res = await aiTutorAPI.speakText({ lectureId: lecture?.id, sessionId: session?.id, assetType: 'qa_answer', text: speech });
+      const url = res?.asset?.urlPath ? `${baseHost}${res.asset.urlPath}` : res?.audioUrl;
+      if (url) {
+        const audio = new Audio(url);
+        qaAudioRef.current = audio;
+        audio.onended = () => { qaAudioRef.current = null; setQaPhase('done'); };
+        audio.onerror = () => { qaAudioRef.current = null; setQaPhase('done'); };
+        await audio.play();
+        return;
+      }
+    } catch (_) {}
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance(speech);
+      u.onend = () => setQaPhase('done');
+      u.onerror = () => setQaPhase('done');
+      window.speechSynthesis.cancel();
+      setTimeout(() => { try { window.speechSynthesis.speak(u); } catch (_) {} }, 60);
+      return;
+    }
+    setQaPhase('done');
+  };
+
+  const submitInlineQA = async (raw) => {
+    // Only accept a real string; ignore events/objects passed by handlers.
+    const provided = typeof raw === 'string' ? raw : '';
+    const q = `${provided || qaInput || ''}`.trim();
+    if (!q || !session || qaPhase === 'thinking') return;
+    stopQaListening();
+    stopQaAudio();
+    setQaQuestion(q);
+    setQaInput('');
+    setQaAnswer('');
+    setQaVisual(null);
+    setQaPhase('thinking');
+    setChatMessages((prev) => [...prev, { type: 'user', text: q }]);
+    try {
+      const response = await aiTutorAPI.askQuestion(session.id, q);
+      if (!response.success || !response.aiMessage?.content) {
+        throw new Error(response.error || 'I could not answer that one right now.');
+      }
+      const answer = response.aiMessage.content;
+      const visual = response.visual || response.aiMessage?.contextSnapshot?.visual || null;
+      setQaAnswer(answer);
+      setQaVisual(visual && visual.type === 'diagram' && (visual.nodes || []).length >= 2 ? visual : null);
+      setChatMessages((prev) => [...prev, { type: 'ai', text: answer }]);
+      setQaPhase('answering');
+      speakInlineAnswer(answer);
+    } catch (error) {
+      setQaAnswer(error.message || 'I could not answer that one right now.');
+      setQaPhase('done');
+    }
+  };
+
+  const closeInlineQA = async (resume = true) => {
+    stopQaAudio();
+    abortQaListening();
+    setQaGreetingPlaying(false);
+    setQaActive(false);
+    setHandRaised(false);
+    setQaPhase('composing');
+    if (resume) {
+      try { await resumeLectureSession(); } catch (_) { setIsPlaying(true); }
+    }
+  };
+
+  // Parse a concise markdown answer into board blocks (code / bullets / prose).
+  const parseAnswerBlocks = (md) => {
+    const text = `${md || ''}`.trim();
+    if (!text) return [];
+    const blocks = [];
+    const codeRe = /```(\w+)?\n?([\s\S]*?)```/g;
+    let last = 0;
+    let m;
+    const pushProse = (chunk) => {
+      const t = `${chunk || ''}`.trim();
+      if (!t) return;
+      const lines = t.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      const bullets = lines.filter((l) => /^([-•*]|\d+[.)])\s+/.test(l));
+      if (bullets.length >= 2 && bullets.length >= lines.length - 1) {
+        blocks.push({ type: 'bullets', items: lines.map((l) => l.replace(/^([-•*]|\d+[.)])\s+/, '')) });
+      } else {
+        blocks.push({ type: 'text', text: lines.join(' ') });
+      }
+    };
+    while ((m = codeRe.exec(text)) !== null) {
+      pushProse(text.slice(last, m.index));
+      blocks.push({ type: 'code', lang: (m[1] || 'code').toLowerCase(), code: (m[2] || '').replace(/\s+$/, '') });
+      last = codeRe.lastIndex;
+    }
+    pushProse(text.slice(last));
+    return blocks;
+  };
+
+  const renderAnswerBlock = (block, index) => {
+    if (block.type === 'code') {
+      const lines = `${block.code || ''}`.split(/\r?\n/);
+      return (
+        <View key={index} style={[styles.terminalWrap, { marginVertical: 6 }]}>
+          <View style={styles.terminalBar}>
+            <View style={[styles.terminalDot, { backgroundColor: '#ff5f57' }]} />
+            <View style={[styles.terminalDot, { backgroundColor: '#febc2e' }]} />
+            <View style={[styles.terminalDot, { backgroundColor: '#28c840' }]} />
+            <Text style={styles.terminalLangLabel}>{block.lang}</Text>
+          </View>
+          <View style={styles.terminalBody}>
+            {lines.map((line, li) => (
+              <View key={li} style={styles.terminalLine}>
+                <Text style={styles.terminalLineNum}>{li + 1}</Text>
+                <Text style={styles.terminalLineCode}>{line || ' '}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      );
+    }
+    if (block.type === 'bullets') {
+      return (
+        <View key={index} style={[styles.chalkNoteBlock, { marginVertical: 6 }]}>
+          {block.items.map((it, bi) => (
+            <View key={bi} style={styles.chalkBulletRow}>
+              <Text style={styles.chalkBulletArrow}>▸</Text>
+              <Text style={styles.chalkBulletText}>{it}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+    return <Text key={index} style={styles.qaAnswerText}>{block.text}</Text>;
+  };
+
+  const renderInlineQA = () => {
+    if (!qaActive) return null;
+    const accent = '#f59e0b';
+    const qaAvatarState = qaPhase === 'thinking' || qaTranscribing
+      ? 'thinking'
+      : (qaPhase === 'answering' || qaGreetingPlaying)
+        ? 'speaking'
+        : qaListening
+          ? 'listening'
+          : qaPhase === 'done'
+            ? 'complete'
+            : 'idle';
+    const phaseLabel = {
+      composing: qaGreetingPlaying ? 'Greeting…' : qaListening ? '● Listening… speak now' : qaTranscribing ? 'Transcribing…' : 'Your turn',
+      thinking: 'Thinking…',
+      answering: 'Answering on the board',
+      done: 'Answered',
+    }[qaPhase] || '';
+    const blocks = (qaPhase === 'answering' || qaPhase === 'done') ? parseAnswerBlocks(qaAnswer) : [];
+
+    // Explicit heights so the footer always sits at the very bottom and the board
+    // (scrollable middle) gets every remaining pixel — no RN-web flex guesswork.
+    const cardH = Math.max(360, windowHeight - 28);
+    const HEADER_H = 56;
+    const CHIP_H = qaQuestion ? 78 : 0;
+    const FOOTER_H = 68;
+    const bodyHeight = Math.max(140, cardH - HEADER_H - CHIP_H - FOOTER_H);
+
+    return (
+      <View style={styles.qaOverlay}>
+        <View style={[styles.qaCard, { height: cardH }]}>
+          <View style={styles.qaHeader}>
+            <View style={styles.qaHeaderLeft}>
+              <View style={styles.qaHeaderAvatar} pointerEvents="none">
+                <AITeacherAvatar state={qaAvatarState} size={34} minimal showLabel={false} />
+              </View>
+              <Text style={styles.qaHeaderTitle}>AI Tutor</Text>
+              <View style={[styles.qaPhasePill, { borderColor: `${accent}66`, backgroundColor: `${accent}1f` }]}>
+                <View style={[styles.qaPhaseDot, { backgroundColor: accent }]} />
+                <Text style={[styles.qaPhaseText, { color: accent }]}>{phaseLabel}</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => closeInlineQA(true)} style={styles.qaClose} accessibilityLabel="Resume lecture">
+              <Icon name="close" size={18} color="#e2e8f0" />
+            </TouchableOpacity>
+          </View>
+
+          {!!qaQuestion && (
+            <View style={[styles.qaQuestionChip, { borderColor: `${accent}44` }]}>
+              <Text style={[styles.qaQuestionLabel, { color: accent }]}>YOU ASKED</Text>
+              <Text style={styles.qaQuestionText}>{qaQuestion}</Text>
+            </View>
+          )}
+
+          <View style={[styles.qaBody, { height: bodyHeight }]}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.qaAnswerScroll} showsVerticalScrollIndicator={false}>
+              {qaPhase === 'composing' && (
+                <View style={{ gap: 16, width: '100%' }}>
+                  {/* The tutor's spoken greeting */}
+                  {!!qaGreeting && (
+                    <Text style={styles.qaGreetingText}>{qaGreeting}</Text>
+                  )}
+                  {/* Live mic state */}
+                  {qaListening ? (
+                    <View style={styles.qaListeningRow}>
+                      <View style={styles.qaListeningPulse} />
+                      <Text style={styles.qaListeningText}>Listening… speak your question, then tap ✓ or press Enter</Text>
+                    </View>
+                  ) : qaTranscribing ? (
+                    <View style={styles.qaListeningRow}>
+                      <ActivityIndicator color={accent} size="small" />
+                      <Text style={styles.qaListeningText}>Got it — turning your voice into text…</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.qaPrompt}>
+                      Tap the mic and speak, or type your question below — then press ✓.
+                    </Text>
+                  )}
+                  <View>
+                    <Text style={styles.qaChipsHint}>QUICK ASKS</Text>
+                    <View style={styles.qaChipsRow}>
+                      {[
+                        { icon: 'bulb-outline', label: 'Give an example', ask: 'Give a simple real-world example of this.' },
+                        { icon: 'git-network-outline', label: 'Draw a diagram', ask: 'Draw a simple diagram to explain how this works.' },
+                        { icon: 'color-wand-outline', label: 'Explain it simply', ask: 'Explain this in the simplest way possible.' },
+                        { icon: 'code-slash-outline', label: 'Show me in code', ask: 'Show me a small code example for this.' },
+                      ].map((c) => (
+                        <TouchableOpacity key={c.label} style={styles.qaChip} onPress={() => submitInlineQA(c.ask)} activeOpacity={0.75}>
+                          <Icon name={c.icon} size={14} color="#fbbf24" />
+                          <Text style={styles.qaChipText}>{c.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              )}
+              {qaPhase === 'thinking' && (
+                <ThinkingIndicator accent={accent} label="Let me think about that…" />
+              )}
+              {(qaPhase === 'answering' || qaPhase === 'done') && (
+                <Reveal active key={`qa-${qaQuestion}`} style={{ width: '100%' }}>
+                  {!!qaVisual && (
+                    <View style={styles.qaDiagramWrap}>
+                      <DiagramCanvas
+                        diagramData={qaVisual}
+                        currentStep={(qaVisual.nodes?.length || 1) - 1}
+                        isDark={isDark}
+                        width={isMobile ? (width - 96) : Math.min(700, width - 300)}
+                      />
+                      {!!qaVisual.caption && <Text style={styles.qaDiagramCaption}>{qaVisual.caption}</Text>}
+                    </View>
+                  )}
+                  {!!`${qaAnswer || ''}`.trim() && (
+                    <View style={styles.qaAnswerContainer}>
+                      {blocks.map((b, i) => renderAnswerBlock(b, i))}
+                    </View>
+                  )}
+                </Reveal>
+              )}
+            </ScrollView>
+          </View>
+
+          <View style={styles.qaFooter}>
+            {qaPhase === 'composing' ? (
+              <>
+                <TouchableOpacity
+                  onPress={handleQaMic}
+                  style={[styles.qaMic, qaListening ? { backgroundColor: '#ef4444', borderColor: '#ef4444' } : { borderColor: `${accent}66` }]}
+                  accessibilityLabel={qaListening ? 'Stop recording' : 'Speak your question'}
+                >
+                  <Icon
+                    name={qaListening ? 'stop' : 'mic-outline'}
+                    size={18}
+                    color={qaListening ? '#fff' : accent}
+                  />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.qaInputField}
+                  value={qaInput}
+                  onChangeText={setQaInput}
+                  placeholder={qaListening ? 'Listening… speak now, then tap ✓' : qaTranscribing ? 'Transcribing your question…' : 'Speak (mic) or type your question…'}
+                  placeholderTextColor="#64748b"
+                  editable={!qaTranscribing}
+                  onSubmitEditing={finishAndSubmit}
+                  blurOnSubmit={false}
+                  onKeyPress={(e) => {
+                    // Reliable Enter-to-send on web (Opera/Chrome) — Shift+Enter ignored.
+                    if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                      e.preventDefault?.();
+                      finishAndSubmit();
+                    }
+                  }}
+                  returnKeyType="send"
+                  autoFocus
+                />
+                <TouchableOpacity
+                  onPress={finishAndSubmit}
+                  disabled={!(qaListening || qaInput.trim())}
+                  style={[styles.qaTickBtn, { opacity: (qaListening || qaInput.trim()) ? 1 : 0.4 }]}
+                  accessibilityLabel="Submit question"
+                >
+                  <Icon name="checkmark" size={22} color="#04110b" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  onPress={() => { stopQaAudio(); setQaAnswer(''); setQaVisual(null); setQaQuestion(''); setQaInput(''); setQaPhase('composing'); }}
+                  style={styles.qaSecondaryBtn}
+                >
+                  <Icon name="add" size={16} color="#cbd5e1" />
+                  <Text style={styles.qaSecondaryText}>Ask another</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => closeInlineQA(true)} style={styles.qaResumeBtn}>
+                  <Icon name="play-skip-forward" size={16} color="#fff" />
+                  <Text style={styles.qaResumeText}>{qaPhase === 'answering' ? 'Skip — Resume' : 'Resume lecture'}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </View>
+    );
   };
 
   const toggleFlashcardReveal = (cardId) => {
@@ -1071,10 +1933,11 @@ const AILearningScreen = () => {
     </View>
   );
 
-  const getProgressiveItems = (items, minimum = 1) => {
-    const list = Array.isArray(items) ? items.filter(Boolean) : [];
-    if (!list.length) return [];
-    return list.slice(0, Math.min(list.length, Math.max(minimum, Math.ceil(list.length * Math.max(teachingProgress, 0.18)))));
+  const getProgressiveItems = (items) => {
+    // Show the full board immediately. Items animate in once (per chunk) via
+    // <Reveal>, then stay put — no per-frame growth, so the board never jumps
+    // or "jerks" while the narration plays.
+    return Array.isArray(items) ? items.filter(Boolean) : [];
   };
 
   const getVisibleNarration = () => {
@@ -1152,6 +2015,76 @@ const AILearningScreen = () => {
     const safeBullets = (() => { const p = safeJSON(currentChunk.slideBullets); return Array.isArray(p) ? p : []; })();
     const safeVisualData = (() => { const p = safeJSON(currentChunk.visualData); return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {}; })();
 
+    // ── Guided Steps (real website screenshots) — highest-priority board ──
+    const guidedSteps = (() => {
+      const gs = safeVisualData.guidedSteps;
+      return Array.isArray(gs) ? gs.filter((s) => s && (s.instruction || s.image)) : [];
+    })();
+    if (guidedSteps.length) {
+      // Highlight the step the tutor is currently on (synced to the voice).
+      const activeStep = Math.min(guidedSteps.length - 1, Math.max(0, Math.floor(teachingProgress * guidedSteps.length)));
+      // Hand the active step to the auto-scroll effect so the board follows the voice.
+      guidedActiveRef.current = activeStep;
+      const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch { return 'python.org'; } };
+      return (
+        <View style={styles.guidedWrap}>
+          {guidedSteps.map((s, i) => {
+            const isActive = isPlaying && i === activeStep;
+            const isLast = i === guidedSteps.length - 1;
+            return (
+              <View
+                key={`gs-${currentChunk.id}-${i}`}
+                onLayout={(e) => { guidedOffsetsRef.current[i] = e.nativeEvent.layout.y; }}
+              >
+              <Reveal active from={16} delay={Math.min(i, 5) * 70}>
+                <View style={[styles.guidedStep, isActive && styles.guidedStepActive]}>
+                  <View style={styles.guidedStepHeader}>
+                    <View style={[styles.guidedNum, isActive && styles.guidedNumActive]}>
+                      <Text style={[styles.guidedNumText, isActive && { color: '#04110b' }]}>{i + 1}</Text>
+                    </View>
+                    <Text style={[styles.guidedInstruction, isActive && { color: '#fff' }]}>{s.instruction || ''}</Text>
+                    {isActive && (
+                      <View style={styles.guidedLiveTag}>
+                        <View style={styles.guidedLiveDot} />
+                        <Text style={styles.guidedLiveText}>HERE</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {!!s.image && (
+                    <View style={[styles.browserFrame, isActive && styles.browserFrameActive]}>
+                      <View style={styles.browserBar}>
+                        <View style={[styles.browserDot, { backgroundColor: '#ff5f57' }]} />
+                        <View style={[styles.browserDot, { backgroundColor: '#febc2e' }]} />
+                        <View style={[styles.browserDot, { backgroundColor: '#28c840' }]} />
+                        <View style={styles.browserUrlPill}>
+                          <Icon name="lock-closed" size={10} color="#34d399" />
+                          <Text style={styles.browserUrlText} numberOfLines={1}>{s.url ? hostOf(s.url) : 'python.org'}</Text>
+                        </View>
+                      </View>
+                      <Image source={{ uri: `${baseHost}${s.image}` }} style={styles.guidedImage} resizeMode="contain" />
+                    </View>
+                  )}
+
+                  {!s.image && (
+                    <View style={styles.guidedDesktopNote}>
+                      <Icon name="desktop-outline" size={15} color="#94a3b8" />
+                      <Text style={styles.guidedDesktopText}>On your computer</Text>
+                    </View>
+                  )}
+
+                  {!!s.caption && <Text style={styles.guidedCaption}>{s.caption}</Text>}
+                </View>
+
+                {!isLast && <View style={styles.guidedConnector} />}
+              </Reveal>
+              </View>
+            );
+          })}
+        </View>
+      );
+    }
+
     // Build effective board content — override narration fallback when visualMode has richer data
     const vm = currentChunk.visualMode;
     const effectiveBoard = (() => {
@@ -1183,14 +2116,19 @@ const AILearningScreen = () => {
       return base;
     })();
 
-    if (diagramData?.nodes?.length && diagramStep >= 0) {
+    if (diagramData?.nodes?.length) {
+      // While actively speaking, reveal nodes one-by-one (teacher drawing it out);
+      // when paused/idle show the whole diagram so the board is never half-empty.
+      const diagramShowStep = isPlaying && diagramStep >= 0
+        ? diagramStep
+        : (diagramData.nodes.length - 1);
       return (
         <View style={styles.diagramWrap}>
           <DiagramCanvas
             diagramData={diagramData}
-            currentStep={diagramStep}
+            currentStep={diagramShowStep}
             isDark={isDark}
-            width={isMobile ? (width - 48) : Math.min(600, width - 200)}
+            width={isMobile ? (width - 64) : Math.min(760, width - 320)}
           />
           {!!currentChunk.visualCaption && (
             <Text style={styles.diagramCaption}>{currentChunk.visualCaption}</Text>
@@ -1345,10 +2283,12 @@ const AILearningScreen = () => {
           </View>
           <View style={styles.terminalBody}>
             {visibleLines.map((line, i) => (
-              <View key={i} style={styles.terminalLine}>
-                <Text style={styles.terminalLineNum}>{i + 1}</Text>
-                <Text style={styles.terminalLineCode}>{line}</Text>
-              </View>
+              <Reveal key={i} active from={6} delay={Math.min(i, 8) * 35}>
+                <View style={styles.terminalLine}>
+                  <Text style={styles.terminalLineNum}>{i + 1}</Text>
+                  <Text style={styles.terminalLineCode}>{line}</Text>
+                </View>
+              </Reveal>
             ))}
           </View>
           {!!effectiveBoard.snippetExplanation && (
@@ -1365,42 +2305,106 @@ const AILearningScreen = () => {
       return <Text style={styles.boardQuestion}>{effectiveBoard.question}</Text>;
     }
 
-    if (effectiveBoard.type === 'slide_summary' || effectiveBoard.type === 'recap') {
+    // Rich, full lesson slide — fills the board with structured, readable content:
+    // numbered points + key terms + a worked example + the analogy.
+    const renderLessonSlide = (rawBullets, emphasis) => {
+      const safeArr = (v) => { const p = safeJSON(v); return Array.isArray(p) ? p.filter(Boolean) : []; };
+      let bullets = (Array.isArray(rawBullets) ? rawBullets : []).map((b) => `${b}`.trim()).filter(Boolean);
+      // Supplement sparse boards with the chunk's slide bullets so it never looks empty.
+      if (bullets.length < 2) {
+        const extra = safeArr(currentChunk.slideBullets).map((b) => `${b}`.trim());
+        bullets = Array.from(new Set([...bullets, ...extra])).filter(Boolean);
+      }
+      if (!bullets.length) {
+        const obj = `${currentChunk.learningObjective || currentChunk.summary || ''}`;
+        bullets = obj.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+      }
+      const visibleBullets = getProgressiveItems(bullets);
+      const keyTerms = safeArr(currentChunk.keyTerms)
+        .map((t) => (t && typeof t === 'object' ? `${t.term || t.label || t.name || ''}` : `${t}`))
+        .map((t) => t.trim()).filter(Boolean).slice(0, 8);
+      const examples = safeArr(currentChunk.examples).map((e) => `${e}`.trim()).filter(Boolean);
+      const exampleText = examples[0] || '';
+      const analogyText = `${emphasis || currentChunk.analogyIfHelpful || ''}`.trim();
+
       return (
-        <View style={styles.chalkNoteBlock}>
-          {getProgressiveItems(effectiveBoard.bullets).map((bullet, index) => (
-            <View key={`${bullet}-${index}`} style={styles.chalkBulletRow}>
-              <Text style={styles.chalkBulletArrow}>▸</Text>
-              <Text style={styles.chalkBulletText}>{bullet}</Text>
-            </View>
-          ))}
+        <View style={styles.lessonSlide}>
+          <View style={styles.lessonBullets}>
+            {visibleBullets.map((b, i) => (
+              // Each point "writes itself" in as the teacher reaches it.
+              <Reveal key={`lb-${i}`} active from={10} delay={Math.min(i, 5) * 45}>
+                <View style={styles.lessonBulletRow}>
+                  <View style={styles.lessonBulletBadge}>
+                    <Text style={styles.lessonBulletBadgeText}>{i + 1}</Text>
+                  </View>
+                  <Text style={styles.lessonBulletText}>{b}</Text>
+                </View>
+              </Reveal>
+            ))}
+          </View>
+
+          {keyTerms.length > 0 && (
+            <Reveal active from={10}>
+              <View style={styles.lessonSection}>
+                <Text style={styles.lessonSectionLabel}>KEY TERMS</Text>
+                <View style={styles.lessonChipsRow}>
+                  {keyTerms.map((t, i) => (
+                    <Reveal key={`kt-${i}`} active from={6} delay={Math.min(i, 6) * 40}>
+                      <View style={styles.lessonChip}>
+                        <Text style={styles.lessonChipText}>{t}</Text>
+                      </View>
+                    </Reveal>
+                  ))}
+                </View>
+              </View>
+            </Reveal>
+          )}
+
+          {!!exampleText && (
+            <Reveal active from={12} delay={80}>
+              <View style={styles.lessonExampleCard}>
+                <Icon name="bulb" size={18} color="#fbbf24" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lessonExampleLabel}>EXAMPLE</Text>
+                  <Text style={styles.lessonExampleText}>{exampleText}</Text>
+                </View>
+              </View>
+            </Reveal>
+          )}
+
+          {!!analogyText && (
+            <Reveal active from={12} delay={120}>
+              <View style={styles.lessonAnalogyCard}>
+                <Icon name="color-wand" size={16} color="#93c5fd" />
+                <Text style={styles.lessonAnalogyText}>{analogyText}</Text>
+              </View>
+            </Reveal>
+          )}
         </View>
       );
+    };
+
+    if (effectiveBoard.type === 'slide_summary' || effectiveBoard.type === 'recap') {
+      return renderLessonSlide(effectiveBoard.bullets, '');
     }
 
     if (effectiveBoard.type === 'whiteboard_notes' || effectiveBoard.type === 'narration') {
+      const wbTerms = (() => { const p = safeJSON(currentChunk.keyTerms); return Array.isArray(p) ? p : []; })();
       return (
-        <View style={styles.chalkNoteBlock}>
-          {getProgressiveItems(effectiveBoard.notes).map((note, index) => (
-            <View key={`${note}-${index}`} style={styles.chalkBulletRow}>
-              <Text style={styles.chalkBulletArrow}>▸</Text>
-              <Text style={styles.chalkBulletText}>{note}</Text>
-            </View>
-          ))}
-          {!!effectiveBoard.emphasis && <Text style={styles.chalkEmphasis}>{effectiveBoard.emphasis}</Text>}
-        </View>
+        <IntelligentWhiteboard
+          title={effectiveBoard.title || currentChunk.title}
+          notes={effectiveBoard.notes}
+          keyTerms={wbTerms}
+          emphasis={effectiveBoard.emphasis || currentChunk.analogyIfHelpful}
+          progress={teachingProgress}
+          playing={isPlaying && !showQuestionPanel && !lectureCompleted}
+          width={isMobile ? (width - 72) : Math.min(840, width - 300)}
+          accent={activityColor}
+        />
       );
     }
 
-    const fallbackText = currentChunk.learningObjective || currentChunk.summary || '';
-    const sentences = fallbackText.split(/(?<=[.!?])\s+/).filter(Boolean);
-    return (
-      <View style={styles.plainTextBlock}>
-        {sentences.map((sentence, i) => (
-          <Text key={i} style={styles.plainTextLine}>{sentence}</Text>
-        ))}
-      </View>
-    );
+    return renderLessonSlide([], '');
   };
 
   const renderSupportPanel = () => {
@@ -1973,7 +2977,7 @@ const AILearningScreen = () => {
       sidebarItems={sidebarItems}
       activeRoute="EnrolledCourses"
       onNavigate={handleNavigate}
-      showHeader={true}
+      showHeader={false}
       customSidebar={renderSidebar()}
       customSidebarVisible={showTopicsSidebar}
       onCustomSidebarToggle={setShowTopicsSidebar}
@@ -1985,15 +2989,19 @@ const AILearningScreen = () => {
           styles.mainContent,
           {
             backgroundColor: isDark ? '#0f0f1a' : theme.colors.background,
-            height: windowHeight - 64,
+            height: windowHeight,
           },
         ]}
       >
         {/* ── Icon Rail ── */}
-        <View style={[styles.iconRail, {
-          backgroundColor: isDark ? '#0d0d1f' : '#1e293b',
-          borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)',
-        }]}>
+        <ScrollView
+          style={[styles.iconRail, {
+            backgroundColor: isDark ? '#0d0d1f' : '#1e293b',
+            borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)',
+          }]}
+          contentContainerStyle={styles.iconRailContent}
+          showsVerticalScrollIndicator={false}
+        >
           <TouchableOpacity
             style={[styles.railBtn, activeToolPanel === 'topics' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
             onPress={() => openToolPanel('topics')}
@@ -2031,13 +3039,13 @@ const AILearningScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.railBtn, activeToolPanel === 'chat' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
-            onPress={() => openToolPanel('chat')}
-            accessibilityLabel="Open AI chat"
+            style={[styles.railBtn, qaActive && { backgroundColor: '#f59e0b22', borderColor: '#f59e0b50' }]}
+            onPress={openInlineQA}
+            accessibilityLabel="Ask the AI tutor"
             activeOpacity={0.7}
           >
-            <Icon name={activeToolPanel === 'chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={activeToolPanel === 'chat' ? theme.colors.primary : '#fff'} />
-            <Text style={[styles.railLabel, { color: activeToolPanel === 'chat' ? theme.colors.primary : '#fff', textAlign: 'center' }]}>{'AI\nAssistant'}</Text>
+            <Icon name={qaActive ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={qaActive ? '#f59e0b' : '#fff'} />
+            <Text style={[styles.railLabel, { color: qaActive ? '#f59e0b' : '#fff', textAlign: 'center' }]}>{'AI\nAssistant'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -2079,7 +3087,7 @@ const AILearningScreen = () => {
             <Icon name="ellipsis-horizontal" size={24} color={activeToolPanel === 'more' ? theme.colors.primary : '#fff'} />
             <Text style={[styles.railLabel, { color: activeToolPanel === 'more' ? theme.colors.primary : '#fff' }]}>More</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* ── Slide Panel ── */}
         {activeToolPanel && ['topics', 'chat', 'flashcards', 'notes', 'more'].includes(activeToolPanel) && (
@@ -2104,10 +3112,18 @@ const AILearningScreen = () => {
         <View style={styles.aiLearningArea}>
           {/* Progress header */}
           <View style={styles.progressSection}>
+            <TouchableOpacity
+              style={[styles.lectureBackBtn, { borderColor: isDark ? 'rgba(255,255,255,0.12)' : theme.colors.border }]}
+              onPress={handleExitLecture}
+              accessibilityLabel="Back — stop lecture"
+              activeOpacity={0.7}
+            >
+              <Icon name="arrow-back" size={20} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
             <View style={styles.progressLabel}>
-              <Icon name="trending-up" size={16} color={theme.colors.primary} />
-              <Text style={[styles.progressText, { color: theme.colors.textSecondary }]}>
-                Chunk {Math.min(currentIndex + 1, totalChunks)} of {totalChunks}
+              <Icon name="school-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.progressText, { color: theme.colors.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+                {lecture?.title || topic?.title || 'Live Lecture'}
               </Text>
             </View>
             <View style={styles.progressBarContainer}>
@@ -2118,61 +3134,88 @@ const AILearningScreen = () => {
             <Text style={[styles.progressPercent, { color: theme.colors.primary }]}>{progress}%</Text>
           </View>
 
-          {/* Virtual whiteboard — fills all remaining space */}
-          <View style={[styles.stageWhiteboardNew, { flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
-            <View style={styles.stageBoardHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardHeaderText}>Live Lecture Stage</Text>
-                <Text style={styles.stageBoardSubtext} numberOfLines={1}>
-                  {panelContent.learningObjective || currentChunk.learningObjective || currentChunk.summary}
-                </Text>
+          {/* ── Virtual Classroom Stage ── */}
+          <View style={[styles.classroomStage, { flex: 1, backgroundColor: isDark ? '#0d0f1f' : '#0f172a' }]}>
+
+            {/* Top bar — live state, title, what the teacher is doing, controls */}
+            <View style={styles.classroomTopBar}>
+              <View style={styles.classroomLivePill}>
+                <View style={[styles.classroomLiveDot, { backgroundColor: isAdvancing ? '#f59e0b' : isPlaying ? '#ef4444' : '#64748b' }]} />
+                <Text style={styles.classroomLiveLabel}>{isAdvancing ? 'NEXT' : isPlaying ? 'LIVE' : 'PAUSED'}</Text>
               </View>
-              <View style={styles.stageBoardHeaderActions}>
+              <Text style={styles.classroomTitle} numberOfLines={1}>{boardContent?.title || currentChunk.title}</Text>
+              <View style={[styles.classroomModeChip, { borderColor: `${activityColor}66`, backgroundColor: `${activityColor}1f` }]}>
+                <Icon name={activity.icon} size={13} color={activityColor} />
+                {!isMobile && <Text style={[styles.classroomModeText, { color: activityColor }]}>{activity.label}</Text>}
+              </View>
+              <View style={styles.classroomControls}>
                 <TouchableOpacity
-                  style={[styles.stageMiniControl, autoSpeakEnabled && { backgroundColor: 'rgba(99,102,241,0.3)' }, !autoSpeakEnabled && { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                  style={[styles.stageMiniControl, autoSpeakEnabled ? { backgroundColor: 'rgba(99,102,241,0.3)' } : { backgroundColor: 'rgba(255,255,255,0.08)' }]}
                   onPress={() => setAutoSpeakEnabled(v => !v)}
                 >
                   <Icon name={autoSpeakEnabled ? 'volume-high' : 'volume-mute-outline'} size={16} color={autoSpeakEnabled ? '#a5b4fc' : '#fff'} />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.stageMiniControl, { backgroundColor: 'rgba(255,255,255,0.08)' }]}
-                  onPress={togglePause}
-                >
+                <TouchableOpacity style={[styles.stageMiniControl, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onPress={togglePause}>
                   <Icon name={isPlaying ? 'pause' : 'play'} size={16} color="#fff" />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.stageMiniControl, { backgroundColor: 'rgba(255,255,255,0.08)' }]}
-                  onPress={goToNextChunk}
-                  disabled={lectureCompleted}
-                >
+                <TouchableOpacity style={[styles.stageMiniControl, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onPress={goToNextChunk} disabled={lectureCompleted}>
                   <Icon name="play-skip-forward" size={16} color={lectureCompleted ? '#64748b' : '#fff'} />
                 </TouchableOpacity>
               </View>
             </View>
 
-            <Text style={styles.whiteboardTitle} numberOfLines={1}>{boardContent?.title || currentChunk.title}</Text>
+            {/* Board body — the hero: where the teacher "writes" */}
+            <View style={styles.classroomBoard}>
+              <ScrollView
+                ref={boardScrollRef}
+                style={styles.classroomBoardScroll}
+                contentContainerStyle={styles.classroomBoardContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <Reveal key={`board-${currentChunk.id}`} active style={{ width: '100%' }}>
+                  {renderBoardSurface()}
+                </Reveal>
+              </ScrollView>
 
-            <View style={[styles.boardSurface, { flex: 1 }, isMobile && styles.boardSurfaceStack]}>
-              <View style={styles.boardPrimaryColumn}>
-                {renderBoardSurface()}
+              {/* Checkpoint spotlight — flips in only when the teacher asks it */}
+              {activeBeat?.kind === 'checkpoint' && !!checkpointText && (
+                <Reveal key={`cp-${currentChunk.id}`} active style={styles.checkpointSpotlight}>
+                  <View style={styles.checkpointBadge}>
+                    <Icon name="help-circle" size={15} color="#fb923c" />
+                    <Text style={styles.checkpointBadgeText}>QUICK CHECK</Text>
+                  </View>
+                  <Text style={styles.checkpointSpotlightText}>{checkpointText}</Text>
+                </Reveal>
+              )}
+
+              {/* Presenter — the live teacher, docked like a webinar cam */}
+              <View style={styles.presenterDock} pointerEvents="none">
+                <AITeacherAvatar state={avatarState} size={isMobile ? 54 : 76} showLabel={false} />
               </View>
-              {!isMobile && renderVisualDock()}
             </View>
-          </View>
 
-          {/* Subtitles dock — hidden by default, toggled via rail Text button */}
-          {showLiveText && (
-            <View style={[styles.subtitleDock, { backgroundColor: isDark ? '#12122a' : '#eef2ff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.12)' }]}>
-              <View style={styles.subtitlesHeader}>
-                <View style={styles.subtitleDockTitleWrap}>
-                  <MaterialIcon name="subtitles-outline" size={14} color={theme.colors.primary} />
-                  <Text style={[styles.subtitlesTitle, { color: theme.colors.textPrimary }]}>Live Teaching Text</Text>
+            {/* Caption bar — toggled by the Subtitles button (showLiveText) */}
+            {showLiveText && (
+              <View style={[styles.captionBar, { borderTopColor: `${activityColor}44` }]}>
+                <View style={[styles.captionIcon, { backgroundColor: `${activityColor}26`, borderColor: `${activityColor}66` }]}>
+                  <Icon name={activity.icon} size={15} color={activityColor} />
                 </View>
-                <Text style={styles.modeBadge}>{voiceMode ? 'VOICE ON' : 'TEXT MODE'}</Text>
+                <View style={styles.captionTextWrap}>
+                  <StageCaption
+                    text={captionText}
+                    progress={isAdvancing ? 1 : beatProgress}
+                    color={activityColor}
+                    playing={captionPlaying}
+                    windowWords={isMobile ? 16 : 28}
+                    size={isMobile ? 14 : 16}
+                  />
+                </View>
+                {!isMobile && (
+                  <BeatTimeline beats={teachingBeats} activeIndex={isAdvancing ? teachingBeats.length : (activeBeat?.index ?? 0)} />
+                )}
               </View>
-              <Text style={[styles.subtitleDockText, { color: theme.colors.textPrimary }]} numberOfLines={5}>{liveNarration}</Text>
-            </View>
-          )}
+            )}
+          </View>
 
           {/* Bottom bar — Take Quiz only */}
           <View style={styles.bottomBar}>
@@ -2185,6 +3228,9 @@ const AILearningScreen = () => {
               <Text style={[styles.quizButtonText, { color: lectureCompleted ? '#fff' : (isDark ? '#4b5563' : '#9ca3af') }]}>Take Quiz</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Inline classroom Q&A — pauses the lecture and answers on the board */}
+          {renderInlineQA()}
         </View>
       </View>
 
@@ -2425,6 +3471,235 @@ const styles = StyleSheet.create({
   boardSurfaceStack: { flexDirection: 'column' },
   boardPrimaryColumn: { flex: 1, justifyContent: 'center', minWidth: 0 },
   boardVisualRail: { width: 260, gap: 10 },
+  tutorPresenceColumn: { width: 250, alignItems: 'center', justifyContent: 'flex-start' },
+  tutorPresenceMobile: { marginBottom: 12 },
+  // ── Virtual Classroom Stage ──
+  classroomStage: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    minHeight: 0,
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0) 24%)',
+          boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+        }
+      : {}),
+  },
+  classroomTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  classroomLivePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  classroomLiveDot: { width: 7, height: 7, borderRadius: 4 },
+  classroomLiveLabel: { color: '#e2e8f0', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  classroomTitle: { flex: 1, minWidth: 0, color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  classroomModeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  classroomModeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+  classroomControls: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  classroomBoard: {
+    flex: 1,
+    position: 'relative',
+    minHeight: 0,
+    backgroundColor: 'rgba(255,255,255,0.015)',
+    // Smart-board look: a faint dotted grid like an infinite canvas (web only).
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+        }
+      : {}),
+  },
+  classroomBoardScroll: { flex: 1 },
+  classroomBoardContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 40,
+  },
+  presenterDock: {
+    position: 'absolute',
+    left: 10,
+    bottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkpointSpotlight: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    top: 16,
+    backgroundColor: 'rgba(20,14,4,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,146,60,0.5)',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    gap: 8,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 12px 40px rgba(251,146,60,0.25)' } : {}),
+  },
+  checkpointBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  checkpointBadgeText: { color: '#fb923c', fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  checkpointSpotlightText: { color: '#fef3c7', fontSize: 18, lineHeight: 26, fontWeight: '700' },
+  captionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 64,
+    borderTopWidth: 2,
+    backgroundColor: 'rgba(2,6,23,0.6)',
+  },
+  captionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  captionTextWrap: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  // ── Inline classroom Q&A overlay ──
+  qaOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(5,7,18,0.80)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    zIndex: 60,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } : {}),
+  },
+  qaCard: {
+    // Explicit pixel height (set inline from windowHeight) → reliable in RN-web,
+    // so the inner flex column distributes and the footer sits at the bottom.
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
+    minHeight: 0,
+    flexDirection: 'column',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.28)',
+    backgroundColor: '#0d0f1f',
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+          boxShadow: '0 24px 70px rgba(0,0,0,0.5)',
+        }
+      : {}),
+  },
+  qaHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  qaHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
+  qaHeaderTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  qaPhasePill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  qaPhaseDot: { width: 6, height: 6, borderRadius: 3 },
+  qaPhaseText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  qaClose: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
+  qaQuestionChip: {
+    marginHorizontal: 16, marginTop: 12,
+    borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+  },
+  qaQuestionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 3 },
+  qaQuestionText: { color: '#f1f5f9', fontSize: 15, lineHeight: 22, fontWeight: '600' },
+  qaBody: { minHeight: 0, paddingHorizontal: 20, paddingTop: 10 },
+  qaHeaderAvatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  qaAnswerScroll: { paddingBottom: 16, gap: 12, alignItems: 'stretch' },
+  qaPrompt: { color: '#94a3b8', fontSize: 16, lineHeight: 26, fontStyle: 'italic' },
+  qaThinking: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  // ── Animated "AI is thinking" orb ──
+  thinkWrap: { alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 26, width: '100%' },
+  thinkOrb: { width: 84, height: 84, alignItems: 'center', justifyContent: 'center' },
+  thinkHalo: { position: 'absolute', width: 84, height: 84, borderRadius: 42, borderWidth: 2 },
+  thinkGlow: { position: 'absolute', width: 56, height: 56, borderRadius: 28 },
+  thinkArc: { position: 'absolute', width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: 'transparent' },
+  thinkLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  thinkLabel: { fontSize: 15, fontStyle: 'italic', fontWeight: '700' },
+  thinkDots: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 10, paddingBottom: 2 },
+  thinkDot: { width: 6, height: 6, borderRadius: 3 },
+  qaThinkingText: { color: '#cbd5e1', fontSize: 15, fontStyle: 'italic' },
+  qaAnswerText: { color: '#f1f5f9', fontSize: 18, lineHeight: 29, fontWeight: '400', marginVertical: 4 },
+  qaFooter: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(2,6,23,0.5)',
+  },
+  qaMic: { width: 42, height: 42, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0 },
+  qaInputField: {
+    flex: 1, minWidth: 0,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
+    color: '#f1f5f9', fontSize: 15,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+  },
+  qaAskBtn: { backgroundColor: '#f59e0b', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12, flexShrink: 0 },
+  qaAskText: { color: '#0b1020', fontSize: 14, fontWeight: '800' },
+  qaTickBtn: { backgroundColor: '#34d399', borderRadius: 12, width: 48, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  qaGreetingText: { color: '#f8fafc', fontSize: 22, lineHeight: 30, fontWeight: '700' },
+  qaListeningRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  qaListeningPulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#ef4444' },
+  qaListeningText: { flex: 1, color: '#fecaca', fontSize: 15, fontWeight: '600' },
+  qaSecondaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  qaSecondaryText: { color: '#cbd5e1', fontSize: 14, fontWeight: '700' },
+  qaResumeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#10b981', borderRadius: 12, paddingVertical: 12 },
+  qaResumeText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  qaChipsHint: { color: '#64748b', fontSize: 10, fontWeight: '800', letterSpacing: 1.4, marginBottom: 8 },
+  qaChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  qaChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.35)',
+    backgroundColor: 'rgba(245,158,11,0.10)',
+    borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+  },
+  qaChipText: { color: '#fde68a', fontSize: 13, fontWeight: '700' },
+  qaAnswerContainer: { width: '100%', borderLeftWidth: 3, borderLeftColor: 'rgba(245,158,11,0.6)', paddingLeft: 16, gap: 6 },
+  qaDiagramWrap: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginBottom: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.28)',
+    backgroundColor: 'rgba(139,92,246,0.06)',
+  },
+  qaDiagramCaption: { color: '#a5b4fc', fontSize: 13, fontStyle: 'italic', marginTop: 8, textAlign: 'center', paddingHorizontal: 12 },
   boardSideCard: { borderWidth: 1, borderColor: 'rgba(148,163,184,0.14)', borderRadius: 14, padding: 12, backgroundColor: 'rgba(2,6,23,0.26)' },
   boardSideEyebrow: { color: '#93c5fd', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 6 },
   boardSideTitle: { color: '#fff', fontSize: 14, fontWeight: '800', marginBottom: 8 },
@@ -2433,29 +3708,132 @@ const styles = StyleSheet.create({
   boardCheckpointCard: { backgroundColor: 'rgba(124,45,18,0.24)', borderColor: 'rgba(251,146,60,0.25)' },
   boardCheckpointText: { color: '#ffedd5', fontSize: 13, lineHeight: 20, fontWeight: '700' },
   boardBodyText: { color: '#e2e8f0', fontSize: 15, lineHeight: 24 },
-  diagramWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 8 },
+  diagramWrap: { justifyContent: 'center', alignItems: 'center', paddingVertical: 8, width: '100%' },
   diagramCaption: { color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
 
   // ── Plain text block (no boardContent) ────────────────────────────────────
-  plainTextBlock: { gap: 10 },
-  plainTextLine: { color: '#e2e8f0', fontSize: 17, lineHeight: 28, fontWeight: '400' },
+  plainTextBlock: { gap: 12, maxWidth: 820 },
+  plainTextLine: { color: '#f1f5f9', fontSize: 20, lineHeight: 32, fontWeight: '400' },
 
   // ── Chalk-style whiteboard notes ──────────────────────────────────────────
-  chalkNoteBlock: { gap: 6 },
+  chalkNoteBlock: { gap: 12, maxWidth: 780, alignSelf: 'center' },
+  // ── Rich lesson slide (fills the board) ──
+  lessonSlide: { width: '100%', maxWidth: 860, alignSelf: 'center', gap: 16 },
+  lessonBullets: { gap: 12 },
+  lessonBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  lessonBulletBadge: {
+    width: 28, height: 28, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(99,102,241,0.18)',
+    borderWidth: 1, borderColor: 'rgba(129,140,248,0.45)',
+    marginTop: 2, flexShrink: 0,
+  },
+  lessonBulletBadgeText: { color: '#a5b4fc', fontSize: 14, fontWeight: '800' },
+  lessonBulletText: { flex: 1, color: '#f1f5f9', fontSize: 19, lineHeight: 30, fontWeight: '500' },
+  lessonSection: { gap: 8 },
+  lessonSectionLabel: { color: '#64748b', fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },
+  lessonChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  lessonChip: {
+    borderWidth: 1, borderColor: 'rgba(34,211,238,0.4)',
+    backgroundColor: 'rgba(34,211,238,0.10)',
+    borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7,
+  },
+  lessonChipText: { color: '#67e8f9', fontSize: 14, fontWeight: '700' },
+  lessonExampleCard: {
+    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.32)',
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderRadius: 14, padding: 14,
+  },
+  lessonExampleLabel: { color: '#fbbf24', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4 },
+  lessonExampleText: { color: '#fde9c8', fontSize: 16, lineHeight: 24, fontWeight: '500' },
+  lessonAnalogyCard: {
+    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    borderLeftWidth: 3, borderLeftColor: '#60a5fa',
+    backgroundColor: 'rgba(96,165,250,0.07)',
+    borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14,
+  },
+  lessonAnalogyText: { flex: 1, color: '#bfdbfe', fontSize: 16, lineHeight: 24, fontStyle: 'italic' },
+  // ── Guided steps with real screenshots ──
+  guidedWrap: { width: '100%', maxWidth: 900, alignSelf: 'center', gap: 22 },
+  guidedStep: { gap: 12 },
+  guidedStepHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  guidedNum: {
+    width: 30, height: 30, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1, borderColor: 'rgba(16,185,129,0.5)',
+    marginTop: 2, flexShrink: 0,
+  },
+  guidedNumText: { color: '#34d399', fontSize: 15, fontWeight: '800' },
+  guidedInstruction: { flex: 1, color: '#f1f5f9', fontSize: 19, lineHeight: 28, fontWeight: '600' },
+  guidedShotFrame: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#0b1020',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 10px 30px rgba(0,0,0,0.4)' } : {}),
+  },
+  guidedImage: { width: '100%', height: 360, backgroundColor: '#0b1020' },
+  guidedCaption: { color: '#94a3b8', fontSize: 13, fontStyle: 'italic', paddingHorizontal: 4 },
+  guidedStepActive: {
+    borderRadius: 14, padding: 12, marginHorizontal: -12,
+    backgroundColor: 'rgba(16,185,129,0.06)',
+    borderWidth: 1, borderColor: 'rgba(16,185,129,0.28)',
+  },
+  guidedNumActive: { backgroundColor: '#34d399', borderColor: '#34d399' },
+  guidedLiveTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(16,185,129,0.18)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.5)',
+    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginTop: 3, flexShrink: 0,
+  },
+  guidedLiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34d399' },
+  guidedLiveText: { color: '#6ee7b7', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  // Browser-window frame for screenshots
+  browserFrame: {
+    width: '100%', borderRadius: 12, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', backgroundColor: '#0b1020',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 10px 30px rgba(0,0,0,0.45)' } : {}),
+  },
+  browserFrameActive: {
+    borderColor: 'rgba(16,185,129,0.6)',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 12px 40px rgba(16,185,129,0.25)' } : {}),
+  },
+  browserBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: '#1b2030', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  browserDot: { width: 10, height: 10, borderRadius: 5 },
+  browserUrlPill: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 6,
+    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  browserUrlText: { color: '#cbd5e1', fontSize: 12, flex: 1 },
+  guidedDesktopNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(148,163,184,0.18)', borderStyle: 'dashed',
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  guidedDesktopText: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
+  guidedConnector: { width: 2, height: 22, backgroundColor: 'rgba(16,185,129,0.35)', marginLeft: 15, marginVertical: 2, borderRadius: 1 },
   chalkBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4 },
-  chalkBulletArrow: { color: '#60a5fa', fontSize: 16, lineHeight: 26, fontWeight: '700', flexShrink: 0 },
-  chalkBulletText: { flex: 1, color: '#f1f5f9', fontSize: 16, lineHeight: 26, fontWeight: '500' },
-  chalkEmphasis: { color: '#93c5fd', fontSize: 15, lineHeight: 23, marginTop: 14, fontStyle: 'italic', borderLeftWidth: 3, borderLeftColor: '#60a5fa', paddingLeft: 12 },
+  chalkBulletArrow: { color: '#60a5fa', fontSize: 20, lineHeight: 30, fontWeight: '700', flexShrink: 0 },
+  chalkBulletText: { flex: 1, color: '#f1f5f9', fontSize: 19, lineHeight: 30, fontWeight: '500' },
+  chalkEmphasis: { color: '#93c5fd', fontSize: 17, lineHeight: 26, marginTop: 14, fontStyle: 'italic', borderLeftWidth: 3, borderLeftColor: '#60a5fa', paddingLeft: 14 },
 
   // ── Terminal / console code block ─────────────────────────────────────────
-  terminalWrap: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#0d1117', flex: 1 },
+  terminalWrap: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#0d1117', width: '100%', maxWidth: 820, alignSelf: 'center' },
   terminalBar: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1f26', paddingHorizontal: 14, paddingVertical: 10 },
   terminalDot: { width: 12, height: 12, borderRadius: 6 },
   terminalLangLabel: { color: '#6b7280', fontSize: 12, fontWeight: '600', marginLeft: 8 },
   terminalBody: { padding: 14, gap: 2 },
   terminalLine: { flexDirection: 'row', gap: 12 },
   terminalLineNum: { color: '#4b5563', fontSize: 13, lineHeight: 22, width: 24, textAlign: 'right', fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier', flexShrink: 0 },
-  terminalLineCode: { flex: 1, color: '#e5e7eb', fontSize: 13, lineHeight: 22, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' },
+  terminalLineCode: { flex: 1, color: '#e5e7eb', fontSize: 15, lineHeight: 24, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' },
   terminalFooter: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)', paddingHorizontal: 14, paddingVertical: 10 },
   terminalFooterIcon: { color: '#60a5fa', fontSize: 13, lineHeight: 20, flexShrink: 0 },
   terminalFooterText: { flex: 1, color: '#94a3b8', fontSize: 12, lineHeight: 19 },
@@ -2498,18 +3876,18 @@ const styles = StyleSheet.create({
   liveNodeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 
   // ── Flowchart visual component ──────────────────────────────────────────────
-  flowchartWrap: { gap: 0, paddingHorizontal: 2 },
+  flowchartWrap: { gap: 0, paddingHorizontal: 2, width: '100%', maxWidth: 640, alignSelf: 'center' },
   flowchartNode: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 },
   flowchartBadge: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
   flowchartBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  flowchartLabel: { color: '#e2e8f0', fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  flowchartLabel: { color: '#f1f5f9', fontSize: 16, lineHeight: 23, fontWeight: '500' },
   flowchartCue: { color: '#94a3b8', fontSize: 11, lineHeight: 15, marginTop: 2, fontStyle: 'italic' },
   flowchartConnector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 2 },
   flowchartConnectorLine: { width: 1.5, height: 8, borderRadius: 1 },
   flowchartConnectorArrow: { fontSize: 12, marginHorizontal: 0, lineHeight: 14 },
 
   // ── Comparison table visual component ──────────────────────────────────────
-  comparisonWrap: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  comparisonWrap: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', width: '100%', maxWidth: 820, alignSelf: 'center' },
   comparisonHeader: { flexDirection: 'row', alignItems: 'center' },
   comparisonHeaderCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1 },
   comparisonHeaderText: { fontSize: 12, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.8 },
@@ -2521,13 +3899,13 @@ const styles = StyleSheet.create({
   comparisonDivider: { width: 34, backgroundColor: 'rgba(255,255,255,0.04)' },
 
   // ── Concept node cards (diagram fallback) ───────────────────────────────────
-  conceptNodeWrap: { gap: 4 },
+  conceptNodeWrap: { gap: 4, width: '100%', maxWidth: 620, alignSelf: 'center' },
   conceptNodeCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   conceptNodeBadge: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
   conceptNodeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   conceptNodeConnector: { alignItems: 'center', height: 14, justifyContent: 'center' },
   conceptNodeConnectorLine: { width: 2, height: 10, borderRadius: 1 },
-  conceptNodeText: { flex: 1, color: '#e2e8f0', fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  conceptNodeText: { flex: 1, color: '#f1f5f9', fontSize: 17, fontWeight: '500', lineHeight: 25 },
   codePanel: { borderWidth: 1, borderRadius: 14, padding: 14, backgroundColor: 'rgba(15,23,42,0.92)' },
   codeLanguage: { color: '#93c5fd', fontSize: 11, fontWeight: '700', marginBottom: 10, letterSpacing: 1 },
   codeText: { color: '#e5e7eb', fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier', fontSize: 13, lineHeight: 20 },
@@ -2612,20 +3990,31 @@ const styles = StyleSheet.create({
 
   // ── New layout styles (matches LearningScreen) ────────────────────────────
   mainContent: { flexDirection: 'row', overflow: 'hidden' },
-  iconRail: { width: 78, alignItems: 'center', paddingTop: 20, paddingBottom: 16, gap: 4, borderRightWidth: 1, overflow: 'hidden' },
+  iconRail: { width: 78, borderRightWidth: 1, flexGrow: 0, flexShrink: 0 },
+  iconRailContent: { alignItems: 'center', paddingTop: 18, paddingBottom: 18, gap: 4 },
   railBtn: { width: 64, paddingVertical: 11, borderRadius: 12, alignItems: 'center', gap: 5, borderWidth: 1, borderColor: 'transparent' },
   railLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.2 },
   aiSlidePanel: { width: 290, flexShrink: 0, overflow: 'hidden', borderRightWidth: 1 },
-  aiLearningArea: { flex: 1, overflow: 'hidden', padding: 16, flexDirection: 'column' },
-  progressSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
-  progressLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  progressText: { fontSize: 12, fontWeight: '500' },
+  aiLearningArea: { flex: 1, overflow: 'hidden', padding: 14, flexDirection: 'column' },
+  progressSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 12 },
+  lectureBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    flexShrink: 0,
+  },
+  progressLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 340, minWidth: 0, flexShrink: 1 },
+  progressText: { fontSize: 13, fontWeight: '500', flexShrink: 1 },
   progressBarContainer: { flex: 1 },
   progressFillGreen: { height: '100%', backgroundColor: '#10b981' },
   progressPercent: { fontSize: 12, fontWeight: '600' },
   stageWhiteboardNew: { padding: 12, borderRadius: 12, overflow: 'hidden' },
-  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  quizButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 25 },
+  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10, marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  quizButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 25 },
   quizButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 
   // ── AI side panel styles ───────────────────────────────────────────────────

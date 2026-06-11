@@ -1196,6 +1196,18 @@ async function generateCoursePackage(courseId, instructorUser) {
         nextTopicId: topics[index + 1]?.id || null
       });
 
+      // Best-effort: for "how-to / install / tool" sections, attach a real-screenshot
+      // walkthrough. Never let this break lecture generation.
+      try {
+        const guidedStepsService = require('./guidedStepsService');
+        await guidedStepsService.enrichLectureWithGuidedSteps(topic.id, {
+          lectureTitle: topic.title,
+          language: course.language,
+        });
+      } catch (guidedErr) {
+        console.warn(`Guided steps enrichment skipped for topic ${topic.id}: ${guidedErr.message}`);
+      }
+
       const usedFallback = modelName === 'fallback-template';
       await outline.update({
         status: 'ready',
@@ -1227,6 +1239,9 @@ async function generateCoursePackage(courseId, instructorUser) {
       });
     }
   }
+
+  // Release the headless browser used for guided-step screenshots, if any.
+  try { require('./screenshotService').closeBrowser(); } catch (_) { /* ignore */ }
 
   return results;
 }
@@ -2163,6 +2178,15 @@ async function submitQuestion(sessionId, userId, question) {
     }
   });
 
+  // Inject student memory context for personalised answers (Phase 3)
+  let studentMemoryContext = null;
+  try {
+    const memoryService = require('./aiStudentMemoryService');
+    studentMemoryContext = await memoryService.getStudentMemoryContext(
+      userId, lecture.courseId, session.topicId
+    );
+  } catch { /* non-critical */ }
+
   const response = await openaiService.answerLectureQuestion({
     lectureTitle: lecture.title,
     lectureSummary: lecture.summary,
@@ -2189,8 +2213,21 @@ async function submitQuestion(sessionId, userId, question) {
       content: message.content
     })),
     question,
-    language: courseLanguage
+    language: courseLanguage,
+    studentMemoryContext,
   });
+
+  // Fire-and-forget question memory extraction (Phase 3)
+  try {
+    const memoryService = require('./aiStudentMemoryService');
+    memoryService.extractMemoryFromQuestion({
+      userId,
+      courseId: lecture.courseId,
+      topicId: session.topicId,
+      lectureId: lecture.id,
+      question,
+    }).catch(() => {});
+  } catch { /* non-critical */ }
 
     const aiMessage = await AITutorMessage.create({
       sessionId: session.id,
@@ -2200,7 +2237,8 @@ async function submitQuestion(sessionId, userId, question) {
     contextSnapshot: {
       sectionIndex: session.currentSectionIndex,
       chunkIndex: session.currentChunkIndex,
-        model: response.model
+        model: response.model,
+        visual: response.visual || null
       }
     });
 
@@ -2220,7 +2258,8 @@ async function submitQuestion(sessionId, userId, question) {
       session,
     lecture,
     userMessage,
-    aiMessage
+    aiMessage,
+    visual: response.visual || null
   };
 }
 

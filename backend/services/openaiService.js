@@ -291,14 +291,16 @@ Constraints:
 - Generate ${generationProfile.chunkRange} chunks per section for incremental delivery.
 - Each chunk should be ${generationProfile.chunkDetail}.
 - Every chunk must contain a real spoken explanation in full sentences.
-- VISUAL MODE DECISION RULES — choose exactly one visual_mode per chunk using this decision tree in order:
-  1. CODE → visual_mode: "code" — if the chunk explains syntax, a command, a script, a config file, an API call, SQL, a code example, or any text a student would type into a terminal or editor. When chosen, you MUST include the code_example field with the real snippet, language, and a one-line explanation.
-  2. DIAGRAM → visual_mode: "diagram" — if the chunk explains relationships, architecture, components, or concept connections (e.g. "how X connects to Y"). When chosen, you MUST include the diagram field with 3–6 nodes and 2–5 edges. Node labels and edge labels MUST always be in English regardless of course language — use short English concept names (e.g. "Harappa", "Trade Routes", "Agriculture", "City Planning"). Never omit the diagram field when visual_mode is "diagram". Assign colors: #3b82f6 primary, #8b5cf6 secondary, #10b981 outcome, #f59e0b decision.
-  3. FLOWCHART → visual_mode: "flowchart" — if the chunk explains a process, ordered steps, a workflow, lifecycle, or procedure. No diagram nodes/edges needed; steps go in diagram.steps.
-  4. COMPARISON TABLE → visual_mode: "comparison_table" — if the chunk directly compares two or more concepts, tools, protocols, or approaches side by side.
-  5. WHITEBOARD → visual_mode: "whiteboard" — if the chunk defines key terms, writes short phrases, or gives a teacher's notes that belong on a board. whiteboard_explanation MUST contain only real text: key phrases, short definitions, bullet-style notes. NEVER put drawing instructions in whiteboard_explanation.
-  6. SLIDE → visual_mode: "slide" — if the chunk summarises with 3–5 bullet points and no other visual fits better.
-  7. NONE → visual_mode: "none" — only if the chunk is pure narrative with zero benefit from any visual.
+- VISUAL MODE INTELLIGENCE — for EACH chunk, choose the ONE visual that teaches THAT specific concept best, the way a great teacher decides between live-coding, the whiteboard, a diagram, or slides. Match the medium to the idea, and VARY modes across the lecture so it feels like a real, dynamic class — never the same mode chunk after chunk. Decide using this tree, in order:
+  1. CODE → visual_mode: "code" — the chunk explains syntax, a command, a script, a config file, an API call, SQL, or anything a student would type into a terminal/editor. You MUST include code_example (real snippet, language, one-line explanation).
+  2. DIAGRAM → visual_mode: "diagram" — the chunk explains relationships, architecture, components, or how parts connect ("how X relates to Y"). You MUST include the diagram field with 3–6 nodes and 2–5 edges. Node/edge labels MUST always be short English concept names regardless of course language (e.g. "CPU", "Memory", "Trade Routes"). Colors: #3b82f6 primary, #8b5cf6 secondary, #10b981 outcome, #f59e0b decision.
+  3. FLOWCHART → visual_mode: "flowchart" — the chunk explains a process, ordered steps, a workflow, lifecycle, algorithm, or procedure. Steps go in diagram.steps.
+  4. COMPARISON TABLE → visual_mode: "comparison_table" — the chunk directly compares 2+ concepts, tools, protocols, or approaches side by side.
+  5. WHITEBOARD → visual_mode: "whiteboard" — the chunk builds a foundational concept: a definition, key terms, an analogy, or step-by-step reasoning a teacher would WRITE on the board while explaining. Use this OFTEN for "what is X / why does it matter / how to think about it" moments — it is the default for conceptual teaching when no code/diagram/comparison is clearly better. whiteboard_explanation = real key phrases, short definitions, note-style bullets ONLY (never drawing instructions).
+  6. SLIDE → visual_mode: "slide" — a clean summary of 3–5 takeaways when no richer visual fits.
+  7. NONE → visual_mode: "none" — only pure narrative with zero visual benefit (use rarely).
+- REAL-WORLD / HOW-TO chunks (installing software, downloading a tool, signing up, configuring, using a website or app — e.g. "Downloading Python", "Setting up VS Code"): write clear NUMBERED real-world steps in spoken_explanation/whiteboard_explanation. The system AUTOMATICALLY attaches real website screenshots to these chunks, so the learner sees the actual UI — write them as a precise click-by-click walkthrough.
+- A strong lecture deliberately MIXES modes — e.g. whiteboard to define a concept, then a diagram to show how it connects, then code to make it concrete, then a checkpoint. Choose each mode on purpose, not by habit.
 - Use teaching_sequence to reflect your visual_mode choice (e.g. ["speak","code"] for code, ["speak","diagram"] for diagram).
 - Include examples, key terms, and analogy_if_helpful when they make the explanation stronger.
 - Include checkpoint_question_if_any whenever the learner should pause and self-check.
@@ -380,7 +382,8 @@ async function answerLectureQuestion({
   currentSection,
   recentMessages,
   question,
-  language
+  language,
+  studentMemoryContext,
 }) {
   const client = getClient();
   const model = process.env.OPENAI_MODEL_QA;
@@ -394,23 +397,30 @@ async function answerLectureQuestion({
     ? 'CRITICAL: This lecture is in Urdu. You MUST respond entirely in Urdu script (اردو). Do not use English or Roman Urdu in your answer.'
     : '';
 
+  const memoryRule = studentMemoryContext
+    ? `STUDENT LEARNING PROFILE:\n${studentMemoryContext}\nUse this profile to tailor your explanation. If the student has struggled with a concept before, explain it differently with a fresh analogy or example.`
+    : '';
+
   const completion = await withOpenAITimeout(
     () => client.chat.completions.create({
       model,
       temperature: 0.2,
+      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
           content: [
-            'You are an AI tutor answering in-context lecture questions.',
+            'You are an AI tutor answering a quick question a student raised mid-lecture, like a teacher pausing class to clear one doubt at the board.',
             'Stay focused on the active lecture and explain clearly.',
-            'You must only answer questions that are directly related to the current lecture, current section, or current chunk context you were given.',
-            'If the user asks something unrelated, politely refuse and say you can only help with this lecture here, and they can ask the main AI assistant for broader questions.',
-            'Do not answer off-topic questions even if you know the answer.',
-            'Use clean GitHub-flavored markdown when it helps.',
-            'When comparing concepts, settings, steps, or options, prefer a markdown table.',
-            'Use bullet points for lists and fenced code blocks for code.',
-            ...(languageRule ? [languageRule] : [])
+            'Return ONLY a valid JSON object with this exact shape:',
+            '{"answer": string, "diagram": null | {"caption": string, "nodes": [{"id": string, "label": string}], "edges": [{"from": string, "to": string, "label": string}]}}',
+            'answer: BE CONCISE — at most 2-3 short sentences, or a tight 3-4 bullet list, or one small fenced code block. This is a quick clarification, not a new lecture. Lead with the direct answer. Use GitHub-flavored markdown inside the answer string (fenced code block ONLY for code questions, short bullet list for steps).',
+            'answer is ALWAYS required and must never be empty — even when you include a diagram, still give a 1-2 sentence spoken explanation in answer (the diagram supports it, it does not replace it).',
+            'diagram: Provide a diagram ONLY when the question is about a process, flow, structure, relationship, or how parts connect — and a small visual genuinely helps. Otherwise set diagram to null.',
+            'When you provide a diagram: keep it to 3-6 nodes with short labels (1-3 words). edges connect node ids and may carry a very short label (e.g. "sends", "connects to"). The "id" values must match between nodes and edges. Do NOT repeat the whole diagram in the answer text.',
+            'You must only answer questions directly related to the current lecture/section/chunk context you were given. If unrelated, set diagram to null and put a one-sentence polite refusal in answer.',
+            ...(languageRule ? [languageRule] : []),
+            ...(memoryRule ? [memoryRule] : []),
           ].join(' ')
         },
         {
@@ -431,14 +441,56 @@ async function answerLectureQuestion({
     45000
   );
 
-  const answer = completion?.choices?.[0]?.message?.content?.trim();
-  if (!answer) {
+  const raw = completion?.choices?.[0]?.message?.content?.trim();
+  if (!raw) {
     throw new Error('OpenAI returned an empty lecture Q&A response');
+  }
+
+  let answer = raw;
+  let diagram = null;
+  try {
+    const parsed = JSON.parse(raw);
+    answer = `${parsed.answer || ''}`.trim() || raw;
+    diagram = normalizeQaDiagram(parsed.diagram);
+  } catch (_) {
+    // Model didn't return JSON — fall back to treating the whole thing as the answer.
+    answer = raw;
   }
 
   return {
     model,
-    answer
+    answer,
+    visual: diagram,
+  };
+}
+
+// Validate + clean an optional Q&A diagram into the shape DiagramCanvas expects.
+function normalizeQaDiagram(diagram) {
+  if (!diagram || typeof diagram !== 'object') return null;
+  const rawNodes = Array.isArray(diagram.nodes) ? diagram.nodes : [];
+  const nodes = rawNodes
+    .map((n, i) => ({
+      id: `${n?.id ?? n?.label ?? `n${i}`}`.trim(),
+      label: `${n?.label ?? n?.id ?? ''}`.trim(),
+    }))
+    .filter((n) => n.id && n.label)
+    .slice(0, 6);
+  if (nodes.length < 2) return null;
+  const ids = new Set(nodes.map((n) => n.id));
+  const rawEdges = Array.isArray(diagram.edges) ? diagram.edges : [];
+  const edges = rawEdges
+    .map((e) => ({
+      from: `${e?.from ?? ''}`.trim(),
+      to: `${e?.to ?? ''}`.trim(),
+      label: `${e?.label ?? ''}`.trim(),
+    }))
+    .filter((e) => ids.has(e.from) && ids.has(e.to) && e.from !== e.to)
+    .slice(0, 10);
+  return {
+    type: 'diagram',
+    caption: `${diagram.caption || ''}`.trim(),
+    nodes,
+    edges,
   };
 }
 

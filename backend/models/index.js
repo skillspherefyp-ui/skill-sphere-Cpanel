@@ -32,6 +32,8 @@ const Todo = require('./Todo');
 const DiscussionPost = require('./DiscussionPost');
 const BlogPost = require('./BlogPost');
 const NewsletterSubscriber = require('./NewsletterSubscriber');
+const AIStudentMemory = require('./AIStudentMemory');
+const AIAdaptivePlan = require('./AIAdaptivePlan');
 const { sequelize } = require('../config/database');
 
 // Define associations
@@ -233,6 +235,26 @@ LectureChatMessage.belongsTo(Course, { foreignKey: 'courseId', as: 'course', onD
 Topic.hasMany(LectureChatMessage, { foreignKey: 'topicId', as: 'lectureChatMessages', onDelete: 'CASCADE' });
 LectureChatMessage.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic', onDelete: 'CASCADE' });
 
+// AIStudentMemory associations (Phase 3)
+User.hasMany(AIStudentMemory, { foreignKey: 'userId', as: 'studentMemories', onDelete: 'CASCADE' });
+AIStudentMemory.belongsTo(User, { foreignKey: 'userId', as: 'user', onDelete: 'CASCADE' });
+Course.hasMany(AIStudentMemory, { foreignKey: 'courseId', as: 'studentMemories', onDelete: 'CASCADE' });
+AIStudentMemory.belongsTo(Course, { foreignKey: 'courseId', as: 'course', onDelete: 'CASCADE' });
+Topic.hasMany(AIStudentMemory, { foreignKey: 'topicId', as: 'studentMemories', onDelete: 'CASCADE' });
+AIStudentMemory.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic', onDelete: 'CASCADE' });
+AILecture.hasMany(AIStudentMemory, { foreignKey: 'lectureId', as: 'studentMemories', onDelete: 'CASCADE' });
+AIStudentMemory.belongsTo(AILecture, { foreignKey: 'lectureId', as: 'lecture', onDelete: 'CASCADE' });
+
+// AIAdaptivePlan associations (Phase 4)
+User.hasMany(AIAdaptivePlan, { foreignKey: 'userId', as: 'adaptivePlans', onDelete: 'CASCADE' });
+AIAdaptivePlan.belongsTo(User, { foreignKey: 'userId', as: 'user', onDelete: 'CASCADE' });
+Course.hasMany(AIAdaptivePlan, { foreignKey: 'courseId', as: 'adaptivePlans', onDelete: 'CASCADE' });
+AIAdaptivePlan.belongsTo(Course, { foreignKey: 'courseId', as: 'course', onDelete: 'CASCADE' });
+Topic.hasMany(AIAdaptivePlan, { foreignKey: 'topicId', as: 'adaptivePlans', onDelete: 'CASCADE' });
+AIAdaptivePlan.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic', onDelete: 'CASCADE' });
+AILecture.hasMany(AIAdaptivePlan, { foreignKey: 'lectureId', as: 'adaptivePlans', onDelete: 'CASCADE' });
+AIAdaptivePlan.belongsTo(AILecture, { foreignKey: 'lectureId', as: 'lecture', onDelete: 'CASCADE' });
+
 module.exports = {
   sequelize,
   User,
@@ -269,6 +291,8 @@ module.exports = {
   DiscussionPost,
   BlogPost,
   NewsletterSubscriber,
+  AIStudentMemory,
+  AIAdaptivePlan,
 };
 
 

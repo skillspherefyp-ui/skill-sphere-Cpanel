@@ -31,4 +31,13 @@ router.post('/audio/transcribe', aiTutorController.audioUploadMiddleware, aiTuto
 router.post('/audio/speak', aiTutorController.speakText);
 router.get('/smoke-test', aiTutorController.smokeTest);
 
+// Phase 3: Student memory
+router.get('/memory/:courseId', aiTutorController.getStudentMemory);
+router.delete('/memory/:courseId', aiTutorController.deleteStudentMemory);
+
+// Phase 4: Adaptive plans
+router.post('/topics/:topicId/adaptive', aiTutorController.generateAdaptivePlan);
+router.get('/topics/:topicId/adaptive', aiTutorController.getAdaptivePlan);
+router.patch('/adaptive/:planId/complete', aiTutorController.completeAdaptivePlan);
+
 module.exports = router;

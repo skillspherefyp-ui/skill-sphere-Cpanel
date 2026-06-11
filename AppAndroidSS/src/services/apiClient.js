@@ -467,6 +467,26 @@ export const aiTutorAPI = {
   transcribeAudio: (formData) => uploadMultipart('/ai-tutor/audio/transcribe', formData),
   speakText: (data) => post('/ai-tutor/audio/speak', data),
   smokeTest: () => get('/ai-tutor/smoke-test'),
+  // Phase 3: Memory
+  getStudentMemory: (courseId, topicId) => get(`/ai-tutor/memory/${courseId}${topicId ? `?topicId=${topicId}` : ''}`),
+  clearStudentMemory: (courseId) => del(`/ai-tutor/memory/${courseId}`),
+  // Phase 4: Adaptive plans
+  generateAdaptivePlan: (topicId, data) => post(`/ai-tutor/topics/${topicId}/adaptive`, data),
+  getAdaptivePlan: (topicId) => get(`/ai-tutor/topics/${topicId}/adaptive`),
+  completeAdaptivePlan: (planId) => patch(`/ai-tutor/adaptive/${planId}/complete`, {}),
+};
+
+export const memoryAPI = {
+  getMemory: (courseId, topicId) => aiTutorAPI.getStudentMemory(courseId, topicId),
+  clearMemory: (courseId) => aiTutorAPI.clearStudentMemory(courseId),
+};
+
+export const analyticsAPI = {
+  getOverview: () => get('/analytics/overview'),
+  getEngagement: (courseId) => get(`/analytics/courses/${courseId}/engagement`),
+  getConfusion: (courseId) => get(`/analytics/courses/${courseId}/confusion`),
+  getStudents: (courseId) => get(`/analytics/courses/${courseId}/students`),
+  getTimeline: (courseId) => get(`/analytics/courses/${courseId}/timeline`),
 };
 
 export default {
@@ -501,4 +521,6 @@ export default {
   discussionAPI,
   bulkEmailAPI,
   newsletterAPI,
+  memoryAPI,
+  analyticsAPI,
 };

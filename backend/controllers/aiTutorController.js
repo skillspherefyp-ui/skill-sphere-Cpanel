@@ -271,9 +271,103 @@ exports.submitQuiz = async (req, res) => {
   try {
     const result = await aiTutorService.submitQuiz(req.params.lectureId, req.user.id, req.body.answers || {});
     res.json({ success: true, result });
+
+    // Fire-and-forget memory extraction (Phase 3)
+    try {
+      const lecture = await AILecture.findByPk(req.params.lectureId);
+      if (lecture) {
+        const memoryService = require('../services/aiStudentMemoryService');
+        memoryService.extractMemoriesFromQuiz({
+          userId: req.user.id,
+          lectureId: lecture.id,
+          courseId: lecture.courseId,
+          topicId: lecture.topicId,
+          gradedQuestions: result.gradedQuestions || [],
+          score: result.score,
+          passed: result.passed,
+        }).catch(() => {});
+      }
+    } catch { /* non-critical */ }
   } catch (error) {
     console.error('Submit AI quiz error:', error);
     res.status(400).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+// ── Phase 3: Student Memory ──────────────────────────────────────────────────
+
+exports.getStudentMemory = async (req, res) => {
+  try {
+    const memoryService = require('../services/aiStudentMemoryService');
+    const context = await memoryService.getStudentMemoryContext(
+      req.user.id,
+      req.params.courseId,
+      req.query.topicId || null
+    );
+    res.json({ success: true, context });
+  } catch (error) {
+    console.error('Get student memory error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.deleteStudentMemory = async (req, res) => {
+  try {
+    const { AIStudentMemory } = require('../models');
+    const where = { userId: req.user.id, courseId: req.params.courseId };
+    const deleted = await AIStudentMemory.destroy({ where });
+    res.json({ success: true, deleted });
+  } catch (error) {
+    console.error('Delete student memory error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// ── Phase 4: Adaptive Plans ──────────────────────────────────────────────────
+
+exports.generateAdaptivePlan = async (req, res) => {
+  try {
+    const { lectureId, quizScore, gradedQuestions } = req.body;
+    if (!lectureId) return res.status(400).json({ error: 'lectureId is required' });
+
+    const lecture = await AILecture.findByPk(lectureId);
+    if (!lecture) return res.status(404).json({ error: 'Lecture not found' });
+
+    const memoryService = require('../services/aiStudentMemoryService');
+    const plan = await memoryService.generateAdaptiveRevision({
+      userId: req.user.id,
+      courseId: lecture.courseId,
+      topicId: req.params.topicId,
+      lectureId: lecture.id,
+      quizScore: quizScore || 0,
+      gradedQuestions: gradedQuestions || [],
+    });
+    res.json({ success: true, plan });
+  } catch (error) {
+    console.error('Generate adaptive plan error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+exports.getAdaptivePlan = async (req, res) => {
+  try {
+    const memoryService = require('../services/aiStudentMemoryService');
+    const plan = await memoryService.getAdaptivePlan(req.user.id, req.params.topicId);
+    res.json({ success: true, plan: plan || null });
+  } catch (error) {
+    console.error('Get adaptive plan error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.completeAdaptivePlan = async (req, res) => {
+  try {
+    const memoryService = require('../services/aiStudentMemoryService');
+    await memoryService.completeAdaptivePlan(req.params.planId, req.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Complete adaptive plan error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 

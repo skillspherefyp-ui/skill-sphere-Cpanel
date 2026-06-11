@@ -19,6 +19,8 @@ import NotificationsScreen from '../screens/auth/NotificationsScreen';
 import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
 import DiscussionScreen from '../screens/auth/DiscussionScreen';
 import DiscussionThreadScreen from '../screens/auth/DiscussionThreadScreen';
+import AICourseGeneratorScreen from '../screens/instructor/AICourseGeneratorScreen';
+import AIAnalyticsDashboard from '../screens/instructor/AIAnalyticsDashboard';
 
 const Stack = createStackNavigator();
 
@@ -49,6 +51,8 @@ const InstructorNavigator = () => {
       <Stack.Screen name="Discussion" component={DiscussionScreen} />
       <Stack.Screen name="DiscussionThread" component={DiscussionThreadScreen} />
       <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
+      <Stack.Screen name="AICourseGenerator" component={AICourseGeneratorScreen} />
+      <Stack.Screen name="AIAnalytics" component={AIAnalyticsDashboard} />
     </Stack.Navigator>
   );
 };

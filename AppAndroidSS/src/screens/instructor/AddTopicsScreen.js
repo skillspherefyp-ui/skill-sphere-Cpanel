@@ -28,6 +28,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { resolveFileUrl } from '../../utils/urlHelpers';
 import { aiTutorAPI } from '../../services/apiClient';
 import { getSidebarItems } from '../../utils/sidebarItems';
+<<<<<<< HEAD
 import AppHeader from '../../components/ui/AppHeader';
 
 const ORANGE = '#FF8C42';
@@ -44,6 +45,11 @@ const VM_INFO = {
 const getVmInfo = (vm) =>
   VM_INFO[vm] || { label: vm || 'Slide', icon: 'albums-outline', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' };
 
+=======
+
+const ORANGE = '#FF8C42';
+
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 // Color palette for topic cards
 const TOPIC_COLORS = [
   '#3B82F6', // Blue
@@ -95,9 +101,12 @@ const AddTopicsScreen = () => {
   const [showGenerationReportModal, setShowGenerationReportModal] = useState(false);
   const [generationReport, setGenerationReport] = useState([]);
   const [lectureMetaByTopic, setLectureMetaByTopic] = useState({});
+<<<<<<< HEAD
   const [chunkModalTopic, setChunkModalTopic] = useState(null);
   const [chunkModalPackage, setChunkModalPackage] = useState(null);
   const [chunkModalLoading, setChunkModalLoading] = useState(false);
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const topics = course?.topics || [];
 
@@ -375,6 +384,7 @@ const AddTopicsScreen = () => {
     }
   };
 
+<<<<<<< HEAD
   const handleTopicCardPress = async (topic) => {
     setChunkModalTopic(topic);
     setChunkModalPackage(null);
@@ -389,6 +399,8 @@ const AddTopicsScreen = () => {
     }
   };
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const handleGenerateTopic = (topic) => {
     navigation.navigate('GenerationLogs', {
       courseId,
@@ -398,7 +410,10 @@ const AddTopicsScreen = () => {
     });
   };
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const handleSubmitForAI = () => {
     if (topics.length === 0) {
       Toast.show({
@@ -426,6 +441,7 @@ const AddTopicsScreen = () => {
     const materialsCount = topic.materials?.length || 0;
     const lectureMeta = lectureMetaByTopic[topic.id];
 
+<<<<<<< HEAD
     const cardContent = (
       <View
         style={[
@@ -438,6 +454,25 @@ const AddTopicsScreen = () => {
           },
         ]}
       >
+=======
+    return (
+      <Animated.View
+        key={topic.id}
+        entering={FadeInDown.duration(400).delay(index * 80)}
+        style={styles.topicCardWrapper}
+      >
+        <View
+          style={[
+            styles.topicCard,
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(26,26,46,0.08)',
+              borderLeftColor: color,
+              borderLeftWidth: 3,
+            },
+          ]}
+        >
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           {/* Top Right Section - Materials Count & Actions */}
           <View style={styles.topRightSection}>
             <View style={[styles.materialsCountBadge, { backgroundColor: color + '15', borderColor: color + '30' }]}>
@@ -452,13 +487,21 @@ const AddTopicsScreen = () => {
               <View style={styles.actionButtons}>
                 <TouchableOpacity
                   style={[styles.editButton, { backgroundColor: theme.colors.primary + '15' }]}
+<<<<<<< HEAD
                   onPress={(e) => { e.stopPropagation?.(); handleEditTopic(topic); }}
+=======
+                  onPress={() => handleEditTopic(topic)}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 >
                   <Icon name="create-outline" size={16} color={theme.colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.deleteButton, { backgroundColor: theme.colors.error + '15' }]}
+<<<<<<< HEAD
                   onPress={(e) => { e.stopPropagation?.(); handleDeleteClick(topic); }}
+=======
+                  onPress={() => handleDeleteClick(topic)}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 >
                   <Icon name="trash-outline" size={16} color={theme.colors.error} />
                 </TouchableOpacity>
@@ -477,14 +520,21 @@ const AddTopicsScreen = () => {
           {!isManualMode && canAddTopics && (
             <TouchableOpacity
               style={[styles.generateTopicBtn, { backgroundColor: color + '15', borderColor: color + '40' }]}
+<<<<<<< HEAD
               onPress={(e) => { e.stopPropagation?.(); handleGenerateTopic(topic); }}
+=======
+              onPress={() => handleGenerateTopic(topic)}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             >
               <Icon name="sparkles-outline" size={14} color={color} />
               <Text style={[styles.generateTopicBtnText, { color }]}>Generate Topic</Text>
             </TouchableOpacity>
           )}
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           {/* Topic Title */}
           <Text style={[styles.topicName, { color: theme.colors.textPrimary }]} numberOfLines={2}>
             {topic.title}
@@ -508,7 +558,11 @@ const AddTopicsScreen = () => {
           {materialsCount > 0 && (
             <TouchableOpacity
               style={[styles.viewMaterialsBtn, { backgroundColor: color + '10', borderColor: color + '30' }]}
+<<<<<<< HEAD
               onPress={(e) => { e.stopPropagation?.(); handleViewMaterials(topic); }}
+=======
+              onPress={() => handleViewMaterials(topic)}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             >
               <Icon name="folder-open-outline" size={16} color={color} />
               <Text style={[styles.viewMaterialsText, { color }]}>
@@ -516,6 +570,7 @@ const AddTopicsScreen = () => {
               </Text>
             </TouchableOpacity>
           )}
+<<<<<<< HEAD
       </View>
     );
 
@@ -530,6 +585,9 @@ const AddTopicsScreen = () => {
             {cardContent}
           </TouchableOpacity>
         ) : cardContent}
+=======
+        </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       </Animated.View>
     );
   };
@@ -1154,6 +1212,7 @@ const AddTopicsScreen = () => {
         onConfirm={confirmSubmitForAI}
         onCancel={() => setShowConfirmDialog(false)}
       />
+<<<<<<< HEAD
 
       {/* AI Topic Chunks Detail Modal */}
       <Modal
@@ -1457,6 +1516,8 @@ const AddTopicsScreen = () => {
           </ScrollView>
         </View>
       </Modal>
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     </MainLayout>
   );
 };

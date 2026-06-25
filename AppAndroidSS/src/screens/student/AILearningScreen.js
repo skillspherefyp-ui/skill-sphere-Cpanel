@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+<<<<<<< HEAD
   KeyboardAvoidingView,
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   Platform,
   Animated as RNAnimated,
   ScrollView,
@@ -31,7 +34,10 @@ import DiagramCanvas from '../../components/DiagramCanvas';
 import VoiceQAOverlay from '../../components/VoiceQAOverlay';
 import { Reveal, StageCaption, BeatTimeline, buildTeachingBeats, activeBeatFor, beatActivity } from '../../components/classroom/LiveStage';
 import AITeacherAvatar from '../../components/classroom/AITeacherAvatar';
+<<<<<<< HEAD
 import SpeakingWaveform from '../../components/classroom/SpeakingWaveform';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import IntelligentWhiteboard from '../../components/classroom/IntelligentWhiteboard';
 import MarkdownText from '../../components/ui/MarkdownText';
 import { getSidebarItems } from '../../utils/sidebarItems';
@@ -150,7 +156,11 @@ const AILearningScreen = () => {
   };
   const { courseId, topicId } = route.params || {};
   const { courses, checkEnrollment, fetchCourses } = useData();
+<<<<<<< HEAD
   const course = courses.find((item) => String(item.id) === String(courseId));
+=======
+  const course = courses.find((item) => item.id === courseId);
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const topic = course?.topics?.find((item) => item.id === topicId);
 
   const [loading, setLoading] = useState(true);
@@ -178,6 +188,7 @@ const AILearningScreen = () => {
     guidedActiveRef.current = -1;
     guidedScrolledRef.current = -1;
     boardScrollRef.current?.scrollTo({ y: 0, animated: false });
+<<<<<<< HEAD
     setCheckpointInput('');
     setCheckpointStatus(null);
     setCheckpointFeedback('');
@@ -217,6 +228,10 @@ const AILearningScreen = () => {
     } catch (_) {}
   };
 
+=======
+  }, [currentChunk?.id]);
+
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // As the tutor narrates each install/setup screenshot, glide the board so the
   // step they're talking about stays in view (synced to teachingProgress).
   useEffect(() => {
@@ -261,6 +276,7 @@ const AILearningScreen = () => {
   const greetingAudioRef = useRef(null); // { text, audio } — pre-warmed greeting for instant playback
   const [qaTranscribing, setQaTranscribing] = useState(false);
 
+<<<<<<< HEAD
   // ── Checkpoint interactive answer box ──
   const [checkpointInput, setCheckpointInput] = useState('');
   const [checkpointStatus, setCheckpointStatus] = useState(null); // null | 'correct' | 'wrong' | 'skipped'
@@ -273,6 +289,8 @@ const AILearningScreen = () => {
   const checkpointUserAdvancedRef = useRef(false); // true only when user clicked Next/Skip
   const sessionRef = useRef(null); // always-fresh session for use inside closures/intervals
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const chatScrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const playbackRef = useRef(null);
@@ -340,8 +358,11 @@ const AILearningScreen = () => {
   const currentNarration = currentDelivery?.narration_text || currentChunk?.spokenExplanation || currentChunk?.text || '';
   const transitionText = currentDelivery?.transition_text || panelContent.transitionIn || '';
   const checkpointText = currentDelivery?.checkpoint_text || panelContent.checkpointQuestion || currentChunk?.checkpointQuestion || '';
+<<<<<<< HEAD
   checkpointTextRef.current = checkpointText;
   sessionRef.current = session;
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const reinforcementPoints = panelContent.reinforcementPoints || teachingPlan.reinforcement_points || [];
   const confusionPoints = panelContent.likelyConfusionPoints || teachingPlan.likely_confusion_points || [];
   const teachingStyleLabel = currentDelivery?.teaching_style_label || panelContent.teachingStyleLabel || 'Brief explanation';
@@ -509,10 +530,14 @@ const AILearningScreen = () => {
   useEffect(() => {
     if (!session?.id || Platform.OS !== 'web') return undefined;
     const name = `${user?.name || user?.fullName || user?.email?.split('@')[0] || ''}`.trim().split(' ')[0] || 'there';
+<<<<<<< HEAD
     const isUrduCourse = course?.language === 'Urdu';
     const text = isUrduCourse
       ? `${name}، آپ کا کیا سوال ہے؟ میں نے آپ کے لیے لیکچر روک دیا ہے۔`
       : `Hello ${name}, what's your question?`;
+=======
+    const text = `Hello ${name}, what's your question?`;
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     if (greetingAudioRef.current?.text === text && greetingAudioRef.current?.audio) return undefined;
     let cancelled = false;
     (async () => {
@@ -528,7 +553,11 @@ const AILearningScreen = () => {
       } catch (_) { /* greeting will fall back to instant speech-synth */ }
     })();
     return () => { cancelled = true; };
+<<<<<<< HEAD
   }, [session?.id, user?.name, course?.language]);
+=======
+  }, [session?.id, user?.name]);
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   useEffect(() => {
     setTeachingProgress(0);
@@ -763,8 +792,11 @@ const AILearningScreen = () => {
 
     stopPlayback();
     playbackRef.current = setTimeout(async () => {
+<<<<<<< HEAD
       // Block auto-advance until the user explicitly clicks Next or Skip.
       if (checkpointTextRef.current && !checkpointUserAdvancedRef.current) return;
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       // Show a "moving on" beat so the gap between chunks feels like the teacher
       // is transitioning, not frozen.
       const advToken = playbackTokenRef.current;
@@ -1020,7 +1052,15 @@ const AILearningScreen = () => {
     } catch (_) {
       // Leaving anyway — don't block navigation on a pause failure.
     }
+<<<<<<< HEAD
     navigation.navigate('CourseDetail', { courseId, courseName: slugify(course?.name) });
+=======
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('EnrolledCourses');
+    }
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   };
 
   const submitLectureQuestion = async (rawPrompt) => {
@@ -1478,10 +1518,14 @@ const AILearningScreen = () => {
   // Voice-first: greet the student by name INSTANTLY, then open the mic.
   const playGreetingThenListen = () => {
     const name = `${studentName || ''}`.trim().split(' ')[0] || 'there';
+<<<<<<< HEAD
     const isUrduCourse = course?.language === 'Urdu';
     const greeting = isUrduCourse
       ? `${name}، آپ کا کیا سوال ہے؟ میں نے آپ کے لیے لیکچر روک دیا ہے۔`
       : `Hello ${name}, what's your question?`;
+=======
+    const greeting = `Hello ${name}, what's your question?`;
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     setQaGreeting(greeting);
     setQaGreetingPlaying(true);
     const beginListening = () => {
@@ -1510,7 +1554,10 @@ const AILearningScreen = () => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       try {
         const u = new SpeechSynthesisUtterance(greeting);
+<<<<<<< HEAD
         u.lang = isUrduCourse ? 'ur-PK' : 'en-US';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         u.rate = 1.0;
         u.onend = beginListening;
         u.onerror = beginListening;
@@ -1702,13 +1749,19 @@ const AILearningScreen = () => {
     }[qaPhase] || '';
     const blocks = (qaPhase === 'answering' || qaPhase === 'done') ? parseAnswerBlocks(qaAnswer) : [];
 
+<<<<<<< HEAD
     // On desktop/tablet use fixed heights so the footer pins to the bottom.
     // On mobile, use flex layout + KeyboardAvoidingView so the TextInput footer
     // stays visible above the soft keyboard in portrait orientation.
+=======
+    // Explicit heights so the footer always sits at the very bottom and the board
+    // (scrollable middle) gets every remaining pixel — no RN-web flex guesswork.
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     const cardH = Math.max(360, windowHeight - 28);
     const HEADER_H = 56;
     const CHIP_H = qaQuestion ? 78 : 0;
     const FOOTER_H = 68;
+<<<<<<< HEAD
     const bodyHeight = isMobile ? undefined : Math.max(140, cardH - HEADER_H - CHIP_H - FOOTER_H);
 
     return (
@@ -1718,6 +1771,13 @@ const AILearningScreen = () => {
         keyboardVerticalOffset={0}
       >
         <View style={[styles.qaCard, isMobile ? { flex: 1 } : { height: cardH }]}>
+=======
+    const bodyHeight = Math.max(140, cardH - HEADER_H - CHIP_H - FOOTER_H);
+
+    return (
+      <View style={styles.qaOverlay}>
+        <View style={[styles.qaCard, { height: cardH }]}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           <View style={styles.qaHeader}>
             <View style={styles.qaHeaderLeft}>
               <View style={styles.qaHeaderAvatar} pointerEvents="none">
@@ -1741,7 +1801,11 @@ const AILearningScreen = () => {
             </View>
           )}
 
+<<<<<<< HEAD
           <View style={[styles.qaBody, isMobile ? { flex: 1 } : { height: bodyHeight }]}>
+=======
+          <View style={[styles.qaBody, { height: bodyHeight }]}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.qaAnswerScroll} showsVerticalScrollIndicator={false}>
               {qaPhase === 'composing' && (
                 <View style={{ gap: 16, width: '100%' }}>
@@ -1868,7 +1932,11 @@ const AILearningScreen = () => {
             )}
           </View>
         </View>
+<<<<<<< HEAD
       </KeyboardAvoidingView>
+=======
+      </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     );
   };
 
@@ -2176,12 +2244,15 @@ const AILearningScreen = () => {
         return { ...base, rows: (safeVisualData.rows?.length > 0 ? safeVisualData.rows : safeBullets.slice(0, 5).map(b => { const s = String(b); const i = s.indexOf(': '); return i > 0 ? { left: s.slice(0, i).trim(), right: s.slice(i + 2).trim() } : { left: s, right: '' }; })) };
       if (base?.type === 'diagram' && !base.nodes?.length)
         return { ...base, nodes: (safeVisualData.nodes?.length > 0 ? safeVisualData.nodes : safeBullets.slice(0, 6).map((b, i) => ({ id: `n-${i}`, label: String(b) }))) };
+<<<<<<< HEAD
       // If vm explicitly says comparison_table but base came back as a generic slide/whiteboard,
       // build the comparison table from visualData rows or bullets (leaves all other types untouched).
       if (vm === 'comparison_table' && base?.type !== 'comparison_table' && safeVisualData.rows?.length > 0)
         return { type: 'comparison_table', title: base?.title || currentChunk.title,
           columns: safeVisualData.columns || ['Concept', 'Detail'],
           rows: safeVisualData.rows };
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       return base;
     })();
 
@@ -2629,12 +2700,21 @@ const AILearningScreen = () => {
 
   const renderFlashcardsSidePanel = () => (
     <View style={styles.aiPanelContainer}>
+<<<<<<< HEAD
       <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }, isMobile && { padding: 7 }]}>
         {!isMobile && <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
           <Icon name="albums" size={16} color={theme.colors.primary} />
         </View>}
         <View style={{ flex: 1, flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? 6 : 0 }}>
           <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }, isMobile && { fontSize: 12 }]}>Flashcards</Text>
+=======
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="albums" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>Flashcards</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]}>{(lecture?.flashcards || []).length} cards</Text>
         </View>
       </View>
@@ -2675,6 +2755,7 @@ const AILearningScreen = () => {
 
   const renderNotesSidePanel = () => (
     <View style={styles.aiPanelContainer}>
+<<<<<<< HEAD
       <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }, isMobile && { padding: 7 }]}>
         {!isMobile && <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
           <Icon name="document-text" size={16} color={theme.colors.primary} />
@@ -2682,6 +2763,15 @@ const AILearningScreen = () => {
         <View style={{ flex: 1, flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? 6 : 0 }}>
           <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }, isMobile && { fontSize: 12 }]}>Class Notes</Text>
           {!isMobile && <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>{lecture?.title}</Text>}
+=======
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="document-text" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>Class Notes</Text>
+          <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>{lecture?.title}</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         </View>
       </View>
       <TextInput
@@ -2711,6 +2801,7 @@ const AILearningScreen = () => {
 
   const renderMoreSidePanel = () => (
     <View style={styles.aiPanelContainer}>
+<<<<<<< HEAD
       <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }, isMobile && { padding: 7 }]}>
         {!isMobile && <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
           <Icon name="ellipsis-horizontal" size={16} color={theme.colors.primary} />
@@ -2718,6 +2809,15 @@ const AILearningScreen = () => {
         <View style={{ flex: 1, flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? 6 : 0 }}>
           <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }, isMobile && { fontSize: 12 }]}>More Options</Text>
           {!isMobile && <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]}>Quick classroom utilities</Text>}
+=======
+      <View style={[styles.aiPanelHeader, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.aiPanelAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="ellipsis-horizontal" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.aiPanelTitle, { color: theme.colors.textPrimary }]}>More Options</Text>
+          <Text style={[styles.aiPanelSubtitle, { color: theme.colors.textSecondary }]}>Quick classroom utilities</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         </View>
       </View>
 
@@ -3067,6 +3167,7 @@ const AILearningScreen = () => {
           style={[styles.iconRail, {
             backgroundColor: isDark ? '#0d0d1f' : '#1e293b',
             borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)',
+<<<<<<< HEAD
             width: 78,
             display: isMobile ? 'none' : 'flex',
           }]}
@@ -3075,6 +3176,14 @@ const AILearningScreen = () => {
         >
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, activeToolPanel === 'topics' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+=======
+          }]}
+          contentContainerStyle={styles.iconRailContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'topics' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={() => openToolPanel('topics')}
             accessibilityLabel="Open topics"
             activeOpacity={0.7}
@@ -3084,16 +3193,25 @@ const AILearningScreen = () => {
               size={24}
               color={activeToolPanel === 'topics' ? theme.colors.primary : '#fff'}
             />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: activeToolPanel === 'topics' ? theme.colors.primary : '#fff' }]}>Topics</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, !isPlaying && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+=======
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'topics' ? theme.colors.primary : '#fff' }]}>Topics</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, !isPlaying && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={togglePause}
             accessibilityLabel={isPlaying ? 'Pause lecture' : 'Resume lecture'}
             activeOpacity={0.7}
           >
             <Icon name={isPlaying ? 'pause' : 'play'} size={24} color={!isPlaying ? theme.colors.primary : '#fff'} />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: !isPlaying ? theme.colors.primary : '#fff' }]}>
               {isPlaying ? 'Pause' : 'Resume'}
             </Text>}
@@ -3101,57 +3219,117 @@ const AILearningScreen = () => {
 
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, handRaised && { backgroundColor: '#f59e0b22', borderColor: '#f59e0b50' }]}
+=======
+            <Text style={[styles.railLabel, { color: !isPlaying ? theme.colors.primary : '#fff' }]}>
+              {isPlaying ? 'Pause' : 'Resume'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, handRaised && { backgroundColor: '#f59e0b22', borderColor: '#f59e0b50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={handleRaiseHand}
             accessibilityLabel={handRaised ? 'Lower hand' : 'Raise hand'}
             activeOpacity={0.7}
           >
             <Icon name="hand-left-outline" size={24} color={handRaised ? '#f59e0b' : '#fff'} />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: handRaised ? '#f59e0b' : '#fff', textAlign: 'center' }]}>{'Ask\nQuestion'}</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, activeToolPanel === 'flashcards' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+=======
+            <Text style={[styles.railLabel, { color: handRaised ? '#f59e0b' : '#fff', textAlign: 'center' }]}>{'Ask\nQuestion'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, qaActive && { backgroundColor: '#f59e0b22', borderColor: '#f59e0b50' }]}
+            onPress={openInlineQA}
+            accessibilityLabel="Ask the AI tutor"
+            activeOpacity={0.7}
+          >
+            <Icon name={qaActive ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={qaActive ? '#f59e0b' : '#fff'} />
+            <Text style={[styles.railLabel, { color: qaActive ? '#f59e0b' : '#fff', textAlign: 'center' }]}>{'AI\nAssistant'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'flashcards' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={() => openToolPanel('flashcards')}
             accessibilityLabel="Open flashcards"
             activeOpacity={0.7}
           >
             <Icon name={activeToolPanel === 'flashcards' ? 'albums' : 'albums-outline'} size={24} color={activeToolPanel === 'flashcards' ? theme.colors.primary : '#fff'} />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: activeToolPanel === 'flashcards' ? theme.colors.primary : '#fff' }]}>Cards</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, activeToolPanel === 'notes' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+=======
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'flashcards' ? theme.colors.primary : '#fff' }]}>Cards</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'notes' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={() => openToolPanel('notes')}
             accessibilityLabel="Open notes"
             activeOpacity={0.7}
           >
             <Icon name={activeToolPanel === 'notes' ? 'document-text' : 'document-text-outline'} size={24} color={activeToolPanel === 'notes' ? theme.colors.primary : '#fff'} />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: activeToolPanel === 'notes' ? theme.colors.primary : '#fff' }]}>Notes</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, showLiveText && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+=======
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'notes' ? theme.colors.primary : '#fff' }]}>Notes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, showLiveText && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={() => setShowLiveText(v => !v)}
             accessibilityLabel={showLiveText ? 'Hide live text' : 'Show live text'}
             activeOpacity={0.7}
           >
             <MaterialIcon name={showLiveText ? 'subtitles' : 'subtitles-outline'} size={24} color={showLiveText ? theme.colors.primary : '#fff'} />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: showLiveText ? theme.colors.primary : '#fff' }]}>Subtitles</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.railBtn, isMobile && { width: 44, paddingVertical: 8 }, activeToolPanel === 'more' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+=======
+            <Text style={[styles.railLabel, { color: showLiveText ? theme.colors.primary : '#fff' }]}>Subtitles</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.railBtn, activeToolPanel === 'more' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             onPress={() => openToolPanel('more')}
             accessibilityLabel="More options"
             activeOpacity={0.7}
           >
             <Icon name="ellipsis-horizontal" size={24} color={activeToolPanel === 'more' ? theme.colors.primary : '#fff'} />
+<<<<<<< HEAD
             {!isMobile && <Text style={[styles.railLabel, { color: activeToolPanel === 'more' ? theme.colors.primary : '#fff' }]}>More</Text>}
           </TouchableOpacity>
         </ScrollView>
 
         {/* ── Slide Panel (desktop/tablet only — on mobile it renders as an overlay inside aiLearningArea) ── */}
         {!isMobile && activeToolPanel && ['topics', 'chat', 'flashcards', 'notes', 'more'].includes(activeToolPanel) && (
+=======
+            <Text style={[styles.railLabel, { color: activeToolPanel === 'more' ? theme.colors.primary : '#fff' }]}>More</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* ── Slide Panel ── */}
+        {activeToolPanel && ['topics', 'chat', 'flashcards', 'notes', 'more'].includes(activeToolPanel) && (
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           <View
             style={[
               styles.aiSlidePanel,
@@ -3179,11 +3357,19 @@ const AILearningScreen = () => {
               accessibilityLabel="Back — stop lecture"
               activeOpacity={0.7}
             >
+<<<<<<< HEAD
               <Icon name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
             <View style={styles.progressLabel}>
               <Icon name="school-outline" size={16} color={theme.colors.primary} />
               <Text style={[styles.progressText, { color: '#fff', fontWeight: '700' }]} numberOfLines={1}>
+=======
+              <Icon name="arrow-back" size={20} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={styles.progressLabel}>
+              <Icon name="school-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.progressText, { color: theme.colors.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 {lecture?.title || topic?.title || 'Live Lecture'}
               </Text>
             </View>
@@ -3196,9 +3382,13 @@ const AILearningScreen = () => {
           </View>
 
           {/* ── Virtual Classroom Stage ── */}
+<<<<<<< HEAD
           <View style={[styles.classroomStage, isMobile
             ? { height: Math.round(windowHeight * 0.56), backgroundColor: isDark ? '#0d0f1f' : '#0f172a' }
             : { flex: 1, backgroundColor: isDark ? '#0d0f1f' : '#0f172a' }]}>
+=======
+          <View style={[styles.classroomStage, { flex: 1, backgroundColor: isDark ? '#0d0f1f' : '#0f172a' }]}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
             {/* Top bar — live state, title, what the teacher is doing, controls */}
             <View style={styles.classroomTopBar}>
@@ -3232,7 +3422,11 @@ const AILearningScreen = () => {
               <ScrollView
                 ref={boardScrollRef}
                 style={styles.classroomBoardScroll}
+<<<<<<< HEAD
                 contentContainerStyle={[styles.classroomBoardContent, isMobile && { paddingHorizontal: 14, paddingVertical: 14 }]}
+=======
+                contentContainerStyle={styles.classroomBoardContent}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 showsVerticalScrollIndicator={false}
               >
                 <Reveal key={`board-${currentChunk.id}`} active style={{ width: '100%' }}>
@@ -3240,6 +3434,7 @@ const AILearningScreen = () => {
                 </Reveal>
               </ScrollView>
 
+<<<<<<< HEAD
               {/* Checkpoint spotlight — interactive answer box (desktop only; mobile shows in inline panel) */}
               {!isMobile && activeBeat?.kind === 'checkpoint' && !!checkpointText && (
                 <Reveal key={`cp-${currentChunk.id}`} active style={[
@@ -3349,6 +3544,23 @@ const AILearningScreen = () => {
                 </Reveal>
               )}
 
+=======
+              {/* Checkpoint spotlight — flips in only when the teacher asks it */}
+              {activeBeat?.kind === 'checkpoint' && !!checkpointText && (
+                <Reveal key={`cp-${currentChunk.id}`} active style={styles.checkpointSpotlight}>
+                  <View style={styles.checkpointBadge}>
+                    <Icon name="help-circle" size={15} color="#fb923c" />
+                    <Text style={styles.checkpointBadgeText}>QUICK CHECK</Text>
+                  </View>
+                  <Text style={styles.checkpointSpotlightText}>{checkpointText}</Text>
+                </Reveal>
+              )}
+
+              {/* Presenter — the live teacher, docked like a webinar cam */}
+              <View style={styles.presenterDock} pointerEvents="none">
+                <AITeacherAvatar state={avatarState} size={isMobile ? 54 : 76} showLabel={false} />
+              </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             </View>
 
             {/* Caption bar — toggled by the Subtitles button (showLiveText) */}
@@ -3363,6 +3575,7 @@ const AILearningScreen = () => {
                     progress={isAdvancing ? 1 : beatProgress}
                     color={activityColor}
                     playing={captionPlaying}
+<<<<<<< HEAD
                     windowWords={28}
                     size={16}
                   />
@@ -3385,10 +3598,20 @@ const AILearningScreen = () => {
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.18)', fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', marginLeft: 8 }}>SkillSphere AI</Text>
                 </View>
+=======
+                    windowWords={isMobile ? 16 : 28}
+                    size={isMobile ? 14 : 16}
+                  />
+                </View>
+                {!isMobile && (
+                  <BeatTimeline beats={teachingBeats} activeIndex={isAdvancing ? teachingBeats.length : (activeBeat?.index ?? 0)} />
+                )}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
               </View>
             )}
           </View>
 
+<<<<<<< HEAD
           {/* Mobile inline panel — shows between board and bottom tab bar */}
           {isMobile && (
             <View style={[styles.mobileInlinePanel, {
@@ -3575,6 +3798,19 @@ const AILearningScreen = () => {
               </TouchableOpacity>
             </View>
           )}
+=======
+          {/* Bottom bar — Take Quiz only */}
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={[styles.quizButton, { backgroundColor: lectureCompleted ? '#10b981' : (isDark ? '#1a2235' : '#e2e8f0') }]}
+              onPress={openQuiz}
+              accessibilityLabel="Take quiz"
+            >
+              <MaterialIcon name="help-circle" size={20} color={lectureCompleted ? '#fff' : (isDark ? '#4b5563' : '#9ca3af')} />
+              <Text style={[styles.quizButtonText, { color: lectureCompleted ? '#fff' : (isDark ? '#4b5563' : '#9ca3af') }]}>Take Quiz</Text>
+            </TouchableOpacity>
+          </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
           {/* Inline classroom Q&A — pauses the lecture and answers on the board */}
           {renderInlineQA()}
@@ -3888,12 +4124,21 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     paddingHorizontal: 40,
   },
+<<<<<<< HEAD
   desktopPresenterBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     borderTopWidth: 1,
     height: 56,
+=======
+  presenterDock: {
+    position: 'absolute',
+    left: 10,
+    bottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   },
   checkpointSpotlight: {
     position: 'absolute',
@@ -3912,6 +4157,7 @@ const styles = StyleSheet.create({
   checkpointBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   checkpointBadgeText: { color: '#fb923c', fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
   checkpointSpotlightText: { color: '#fef3c7', fontSize: 18, lineHeight: 26, fontWeight: '700' },
+<<<<<<< HEAD
   checkpointInput: {
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
@@ -3930,6 +4176,8 @@ const styles = StyleSheet.create({
   checkpointSkipBtn: { backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   checkpointBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   checkpointFeedbackText: { fontSize: 13, lineHeight: 20, fontStyle: 'italic', marginTop: 2 },
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   captionBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4253,6 +4501,7 @@ const styles = StyleSheet.create({
 
   // ── Comparison table visual component ──────────────────────────────────────
   comparisonWrap: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', width: '100%', maxWidth: 820, alignSelf: 'center' },
+<<<<<<< HEAD
   // alignItems: 'stretch' so the VS badge column matches the header cell heights without needing height:'100%'
   comparisonHeader: { flexDirection: 'row', alignItems: 'stretch' },
   comparisonHeaderCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, justifyContent: 'center' },
@@ -4262,6 +4511,15 @@ const styles = StyleSheet.create({
   comparisonVsText: { color: '#64748b', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   comparisonRow: { flexDirection: 'row', alignItems: 'stretch', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   comparisonCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center' },
+=======
+  comparisonHeader: { flexDirection: 'row', alignItems: 'center' },
+  comparisonHeaderCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1 },
+  comparisonHeaderText: { fontSize: 12, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.8 },
+  comparisonVsBadge: { width: 34, height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
+  comparisonVsText: { color: '#64748b', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  comparisonRow: { flexDirection: 'row', alignItems: 'stretch', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
+  comparisonCell: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   comparisonCellText: { color: '#cbd5e1', fontSize: 13, lineHeight: 19 },
   comparisonDivider: { width: 34, backgroundColor: 'rgba(255,255,255,0.04)' },
 
@@ -4358,6 +4616,7 @@ const styles = StyleSheet.create({
   // ── New layout styles (matches LearningScreen) ────────────────────────────
   mainContent: { flexDirection: 'row', overflow: 'hidden' },
   iconRail: { width: 78, borderRightWidth: 1, flexGrow: 0, flexShrink: 0 },
+<<<<<<< HEAD
   // Mobile drawer overlay — slides in from the left over the lecture content
   mobilePanelOverlay: {
     position: 'absolute',
@@ -4412,11 +4671,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   iconRailContent: { alignItems: 'center', paddingTop: 18, paddingBottom: 18, gap: 4 },
   railBtn: { width: 64, paddingVertical: 11, borderRadius: 12, alignItems: 'center', gap: 5, borderWidth: 1, borderColor: 'transparent' },
   railLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.2 },
   aiSlidePanel: { width: 290, flexShrink: 0, overflow: 'hidden', borderRightWidth: 1 },
+<<<<<<< HEAD
   aiLearningArea: { flex: 1, overflow: 'hidden', padding: 14, flexDirection: 'column', backgroundColor: '#0d0f1f' },
+=======
+  aiLearningArea: { flex: 1, overflow: 'hidden', padding: 14, flexDirection: 'column' },
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   progressSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 12 },
   lectureBackBtn: {
     width: 38,
@@ -4470,7 +4735,11 @@ const styles = StyleSheet.create({
   aiFlashcardLabel: { fontSize: 11, fontWeight: '700' },
   aiFlashcardHint: { fontSize: 10, fontWeight: '600' },
   aiFlashcardText: { fontSize: 14, lineHeight: 22, fontWeight: '600' },
+<<<<<<< HEAD
   aiPanelFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 10, paddingVertical: 6, borderTopWidth: 1, gap: 10 },
+=======
+  aiPanelFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', padding: 10, borderTopWidth: 1, gap: 10 },
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   aiFooterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
   aiFooterBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   aiNotesEditor: { flex: 1, margin: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, lineHeight: 20 },

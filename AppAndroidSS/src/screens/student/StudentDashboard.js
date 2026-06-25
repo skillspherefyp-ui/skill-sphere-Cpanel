@@ -15,7 +15,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {
+<<<<<<< HEAD
   FadeIn,
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   FadeInDown,
   useSharedValue,
   useAnimatedStyle,
@@ -446,6 +449,7 @@ const StreakFireIcon = ({ active, size = 28 }) => {
 };
 
 // ============================================
+<<<<<<< HEAD
 // ANIMATED CROSS OVERLAY — missed days
 // ============================================
 
@@ -712,6 +716,8 @@ const badgeCompStyles = StyleSheet.create({
 });
 
 // ============================================
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 // STREAK CARD COMPONENT
 // ============================================
 
@@ -722,6 +728,7 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
   const RED = '#EF4444';
   const activeColor = isStreakAlive ? GREEN : RED;
 
+<<<<<<< HEAD
   // Animated streak counter
   const countAnim = useRef(new RNAnimated.Value(0)).current;
   const [displayCount, setDisplayCount] = useState(0);
@@ -759,6 +766,81 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
             <Text style={[streakCardStyles.subtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
               {isStreakAlive ? (isActiveToday ? '· on fire today!' : '· keep it alive!') : '· start learning'}
             </Text>
+=======
+  // Animated counter for streak number
+  const countAnim = useRef(new RNAnimated.Value(0)).current;
+  const [displayCount, setDisplayCount] = useState(0);
+
+  // Pulse animation on the hero circle ring
+  const ringScale = useSharedValue(1);
+
+  useEffect(() => {
+    countAnim.setValue(0);
+    RNAnimated.timing(countAnim, {
+      toValue: currentStreak,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+    const listener = countAnim.addListener(({ value }) => {
+      setDisplayCount(Math.round(value));
+    });
+
+    if (isStreakAlive) {
+      ringScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 1200 }),
+          withTiming(1.0, { duration: 1200 })
+        ),
+        -1,
+        false
+      );
+    } else {
+      ringScale.value = withTiming(1);
+    }
+
+    return () => countAnim.removeListener(listener);
+  }, [currentStreak, isStreakAlive]);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringScale.value }],
+  }));
+
+  // Next milestone logic
+  const nextMilestone = [7, 14, 21, 30, 60, 90, 180, 365].find(m => m > currentStreak) || currentStreak + 10;
+  const daysToMilestone = nextMilestone - currentStreak;
+  const milestoneProgress = currentStreak / nextMilestone;
+
+  return (
+    <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+      <View
+        style={[
+          streakCardStyles.card,
+          {
+            backgroundColor: isDark ? `${activeColor}12` : `${activeColor}08`,
+            borderColor: `${activeColor}30`,
+            shadowColor: activeColor,
+          },
+        ]}
+      >
+        {/* ── Header ── */}
+        <View style={streakCardStyles.header}>
+          <View style={streakCardStyles.headerLeft}>
+            <View style={[streakCardStyles.iconCircle, { backgroundColor: `${activeColor}20` }]}>
+              <Icon name={isStreakAlive ? 'flame' : 'flame-outline'} size={20} color={activeColor} />
+            </View>
+            <View>
+              <Text style={[streakCardStyles.title, { color: theme.colors.textPrimary }]}>
+                Learning Streak
+              </Text>
+              <Text style={[streakCardStyles.subtitle, { color: theme.colors.textSecondary }]}>
+                {isStreakAlive
+                  ? isActiveToday
+                    ? 'You\'re on fire — active today!'
+                    : 'Log in today to protect your streak!'
+                  : 'Start learning to build your streak'}
+              </Text>
+            </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </View>
           <View style={[streakCardStyles.statusPill, {
             backgroundColor: isStreakAlive
@@ -772,6 +854,7 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
           </View>
         </View>
 
+<<<<<<< HEAD
         {/* ── Hero row: badge LEFT, content RIGHT ── */}
         <View style={streakCardStyles.heroRow}>
 
@@ -841,10 +924,42 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
               <Text style={[streakCardStyles.milestoneHint, { color: theme.colors.textTertiary }]}>
                 {daysToMilestone > 0 ? `${daysToMilestone}d to ${nextMilestone}-day goal` : '🎉 Reached!'}
               </Text>
+=======
+        {/* ── Hero: big ring + streak count ── */}
+        <View style={streakCardStyles.heroRow}>
+          {/* Animated ring */}
+          <Animated.View style={[streakCardStyles.heroRingOuter, { borderColor: `${activeColor}35` }, ringStyle]}>
+            <View style={[streakCardStyles.heroRingInner, { borderColor: `${activeColor}70`, backgroundColor: `${activeColor}12` }]}>
+              <Icon name={isStreakAlive ? 'flame' : 'flame-outline'} size={isMobile ? 22 : 26} color={activeColor} style={{ marginBottom: 2 }} />
+              <Text style={[streakCardStyles.heroCount, { color: theme.colors.textPrimary }]}>{displayCount}</Text>
+              <Text style={[streakCardStyles.heroUnit, { color: activeColor }]}>
+                {currentStreak === 1 ? 'day' : 'days'}
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Right: quick stats column */}
+          <View style={streakCardStyles.heroStats}>
+            <View style={[streakCardStyles.heroStatItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: theme.colors.border }]}>
+              <Icon name="calendar-outline" size={14} color={activeColor} />
+              <Text style={[streakCardStyles.heroStatValue, { color: theme.colors.textPrimary }]}>{totalActiveDays || 0}</Text>
+              <Text style={[streakCardStyles.heroStatLabel, { color: theme.colors.textSecondary }]}>Total Days</Text>
+            </View>
+            <View style={[streakCardStyles.heroStatItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: theme.colors.border }]}>
+              <Icon name="trophy-outline" size={14} color="#F59E0B" />
+              <Text style={[streakCardStyles.heroStatValue, { color: theme.colors.textPrimary }]}>{longestStreak}</Text>
+              <Text style={[streakCardStyles.heroStatLabel, { color: theme.colors.textSecondary }]}>Best Ever</Text>
+            </View>
+            <View style={[streakCardStyles.heroStatItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: theme.colors.border }]}>
+              <Icon name="flag-outline" size={14} color="#6366F1" />
+              <Text style={[streakCardStyles.heroStatValue, { color: theme.colors.textPrimary }]}>{daysToMilestone}</Text>
+              <Text style={[streakCardStyles.heroStatLabel, { color: theme.colors.textSecondary }]}>To {nextMilestone}d</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             </View>
           </View>
         </View>
 
+<<<<<<< HEAD
         {/* ── Divider ── */}
         <View style={[streakCardStyles.divider, { backgroundColor: `${activeColor}20` }]} />
 
@@ -855,11 +970,32 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
             <Text style={[streakCardStyles.weekBonus, { color: '#F59E0B' }]}>🌟 Flawless</Text>
           )}
         </View>
+=======
+        {/* ── Milestone progress bar ── */}
+        <View style={streakCardStyles.milestoneRow}>
+          <Text style={[streakCardStyles.milestoneLabel, { color: theme.colors.textSecondary }]}>
+            Next milestone: <Text style={{ color: activeColor, fontWeight: '700' }}>{nextMilestone} days</Text>
+          </Text>
+          <Text style={[streakCardStyles.milestonePct, { color: activeColor }]}>
+            {Math.round(milestoneProgress * 100)}%
+          </Text>
+        </View>
+        <View style={[streakCardStyles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]}>
+          <View style={[streakCardStyles.progressFill, { width: `${Math.min(milestoneProgress * 100, 100)}%`, backgroundColor: activeColor }]} />
+        </View>
+
+        {/* ── Divider ── */}
+        <View style={[streakCardStyles.divider, { backgroundColor: `${activeColor}20` }]} />
+
+        {/* ── This week label ── */}
+        <Text style={[streakCardStyles.weekLabel, { color: theme.colors.textSecondary }]}>This Week</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
         {/* ── 7-day fire icons ── */}
         <View style={streakCardStyles.daysRow}>
           {(last7Days || []).map((day, i) => (
             <View key={i} style={streakCardStyles.dayCell}>
+<<<<<<< HEAD
               <View style={streakCardStyles.fireWrap}>
                 <StreakFireIcon active={day.active} size={isMobile ? 28 : 32} />
                 {!day.active && totalActiveDays > 1 && (
@@ -868,6 +1004,9 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
                   </View>
                 )}
               </View>
+=======
+              <StreakFireIcon active={day.active} size={isMobile ? 26 : 30} />
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
               <Text style={[streakCardStyles.dayLabel, { color: day.active ? activeColor : theme.colors.textTertiary }]}>
                 {day.label}
               </Text>
@@ -881,6 +1020,7 @@ const StreakCard = ({ streakData, theme, isDark, isMobile }) => {
 
 const streakCardStyles = StyleSheet.create({
   card: {
+<<<<<<< HEAD
     borderRadius: 22,
     borderWidth: 1.5,
     padding: 14,
@@ -895,16 +1035,53 @@ const streakCardStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
+=======
+    borderRadius: 18,
+    borderWidth: 1.5,
+    padding: 18,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+<<<<<<< HEAD
     gap: 6,
     flex: 1,
     overflow: 'hidden',
   },
   title: { fontSize: 15, fontWeight: '700' },
   subtitle: { fontSize: 12, flex: 1 },
+=======
+    gap: 10,
+    flex: 1,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  subtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -912,6 +1089,7 @@ const streakCardStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
+<<<<<<< HEAD
     marginLeft: 8,
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
@@ -1027,10 +1205,54 @@ const streakCardStyles = StyleSheet.create({
   },
   milestoneLabel: {
     fontSize: 9,
+=======
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  // Hero section
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 14,
+  },
+  heroRingOuter: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroRingInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroCount: {
+    fontSize: 30,
+    fontWeight: '900',
+    lineHeight: 34,
+    letterSpacing: -1,
+  },
+  heroUnit: {
+    fontSize: 11,
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+<<<<<<< HEAD
   milestoneCount: {
     fontSize: 11,
     fontWeight: '800',
@@ -1038,12 +1260,54 @@ const streakCardStyles = StyleSheet.create({
   progressTrack: {
     height: 6,
     borderRadius: 3,
+=======
+  heroStats: {
+    flex: 1,
+    gap: 8,
+  },
+  heroStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  heroStatValue: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  heroStatLabel: {
+    fontSize: 11,
+    flex: 1,
+  },
+  // Milestone bar
+  milestoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  milestoneLabel: {
+    fontSize: 11,
+  },
+  milestonePct: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressTrack: {
+    height: 5,
+    borderRadius: 3,
+    marginBottom: 14,
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: 3,
   },
+<<<<<<< HEAD
   milestoneHint: {
     fontSize: 11,
     lineHeight: 15,
@@ -1072,6 +1336,20 @@ const streakCardStyles = StyleSheet.create({
   weekBonus: {
     fontSize: 11,
     fontWeight: '700',
+=======
+  // Divider
+  divider: {
+    height: 1,
+    marginBottom: 10,
+  },
+  // Week fires
+  weekLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   },
   daysRow: {
     flexDirection: 'row',
@@ -1081,6 +1359,7 @@ const streakCardStyles = StyleSheet.create({
   },
   dayCell: {
     alignItems: 'center',
+<<<<<<< HEAD
     gap: 3,
     flex: 1,
   },
@@ -1103,6 +1382,15 @@ const streakCardStyles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+=======
+    gap: 4,
+    flex: 1,
+  },
+  dayLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   },
 });
 

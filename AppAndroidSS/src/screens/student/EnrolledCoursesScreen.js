@@ -42,6 +42,10 @@ const EnrolledCoursesScreen = () => {
   const [sortOrder, setSortOrder] = useState('recent');
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+<<<<<<< HEAD
+=======
+
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 1024;
   const isTablet = width > 768;
@@ -384,7 +388,10 @@ const EnrolledCoursesScreen = () => {
               {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''}
             </Text>
           </View>
+<<<<<<< HEAD
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         </AppCard>
 
         {/* Courses Grid */}

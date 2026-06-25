@@ -13,7 +13,10 @@ import {
   Linking,
   Animated as RNAnimated,
   FlatList,
+<<<<<<< HEAD
   Modal,
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -21,11 +24,16 @@ import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import MainLayout from '../../components/ui/MainLayout';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmDialog from '../../components/ConfirmDialog';
+<<<<<<< HEAD
+=======
+import MarkdownText from '../../components/ui/MarkdownText';
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { lectureChatAPI } from '../../services/apiClient';
+<<<<<<< HEAD
 import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSidebarItems } from '../../utils/sidebarItems';
@@ -485,6 +493,12 @@ const qStyles = StyleSheet.create({
   thinkDots: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 10, paddingBottom: 2 },
   thinkDot: { width: 6, height: 6, borderRadius: 3 },
 });
+=======
+import VoiceQAOverlay from '../../components/VoiceQAOverlay';
+import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSidebarItems } from '../../utils/sidebarItems';
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 const LearningScreen = () => {
   const navigation = useNavigation();
@@ -511,6 +525,7 @@ const LearningScreen = () => {
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
+<<<<<<< HEAD
   const [activePanel, setActivePanel] = useState(null); // 'topics' | 'notes' | null
   const [studentNotes, setStudentNotes] = useState('');
   const [notesSavedAt, setNotesSavedAt] = useState(null);
@@ -518,6 +533,25 @@ const LearningScreen = () => {
   const [showQPanel, setShowQPanel] = useState(false);
   const [qLoading, setQLoading] = useState(false);
   const [qHistory, setQHistory] = useState([]);
+=======
+  const [activePanel, setActivePanel] = useState(null); // 'topics' | 'chat' | 'notes' | null
+  const [studentNotes, setStudentNotes] = useState('');
+  const [notesSavedAt, setNotesSavedAt] = useState(null);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [showVoiceQA, setShowVoiceQA] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const chatScrollRef = useRef(null);
+
+  // Auto-scroll chat to bottom after every message update
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [chatMessages.length, chatSending]);
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
@@ -825,6 +859,7 @@ const LearningScreen = () => {
   }
 
   const togglePanel = (panel) => {
+<<<<<<< HEAD
     setActivePanel(prev => prev === panel ? null : panel);
   };
 
@@ -846,6 +881,69 @@ const LearningScreen = () => {
 
   const handleOpenAsk = () => setShowQPanel(true);
   const handleDismissAsk = () => setShowQPanel(false);
+=======
+    if (panel === 'chat' && activePanel !== 'chat') {
+      openChat();
+    } else {
+      setActivePanel(prev => prev === panel ? null : panel);
+    }
+  };
+
+
+  const openChat = async () => {
+    setActivePanel('chat');
+    if (chatMessages.length === 0) {
+      setChatLoading(true);
+      try {
+        const res = await lectureChatAPI.getHistory(courseId, topicId);
+        if (res.success) {
+          setChatMessages(res.messages || []);
+        }
+      } catch (e) {
+        // start fresh if history load fails
+      } finally {
+        setChatLoading(false);
+      }
+    }
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatInput.trim() || chatSending) return;
+    const text = chatInput.trim();
+    setChatInput('');
+    setChatSending(true);
+
+    // Optimistic user message
+    const tempId = `temp-${Date.now()}`;
+    setChatMessages(prev => [...prev, { id: tempId, sender: 'user', content: text, createdAt: new Date().toISOString() }]);
+
+    try {
+      const res = await lectureChatAPI.sendMessage(courseId, topicId, text);
+      if (res.success) {
+        setChatMessages(prev => [
+          ...prev.filter(m => m.id !== tempId),
+          res.userMessage,
+          res.aiMessage,
+        ]);
+      }
+    } catch (e) {
+      setChatMessages(prev => prev.filter(m => m.id !== tempId));
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to send message' });
+    } finally {
+      setChatSending(false);
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  };
+
+  const handlePauseAsk = () => {
+    setIsPlaying(false);
+    setAiSpeaking(false);
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setShowVoiceQA(true);
+  };
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const handleCompleteTopic = () => {
     setShowCompleteDialog(true);
@@ -1041,6 +1139,155 @@ const LearningScreen = () => {
     );
   };
 
+<<<<<<< HEAD
+=======
+  // ─── Chat Panel ───────────────────────────────────────────────────────────
+  const renderChatPanel = () => (
+    <View style={styles.chatPanelContainer}>
+
+      {/* Header */}
+      <View style={[styles.chatPanelHeader, {
+        backgroundColor: isDark ? theme.colors.card : theme.colors.surface,
+        borderBottomColor: theme.colors.border,
+      }]}>
+        <View style={[styles.chatPanelAvatarSmall, { backgroundColor: theme.colors.primary + '20' }]}>
+          <Icon name="sparkles" size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.chatPanelTitle, { color: theme.colors.textPrimary }]}>AI Tutor</Text>
+          <Text style={[styles.chatPanelSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+            {topic?.title || 'Current Topic'}
+          </Text>
+        </View>
+        <View style={[styles.chatOnlineDot, { backgroundColor: theme.colors.success }]} />
+      </View>
+
+      {/* Messages — ScrollView takes all remaining space */}
+      {chatLoading ? (
+        <View style={styles.chatPanelLoading}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={[styles.chatLoadingText, { color: theme.colors.textTertiary }]}>Loading history…</Text>
+        </View>
+      ) : (
+        <ScrollView
+          ref={chatScrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.chatPanelMessages,
+            chatMessages.length === 0 && styles.chatPanelMessagesEmpty,
+          ]}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: false })}
+        >
+          {chatMessages.length === 0 ? (
+            /* Empty state */
+            <View style={styles.chatPanelEmpty}>
+              <View style={[styles.chatEmptyIconWrap, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Icon name="sparkles-outline" size={28} color={theme.colors.primary} />
+              </View>
+              <Text style={[styles.chatEmptyTitle, { color: theme.colors.textPrimary }]}>Ask your AI Tutor</Text>
+              <Text style={[styles.chatEmptySub, { color: theme.colors.textTertiary }]}>
+                Questions about this topic answered instantly
+              </Text>
+            </View>
+          ) : (
+            chatMessages.map((item, index) => (
+              <View
+                key={item.id?.toString() || `cm-${index}`}
+                style={[
+                  styles.chatBubbleRow,
+                  item.sender === 'user' ? styles.chatBubbleUser : styles.chatBubbleAi,
+                ]}
+              >
+                {item.sender !== 'user' && (
+                  <View style={[styles.chatAiAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+                    <Icon name="sparkles" size={12} color={theme.colors.primary} />
+                  </View>
+                )}
+                <View style={[
+                  styles.chatBubble,
+                  item.sender === 'user'
+                    ? { backgroundColor: theme.colors.primary, borderBottomRightRadius: 4 }
+                    : { backgroundColor: isDark ? '#2f2f2f' : '#f4f4f8', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e8e8f0', borderBottomLeftRadius: 4 },
+                ]}>
+                  {item.sender === 'user'
+                    ? <Text style={[styles.chatBubbleText, { color: '#fff' }]}>{item.content}</Text>
+                    : <MarkdownText textColor={theme.colors.textPrimary}>{item.content}</MarkdownText>
+                  }
+                  <Text style={[styles.chatBubbleTime, {
+                    color: item.sender === 'user' ? 'rgba(255,255,255,0.6)' : theme.colors.textTertiary,
+                  }]}>
+                    {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+
+          {/* Typing indicator */}
+          {chatSending && (
+            <View style={[styles.chatBubbleRow, styles.chatBubbleAi]}>
+              <View style={[styles.chatAiAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Icon name="sparkles" size={12} color={theme.colors.primary} />
+              </View>
+              <View style={[styles.chatBubble, {
+                backgroundColor: isDark ? '#2f2f2f' : '#f4f4f8',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e8e8f0',
+                paddingVertical: 14,
+                borderBottomLeftRadius: 4,
+              }]}>
+                <View style={styles.typingDotsRow}>
+                  <View style={[styles.typingDot, { backgroundColor: theme.colors.primary }]} />
+                  <View style={[styles.typingDot, { backgroundColor: theme.colors.primary, opacity: 0.55 }]} />
+                  <View style={[styles.typingDot, { backgroundColor: theme.colors.primary, opacity: 0.25 }]} />
+                </View>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      )}
+
+      {/* Input bar — sibling of ScrollView, always pinned at bottom */}
+      <View style={[styles.chatInputArea, {
+        backgroundColor: isDark ? theme.colors.background : '#fff',
+        borderTopColor: theme.colors.border,
+      }]}>
+        <View style={[styles.chatInputBox, {
+          backgroundColor: isDark ? '#2f2f2f' : theme.colors.backgroundSecondary,
+          borderColor: theme.colors.border,
+        }]}>
+          <TextInput
+            style={[styles.chatInput, { color: theme.colors.textPrimary }]}
+            value={chatInput}
+            onChangeText={setChatInput}
+            placeholder="Ask about this topic…"
+            placeholderTextColor={theme.colors.textTertiary}
+            multiline
+            maxLength={500}
+            onSubmitEditing={handleSendChatMessage}
+          />
+          <TouchableOpacity
+            style={[styles.chatSendBtn, {
+              backgroundColor: chatInput.trim() && !chatSending
+                ? theme.colors.primary
+                : (isDark ? '#444' : '#d4d4d4'),
+            }]}
+            onPress={handleSendChatMessage}
+            disabled={!chatInput.trim() || chatSending}
+          >
+            {chatSending
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Icon name="arrow-up" size={16} color={chatInput.trim() ? '#fff' : (isDark ? '#888' : '#aaa')} />
+            }
+          </TouchableOpacity>
+        </View>
+      </View>
+
+    </View>
+  );
+
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // ─── Notes Panel ──────────────────────────────────────────────────────────
   const renderNotesPanel = () => (
     <View style={[styles.chatPanelContainer]}>
@@ -1114,11 +1361,18 @@ const LearningScreen = () => {
         height: Platform.OS === 'web' ? windowHeight - 64 : undefined,
       }]}>
 
+<<<<<<< HEAD
         {/* ── Teams-style icon rail (desktop/tablet only) ───────────────── */}
         <View style={[styles.iconRail, {
           backgroundColor: isDark ? '#0d0d1f' : '#1e293b',
           borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)',
           display: isMobile ? 'none' : 'flex',
+=======
+        {/* ── Teams-style icon rail ─────────────────────────────────────── */}
+        <View style={[styles.iconRail, {
+          backgroundColor: isDark ? '#0d0d1f' : '#1e293b',
+          borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)',
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         }]}>
           <TouchableOpacity
             style={[styles.railBtn, activePanel === 'topics' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
@@ -1136,6 +1390,24 @@ const LearningScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+<<<<<<< HEAD
+=======
+            style={[styles.railBtn, activePanel === 'chat' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
+            onPress={() => togglePanel('chat')}
+            activeOpacity={0.7}
+          >
+            <Icon
+              name={activePanel === 'chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+              size={24}
+              color={activePanel === 'chat' ? theme.colors.primary : '#fff'}
+            />
+            <Text style={[styles.railLabel, { color: activePanel === 'chat' ? theme.colors.primary : '#fff', textAlign: 'center' }]}>
+              {'AI\nAssistant'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             style={[styles.railBtn, activePanel === 'notes' && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '50' }]}
             onPress={() => togglePanel('notes')}
             activeOpacity={0.7}
@@ -1149,6 +1421,7 @@ const LearningScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+<<<<<<< HEAD
             style={[styles.railBtn, showQPanel && { backgroundColor: '#f59e0b22', borderColor: '#f59e0b50' }]}
             onPress={handleOpenAsk}
             activeOpacity={0.7}
@@ -1160,18 +1433,36 @@ const LearningScreen = () => {
 
         {/* ── Sliding panel (Topics or Notes — desktop/tablet only) ──────── */}
         {!isMobile && activePanel && (
+=======
+            style={[styles.railBtn]}
+            onPress={handlePauseAsk}
+            activeOpacity={0.7}
+          >
+            <Icon name="hand-left-outline" size={24} color="#fff" />
+            <Text style={[styles.railLabel, { color: '#fff', textAlign: 'center' }]}>{'Ask\nQuestion'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Sliding panel (Topics or Chat) ──────────────────────────── */}
+        {activePanel && (
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           <View style={[styles.slidePanel, {
             backgroundColor: isDark ? '#12122a' : theme.colors.surface,
             borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : theme.colors.border,
             ...(isWeb && { height: windowHeight - 64 }),
           }]}>
             {activePanel === 'topics' && renderTopicsSidebar()}
+<<<<<<< HEAD
+=======
+            {activePanel === 'chat' && renderChatPanel()}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             {activePanel === 'notes' && renderNotesPanel()}
           </View>
         )}
 
         {/* ── Main learning area ──────────────────────────────────────── */}
         <View style={styles.learningArea}>
+<<<<<<< HEAD
           {/* Header bar */}
           {isMobile ? (
             <View style={{ backgroundColor: isDark ? '#0d0f1f' : '#0f172a', paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
@@ -1212,6 +1503,27 @@ const LearningScreen = () => {
             /* ── Manual Mode ─── */
             <View style={[styles.manualFlexArea, isMobile && { flexDirection: 'column' }]}>
               <View style={[styles.manualContentArea, isMobile ? { height: Math.round(windowHeight * 0.42) } : { flex: 1 }]}>
+=======
+          {/* Progress bar */}
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabel}>
+              <Icon name="trending-up" size={16} color={theme.colors.primary} />
+              <Text style={[styles.progressText, { color: theme.colors.textSecondary }]}>Progress</Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFillGreen, { width: `${enrollmentProgress * 0.7}%` }]} />
+                <View style={[styles.progressFillPurple, { width: `${enrollmentProgress * 0.3}%`, left: `${enrollmentProgress * 0.7}%` }]} />
+              </View>
+            </View>
+            <Text style={[styles.progressPercent, { color: theme.colors.primary }]}>{enrollmentProgress}%</Text>
+          </View>
+
+          {isManualMode ? (
+            /* ── Manual Mode ─── */
+            <View style={styles.manualFlexArea}>
+              <View style={[styles.manualContentArea, { flex: 1 }]}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 <View style={[styles.manualHeader, { backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
                   <Icon name={getMaterialIcon(selectedMaterial?.type)} size={16}
                     color={getMaterialColor(selectedMaterial?.type)} />
@@ -1262,6 +1574,7 @@ const LearningScreen = () => {
                   )}
                 </View>
               </View>
+<<<<<<< HEAD
 
               {/* Mobile inline panel — shows between viewer and bottom tab bar */}
               {isMobile && (
@@ -1313,6 +1626,13 @@ const LearningScreen = () => {
             /* ── AI Mode (placeholder — AI courses redirect to AILearning) ─── */
             <View style={[styles.aiFlexArea, isMobile && { flexDirection: 'column' }]}>
               <View style={[styles.manualContentArea, isMobile ? { height: Math.round(windowHeight * 0.42), backgroundColor: isDark ? '#1a1a2e' : '#1e293b' } : { flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
+=======
+            </View>
+          ) : (
+            /* ── AI Mode (placeholder — AI courses redirect to AILearning) ─── */
+            <View style={styles.aiFlexArea}>
+              <View style={[styles.manualContentArea, { flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 <View style={[styles.manualHeader, { backgroundColor: isDark ? '#12122a' : '#0f172a' }]}>
                   <MaterialIcon name="presentation" size={16} color="#fff" />
                   <Text style={styles.manualHeaderTitle} numberOfLines={1}>Virtual Whiteboard</Text>
@@ -1410,6 +1730,7 @@ const LearningScreen = () => {
             </View>
           )}
 
+<<<<<<< HEAD
           {/* Bottom bar / Mobile tab bar */}
           {isMobile ? (
             <View style={[styles.mobileTabBar, {
@@ -1452,6 +1773,18 @@ const LearningScreen = () => {
               </TouchableOpacity>
             </View>
           )}
+=======
+          {/* Bottom bar */}
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={[styles.pauseAskButton, { backgroundColor: '#10b981', flex: 1 }]}
+              onPress={() => navigation.navigate('Quiz', { courseId, topicId, topics: course?.topics || [] })}
+            >
+              <MaterialIcon name="help-circle" size={20} color="#fff" />
+              <Text style={styles.pauseAskText}>Take Quiz</Text>
+            </TouchableOpacity>
+          </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         </View>
       </View>
 
@@ -1465,6 +1798,7 @@ const LearningScreen = () => {
         onCancel={() => setShowCompleteDialog(false)}
       />
 
+<<<<<<< HEAD
       {showQPanel && (
         <ManualQuestionPanel
           onAsk={handleAskQuestion}
@@ -1476,6 +1810,30 @@ const LearningScreen = () => {
           windowHeight={windowHeight}
         />
       )}
+=======
+      <VoiceQAOverlay
+        visible={showVoiceQA}
+        sessionId={null}
+        courseId={courseId}
+        topicId={topicId}
+        studentName={user?.name || user?.fullName || user?.email?.split('@')[0] || 'student'}
+        theme={theme}
+        onQuestionAnswered={(question, answer, rawRes) => {
+          const now = new Date().toISOString();
+          // Use real DB objects if available, otherwise construct local ones
+          const userMsg = rawRes?.userMessage || { id: `vqa-u-${Date.now()}`, sender: 'user', content: question, createdAt: now };
+          const aiMsg = rawRes?.aiMessage || { id: `vqa-a-${Date.now()}`, sender: 'ai', content: answer, createdAt: now };
+          setChatMessages(prev => [...prev, userMsg, aiMsg]);
+          // Open the chat panel so the conversation is visible
+          setActivePanel('chat');
+        }}
+        onClose={() => {
+          setShowVoiceQA(false);
+          setIsPlaying(true);
+          setAiSpeaking(true);
+        }}
+      />
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     </MainLayout>
   );
 };
@@ -1538,7 +1896,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
   },
 
+<<<<<<< HEAD
   // ── Question overlay ───────────────────────────────────────────────────────
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // ── Chat panel ────────────────────────────────────────────────────────────
   chatPanelContainer: {
     flex: 1,
@@ -2170,6 +2531,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
   },
+<<<<<<< HEAD
   mobileInlinePanel: {
     flex: 1,
     borderTopWidth: 1,
@@ -2208,6 +2570,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   pauseAskButton: {
     flex: 1,
     flexDirection: 'row',

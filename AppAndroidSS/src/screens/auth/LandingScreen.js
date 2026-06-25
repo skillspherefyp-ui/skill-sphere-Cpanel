@@ -10,7 +10,10 @@ import {
   Platform,
   useWindowDimensions,
   Animated,
+<<<<<<< HEAD
   Easing,
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   StatusBar,
   Modal,
   Alert,
@@ -30,6 +33,7 @@ const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
 const NAVY2  = '#16213E';
 
+<<<<<<< HEAD
 // ─── PULSING BLOB ─────────────────────────────────────────────────────────────
 const PulsingBlob = ({ style, duration = 3400, delay = 0 }) => {
   const pulse = useRef(new Animated.Value(0)).current;
@@ -110,6 +114,11 @@ const AnimatedReveal = ({ children, delay = 0, fromY = 30, style }) => {
 // ─── Section title ────────────────────────────────────────────────────────────
 const SectionTitle = ({ tag, title, subtitle, center = true, theme, isMobile }) => (
   <AnimatedReveal fromY={20} style={{ alignItems: center ? 'center' : 'flex-start', marginBottom: isMobile ? 28 : 40, width: '100%' }}>
+=======
+// ─── Section title ────────────────────────────────────────────────────────────
+const SectionTitle = ({ tag, title, subtitle, center = true, theme, isMobile }) => (
+  <View style={{ alignItems: center ? 'center' : 'flex-start', marginBottom: isMobile ? 28 : 40 }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     {tag ? (
       <View style={{
         backgroundColor: ORANGE + '20', borderRadius: 20,
@@ -137,7 +146,11 @@ const SectionTitle = ({ tag, title, subtitle, center = true, theme, isMobile }) 
         {subtitle}
       </Text>
     ) : null}
+<<<<<<< HEAD
   </AnimatedReveal>
+=======
+  </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 );
 
 // ─── Searchable sections & pages ──────────────────────────────────────────────
@@ -483,9 +496,15 @@ const HeroSection = ({ navigation, theme, isDark, isMobile, scrollToSection }) =
   ];
 
   return (
+<<<<<<< HEAD
     <View style={[styles.hero, { backgroundColor: 'transparent' }]}>
       <PulsingBlob style={[styles.heroBlobLeft, { backgroundColor: ORANGE + (isDark ? '15':'30') }]} duration={4000} />
       <PulsingBlob style={[styles.heroBlobRight, { backgroundColor: isDark ? 'rgba(255,140,66,0.06)' : 'rgba(26,26,46,0.10)' }]} duration={3600} delay={900} />
+=======
+    <View style={[styles.hero, { backgroundColor: isDark ? NAVY : '#F8F9FF' }]}>
+      <View style={[styles.heroBlobLeft, { backgroundColor: ORANGE + (isDark ? '15':'10') }]} />
+      <View style={[styles.heroBlobRight, { backgroundColor: isDark ? 'rgba(255,140,66,0.06)' : 'rgba(26,26,46,0.04)' }]} />
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
       <Animated.View style={{ opacity:fadeAnim, transform:[{translateY:slideAnim}], alignItems:'center', zIndex:2, width:'100%' }}>
         <View style={styles.heroBadge}>
@@ -751,6 +770,7 @@ const FeaturesSection = ({ theme, isDark, isMobile, onLayout }) => {
         subtitle="We combine cutting-edge technology with expert knowledge to deliver an unparalleled learning experience."
         theme={theme} isMobile={isMobile} />
       <View style={[styles.featuresGrid, isMobile && { flexDirection:'column', gap:12 }]}>
+<<<<<<< HEAD
         {features.map((f, i) => (
           <AnimatedReveal key={f.title} delay={i * 80} fromY={28} style={{ width: isMobile ? '100%' : '31%' }}>
             <View style={[
@@ -768,6 +788,23 @@ const FeaturesSection = ({ theme, isDark, isMobile, onLayout }) => {
               <Text style={[styles.featureDesc, { color: theme.colors.textSecondary }, isMobile && { fontSize:13 }]}>{f.desc}</Text>
             </View>
           </AnimatedReveal>
+=======
+        {features.map(f => (
+          <View key={f.title} style={[
+            styles.featureCard,
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8F9FF',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
+              width: isMobile ? '100%' : '31%',
+            },
+          ]}>
+            <View style={[styles.featureIconBox, { backgroundColor: ORANGE+'18' }]}>
+              <Icon name={f.icon} size={24} color={ORANGE} />
+            </View>
+            <Text style={[styles.featureTitle, { color: theme.colors.textPrimary }, isMobile && { fontSize:15 }]}>{f.title}</Text>
+            <Text style={[styles.featureDesc, { color: theme.colors.textSecondary }, isMobile && { fontSize:13 }]}>{f.desc}</Text>
+          </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         ))}
       </View>
     </View>
@@ -790,6 +827,7 @@ const HowItWorksSection = ({ theme, isDark, isMobile, onLayout }) => {
       <View style={[styles.stepsRow, isMobile && { flexDirection:'column', gap:16 }]}>
         {steps.map((step, i) => (
           <React.Fragment key={step.num}>
+<<<<<<< HEAD
             <AnimatedReveal delay={i * 130} fromY={28} style={isMobile ? { width: '100%' } : { flex: 1 }}>
               <View style={[
                 styles.stepCard,
@@ -815,6 +853,31 @@ const HowItWorksSection = ({ theme, isDark, isMobile, onLayout }) => {
               <AnimatedReveal delay={i * 130 + 65} fromY={0} style={styles.stepArrow}>
                 <Icon name="chevron-forward" size={26} color={ORANGE+'60'} />
               </AnimatedReveal>
+=======
+            <View style={[
+              styles.stepCard,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
+                flex: isMobile ? undefined : 1,
+                width: isMobile ? '100%' : undefined,
+                padding: isMobile ? 20 : 28,
+              },
+            ]}>
+              <View style={styles.stepNumBadge}>
+                <Text style={styles.stepNum}>{step.num}</Text>
+              </View>
+              <View style={[styles.stepIconCircle, { backgroundColor: ORANGE+'1A' }]}>
+                <Icon name={step.icon} size={isMobile ? 26 : 30} color={ORANGE} />
+              </View>
+              <Text style={[styles.stepTitle, { color: theme.colors.textPrimary }, isMobile && { fontSize:16 }]}>{step.title}</Text>
+              <Text style={[styles.stepDesc, { color: theme.colors.textSecondary }, isMobile && { fontSize:13 }]}>{step.desc}</Text>
+            </View>
+            {!isMobile && i < steps.length-1 && (
+              <View style={styles.stepArrow}>
+                <Icon name="chevron-forward" size={26} color={ORANGE+'60'} />
+              </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             )}
           </React.Fragment>
         ))}
@@ -848,7 +911,11 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
 
   return (
     <View style={[styles.section, { backgroundColor: isDark ? NAVY2 : '#FFFFFF', paddingVertical: isMobile ? 48 : 72 }]} onLayout={onLayout}>
+<<<<<<< HEAD
       <AnimatedReveal fromY={18} style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: isMobile ? 20 : 32, width:'100%' }}>
+=======
+      <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: isMobile ? 20 : 32, width:'100%' }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <View>
           <View style={{ backgroundColor: ORANGE+'20', borderRadius:20, paddingHorizontal:12, paddingVertical:4, alignSelf:'flex-start', marginBottom:8 }}>
             <Text style={{ color:ORANGE, fontSize:11, fontWeight:'700', letterSpacing:1.2 }}>LEARN NOW</Text>
@@ -870,7 +937,11 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
           <Text style={{ color: ORANGE, fontSize: isMobile ? 12 : 13, fontWeight: '700' }}>View All</Text>
           <Icon name="arrow-forward" size={isMobile ? 12 : 13} color={ORANGE} />
         </TouchableOpacity>
+<<<<<<< HEAD
       </AnimatedReveal>
+=======
+      </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
       {loading && (
         isMobile ? (
@@ -943,6 +1014,7 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
                     <Icon name="book-outline" size={38} color={catColor} />
                   )}
                 </View>
+<<<<<<< HEAD
                 <View style={{ flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:12, paddingTop:10 }}>
                   <View style={[styles.courseCatBadge, { backgroundColor: catColor+'20', marginBottom:0, paddingHorizontal:0, paddingVertical:0 }]}>
                     <Text style={[styles.courseCatText, { color:catColor }]}>{catName}</Text>
@@ -951,6 +1023,10 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
                     <Icon name={course.creationMode==='ai' ? 'sparkles' : 'person'} size={10} color={course.creationMode==='ai' ? '#8B5CF6' : '#22D3EE'} />
                     <Text style={{ fontSize:10, fontWeight:'700', color: course.creationMode==='ai' ? '#8B5CF6' : '#22D3EE' }}>{course.creationMode==='ai' ? 'AI-Powered' : 'Instructor-Led'}</Text>
                   </View>
+=======
+                <View style={[styles.courseCatBadge, { backgroundColor: catColor+'20' }]}>
+                  <Text style={[styles.courseCatText, { color:catColor }]}>{catName}</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 </View>
                 <View style={styles.courseInfo}>
                   <Text style={[styles.courseTitle, { color: theme.colors.textPrimary }]} numberOfLines={2}>{course.name}</Text>
@@ -991,6 +1067,7 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
               </View>
               <View style={{ flex:1, padding:12, justifyContent:'space-between' }}>
                 <View>
+<<<<<<< HEAD
                   <View style={{ flexDirection:'row', alignItems:'center', gap:6, marginBottom:6, flexWrap:'wrap' }}>
                     <View style={{ backgroundColor: catColor+'20', borderRadius:8, paddingHorizontal:8, paddingVertical:3 }}>
                       <Text style={{ color:catColor, fontSize:10, fontWeight:'700' }}>{catName}</Text>
@@ -999,6 +1076,10 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
                       <Icon name={course.creationMode==='ai' ? 'sparkles' : 'person'} size={10} color={course.creationMode==='ai' ? '#8B5CF6' : '#22D3EE'} />
                       <Text style={{ fontSize:10, fontWeight:'700', color: course.creationMode==='ai' ? '#8B5CF6' : '#22D3EE' }}>{course.creationMode==='ai' ? 'AI-Powered' : 'Instructor-Led'}</Text>
                     </View>
+=======
+                  <View style={{ backgroundColor: catColor+'20', borderRadius:8, paddingHorizontal:8, paddingVertical:3, alignSelf:'flex-start', marginBottom:6 }}>
+                    <Text style={{ color:catColor, fontSize:10, fontWeight:'700' }}>{catName}</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                   </View>
                   <Text style={{ fontSize:14, fontWeight:'700', color: theme.colors.textPrimary, lineHeight:20 }} numberOfLines={2}>
                     {course.name}
@@ -1029,20 +1110,28 @@ const CoursesCarousel = ({ navigation, theme, isDark, isMobile, onLayout }) => {
 
         return isMobile ? (
           <View style={{ gap:12 }}>
+<<<<<<< HEAD
             {courses.map((c, i) => (
               <AnimatedReveal key={c.id} delay={i * 90} fromY={24}>
                 {renderCard(c, false)}
               </AnimatedReveal>
             ))}
+=======
+            {courses.map(c => renderCard(c, false))}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap:14, paddingBottom:8, paddingHorizontal:2 }}>
+<<<<<<< HEAD
             {courses.map((c, i) => (
               <AnimatedReveal key={c.id} delay={i * 100} fromY={24}>
                 {renderCard(c, true)}
               </AnimatedReveal>
             ))}
+=======
+            {courses.map(c => renderCard(c, true))}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </ScrollView>
         );
       })()}
@@ -1061,14 +1150,23 @@ const StatisticsSection = ({ isMobile }) => {
   return (
     <View style={[styles.statsSection, { paddingVertical: isMobile ? 40 : 60 }]}>
       <View style={[styles.statsGrid, isMobile && { flexWrap:'wrap', justifyContent:'center' }]}>
+<<<<<<< HEAD
         {stats.map((s, i) => (
           <AnimatedReveal key={s.label} delay={i * 90} fromY={20} style={[styles.statBlock, isMobile && { width:'50%', marginBottom:24 }]}>
+=======
+        {stats.map(s => (
+          <View key={s.label} style={[styles.statBlock, isMobile && { width:'50%', marginBottom:24 }]}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             <View style={[styles.statIconCircle, { backgroundColor: ORANGE+'25' }]}>
               <Icon name={s.icon} size={isMobile ? 22 : 26} color={ORANGE} />
             </View>
             <Text style={[styles.statBigValue, isMobile && { fontSize:26 }]}>{s.value}</Text>
             <Text style={[styles.statBigLabel, isMobile && { fontSize:12 }]}>{s.label}</Text>
+<<<<<<< HEAD
           </AnimatedReveal>
+=======
+          </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         ))}
       </View>
     </View>
@@ -1094,8 +1192,12 @@ const FAQSection = ({ theme, isDark, isMobile, onLayout }) => {
         {faqs.map((faq, i) => {
           const isOpen = openIndex === i;
           return (
+<<<<<<< HEAD
             <AnimatedReveal key={i} delay={i * 60} fromY={18}>
             <TouchableOpacity
+=======
+            <TouchableOpacity key={i}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
               style={[styles.faqItem, {
                 backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
                 borderColor: isOpen ? ORANGE : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)'),
@@ -1112,7 +1214,10 @@ const FAQSection = ({ theme, isDark, isMobile, onLayout }) => {
                 <Text style={[styles.faqAnswer, { color: theme.colors.textSecondary }, isMobile && { fontSize:13 }]}>{faq.a}</Text>
               )}
             </TouchableOpacity>
+<<<<<<< HEAD
             </AnimatedReveal>
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           );
         })}
       </View>
@@ -1123,6 +1228,7 @@ const FAQSection = ({ theme, isDark, isMobile, onLayout }) => {
 // ─── 11. CTA BANNER ───────────────────────────────────────────────────────────
 const CTABanner = ({ navigation, isMobile }) => (
   <View style={[styles.ctaBanner, { paddingVertical: isMobile ? 52 : 72 }]}>
+<<<<<<< HEAD
     <PulsingBlob style={[styles.ctaBlobLeft, { backgroundColor: ORANGE+'18' }]} duration={3800} />
     <PulsingBlob style={[styles.ctaBlobRight, { backgroundColor: ORANGE+'0F' }]} duration={4400} delay={1200} />
     <AnimatedReveal fromY={22}>
@@ -1150,6 +1256,29 @@ const CTABanner = ({ navigation, isMobile }) => (
         </TouchableOpacity>
       </View>
     </AnimatedReveal>
+=======
+    <View style={[styles.ctaBlobLeft, { backgroundColor: ORANGE+'18' }]} />
+    <View style={[styles.ctaBlobRight, { backgroundColor: ORANGE+'0F' }]} />
+    <Text style={[styles.ctaTitle, isMobile && { fontSize:24, lineHeight:32 }]}>
+      Ready to Start Learning?
+    </Text>
+    <Text style={[styles.ctaSub, isMobile && { fontSize:14 }]}>
+      Join over 10,000 students already learning on SkillSphere
+    </Text>
+    <View style={[styles.ctaButtons, isMobile && { flexDirection:'column', width:'100%', paddingHorizontal:24, gap:10 }]}>
+      <TouchableOpacity
+        style={[styles.ctaPrimary, isMobile && { width:'100%', justifyContent:'center' }]}
+        onPress={() => navigation.navigate('Signup')}>
+        <Text style={styles.ctaPrimaryText}>Create Free Account</Text>
+        <Icon name="rocket-outline" size={17} color={NAVY} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.ctaSecondary, isMobile && { width:'100%', justifyContent:'center' }]}
+        onPress={() => navigation.navigate('Login')}>
+        <Text style={styles.ctaSecondaryText}>Sign In</Text>
+      </TouchableOpacity>
+    </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   </View>
 );
 
@@ -1185,7 +1314,11 @@ const ContactForm = ({ theme, isDark, isMobile, onLayout }) => {
       <SectionTitle tag="Contact" title="Get In Touch"
         subtitle="Have a question or feedback? We'd love to hear from you."
         theme={theme} isMobile={isMobile} />
+<<<<<<< HEAD
       <AnimatedReveal delay={60} fromY={24} style={[styles.contactCard, {
+=======
+      <View style={[styles.contactCard, {
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#F8F9FF',
         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
         width: isMobile ? '100%' : 560,
@@ -1239,7 +1372,11 @@ const ContactForm = ({ theme, isDark, isMobile, onLayout }) => {
             </TouchableOpacity>
           </>
         )}
+<<<<<<< HEAD
       </AnimatedReveal>
+=======
+      </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     </View>
   );
 };
@@ -1365,6 +1502,7 @@ const Footer = ({ navigation, theme, isDark, isMobile, scrollToSection }) => {
   );
 };
 
+<<<<<<< HEAD
 // ─── POSTER BACKGROUND ────────────────────────────────────────────────────────
 const PosterBackground = ({ isDark }) => {
   const svgRef = useRef(null);
@@ -1434,6 +1572,8 @@ const PosterBackground = ({ isDark }) => {
   );
 };
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 const LandingScreen = ({ navigation }) => {
   const { theme, isDark } = useTheme();
@@ -1532,8 +1672,12 @@ const LandingScreen = ({ navigation }) => {
   }, []);
 
   return (
+<<<<<<< HEAD
     <View style={{ flex:1, backgroundColor: isDark ? '#060614' : '#F0F4FF' }}>
       <PosterBackground isDark={isDark} />
+=======
+    <View style={{ flex:1, backgroundColor: isDark ? NAVY : '#F8F9FF' }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>SkillSphere - Online Courses &amp; AI Learning Platform Pakistan</title>
         <meta name="description" content="Pakistan's #1 AI-powered online learning platform. Enroll in expert-led courses, learn with AI tutors, earn verified certificates, and master in-demand skills." />
@@ -1542,7 +1686,11 @@ const LandingScreen = ({ navigation }) => {
         <meta property="og:title" content="SkillSphere - Online Courses & AI Learning Platform Pakistan" />
       </Helmet>
       {/* Hero blobs extended into navbar gap — positioned to match hero section's blob exactly */}
+<<<<<<< HEAD
       <PulsingBlob style={{ position:'absolute', width:360, height:360, borderRadius:180, top:-8, left:-100, backgroundColor: ORANGE + (isDark ? '15' : '10') }} duration={4000} />
+=======
+      <View style={{ position:'absolute', width:360, height:360, borderRadius:180, top:-8, left:-100, backgroundColor: ORANGE + (isDark ? '15' : '10'), pointerEvents:'none' }} />
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <StatusBar barStyle="light-content" backgroundColor={NAVY} />
       <AppHeader
         showBack={false}

@@ -11,7 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+<<<<<<< HEAD
 import Toast from 'react-native-toast-message';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import AppButton from './ui/AppButton';
 import AppInput from './ui/AppInput';
 import { useTheme } from '../context/ThemeContext';
@@ -65,6 +68,7 @@ const AddMaterialModal = ({ visible, onClose, onAddMaterial, pdfOnly = false }) 
             Alert.alert('Error', pdfOnly ? 'Please select a PDF file only.' : 'Please select a PDF or image file only.');
             return;
           }
+<<<<<<< HEAD
           const MAX_SIZE_BYTES = 50 * 1024 * 1024;
           if (file.size > MAX_SIZE_BYTES) {
             Toast.show({
@@ -74,6 +78,8 @@ const AddMaterialModal = ({ visible, onClose, onAddMaterial, pdfOnly = false }) 
             });
             return;
           }
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           setFileName(file.name);
           setSelectedFile(file);
           setFileUri(URL.createObjectURL(file));

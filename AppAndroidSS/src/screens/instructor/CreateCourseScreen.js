@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+=======
+import React, { useState, useEffect, useMemo } from 'react';
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import {
   View,
   Text,
@@ -88,10 +92,13 @@ const CreateCourseScreen = () => {
   const [showPrereqModal, setShowPrereqModal] = useState(false);
   const [prereqSearch, setPrereqSearch] = useState('');
 
+<<<<<<< HEAD
   // Rich text refs for description
   const descRef = useRef(null);
   const descSelectionRef = useRef({ start: 0, end: 0 });
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // Available courses for prerequisites: same category, exclude current course
   const availableCourses = courses.filter(c =>
     c.id !== courseId && c.category?.name === category
@@ -172,6 +179,7 @@ const CreateCourseScreen = () => {
     }
   };
 
+<<<<<<< HEAD
   const applyDescFormat = (prefix, suffix = '') => {
     const { start, end } = descSelectionRef.current;
     const selected = description.slice(start, end);
@@ -184,6 +192,8 @@ const CreateCourseScreen = () => {
     setDescription(description.slice(0, lineStart) + prefix + description.slice(lineStart));
   };
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const handleSubmit = async () => {
     if (!courseName || !description || !category || !duration) {
       Toast.show({ type: 'error', text1: 'Error', text2: 'Please fill all required fields' });
@@ -324,6 +334,7 @@ const CreateCourseScreen = () => {
                 placeholder="Enter course name"
               />
 
+<<<<<<< HEAD
               {/* Description with rich text toolbar */}
               {(() => {
                 const bg = isDark ? 'rgba(255,255,255,0.07)' : '#F8FAFC';
@@ -397,6 +408,16 @@ const CreateCourseScreen = () => {
                   </View>
                 );
               })()}
+=======
+              <AppInput
+                label="Description *"
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Enter course description..."
+                multiline={true}
+                numberOfLines={4}
+              />
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
               <SearchableDropdown
                 label="Category *"
@@ -423,7 +444,11 @@ const CreateCourseScreen = () => {
                 <View style={styles.sectionTitleBlock}>
                   <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Prerequisites</Text>
                   <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+<<<<<<< HEAD
                     Student must complete this course first (optional)
+=======
+                    Students must complete these courses first (optional)
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                   </Text>
                 </View>
               </View>
@@ -439,12 +464,18 @@ const CreateCourseScreen = () => {
               >
                 <Text style={[styles.prereqDropdownText, { color: prerequisiteIds.length > 0 ? '#10B981' : theme.colors.placeholder }]}>
                   {prerequisiteIds.length === 0
+<<<<<<< HEAD
                     ? 'No prerequisite'
                     : (availableCourses.find(x => x.id === prerequisiteIds[0])?.name || 'Selected')}
+=======
+                    ? 'No prerequisites'
+                    : `${prerequisiteIds.length} course${prerequisiteIds.length > 1 ? 's' : ''} selected`}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 </Text>
                 <Icon name="chevron-down" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
 
+<<<<<<< HEAD
               {/* Clear button */}
               {prerequisiteIds.length > 0 && (
                 <TouchableOpacity
@@ -454,6 +485,24 @@ const CreateCourseScreen = () => {
                   <Icon name="close-circle" size={14} color="#EF4444" />
                   <Text style={styles.prereqClearText}>Remove prerequisite</Text>
                 </TouchableOpacity>
+=======
+              {/* Selected course names shown as tags */}
+              {prerequisiteIds.length > 0 && (
+                <View style={styles.prereqTags}>
+                  {prerequisiteIds.map(id => {
+                    const c = availableCourses.find(x => x.id === id);
+                    if (!c) return null;
+                    return (
+                      <View key={id} style={styles.prereqTag}>
+                        <Text style={styles.prereqTagText} numberOfLines={1}>{c.name}</Text>
+                        <TouchableOpacity onPress={() => setPrerequisiteIds(prev => prev.filter(x => x !== id))}>
+                          <Icon name="close-circle" size={16} color="#10B981" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
               )}
             </View>
 
@@ -472,7 +521,11 @@ const CreateCourseScreen = () => {
                   borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,46,0.08)',
                 }]}>
                   <View style={styles.prereqModalHeader}>
+<<<<<<< HEAD
                     <Text style={[styles.prereqModalTitle, { color: theme.colors.textPrimary }]}>Select Prerequisite</Text>
+=======
+                    <Text style={[styles.prereqModalTitle, { color: theme.colors.textPrimary }]}>Select Prerequisites</Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                     <TouchableOpacity onPress={() => { setShowPrereqModal(false); setPrereqSearch(''); }}>
                       <Icon name="close-circle" size={28} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
@@ -493,10 +546,17 @@ const CreateCourseScreen = () => {
                   {/* None option */}
                   <TouchableOpacity
                     style={[styles.prereqModalItem, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.06)' }]}
+<<<<<<< HEAD
                     onPress={() => { setPrerequisiteIds([]); setShowPrereqModal(false); setPrereqSearch(''); }}
                   >
                     <Text style={[styles.prereqModalItemText, { color: prerequisiteIds.length === 0 ? '#10B981' : theme.colors.textPrimary }]}>
                       No prerequisite
+=======
+                    onPress={() => setPrerequisiteIds([])}
+                  >
+                    <Text style={[styles.prereqModalItemText, { color: prerequisiteIds.length === 0 ? '#10B981' : theme.colors.textPrimary }]}>
+                      No prerequisites
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                     </Text>
                     {prerequisiteIds.length === 0 && <Icon name="checkmark-circle" size={20} color="#10B981" />}
                   </TouchableOpacity>
@@ -506,11 +566,21 @@ const CreateCourseScreen = () => {
                     keyExtractor={item => String(item.id)}
                     keyboardShouldPersistTaps="handled"
                     renderItem={({ item }) => {
+<<<<<<< HEAD
                       const selected = prerequisiteIds[0] === item.id;
                       return (
                         <TouchableOpacity
                           style={[styles.prereqModalItem, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.06)' }]}
                           onPress={() => { setPrerequisiteIds([item.id]); setShowPrereqModal(false); setPrereqSearch(''); }}
+=======
+                      const selected = prerequisiteIds.includes(item.id);
+                      return (
+                        <TouchableOpacity
+                          style={[styles.prereqModalItem, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.06)' }]}
+                          onPress={() => setPrerequisiteIds(prev =>
+                            prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                          )}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                         >
                           <Text style={[styles.prereqModalItemText, { color: selected ? '#10B981' : theme.colors.textPrimary }]} numberOfLines={1}>
                             {item.name}
@@ -1170,6 +1240,7 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       fontSize: 15,
       fontWeight: '500',
     },
+<<<<<<< HEAD
     prereqClearBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1182,6 +1253,8 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       fontWeight: '600',
       color: '#EF4444',
     },
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     prereqTags: {
       flexDirection: 'row',
       flexWrap: 'wrap',

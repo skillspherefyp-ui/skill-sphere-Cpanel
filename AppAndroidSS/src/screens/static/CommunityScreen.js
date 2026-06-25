@@ -5,7 +5,10 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from '../../components/ui/AppHeader';
+<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
@@ -67,7 +70,11 @@ const CommunityScreen = ({ navigation }) => {
   const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)';
 
   return (
+<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
+=======
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>Community - SkillSphere Learners</title>
         <meta name="description" content="Join the SkillSphere learning community. Connect with fellow students, join course discussions, and grow together on Pakistan's top learning platform." />
@@ -148,7 +155,11 @@ const CommunityScreen = ({ navigation }) => {
         </Text>
 
       </ScrollView>
+<<<<<<< HEAD
     </ThemedView>
+=======
+    </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

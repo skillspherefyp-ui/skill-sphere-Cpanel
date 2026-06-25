@@ -35,7 +35,10 @@
     "nodemailer": "^8.0.5",
     "openai": "^6.27.0",
     "pdf-parse": "^1.1.1",
+<<<<<<< HEAD
     "puppeteer": "^25.1.0",
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     "puppeteer-core": "^25.1.0",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",

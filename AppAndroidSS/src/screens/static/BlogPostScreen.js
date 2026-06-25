@@ -6,7 +6,10 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from '../../components/ui/AppHeader';
+<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { blogAPI } from '../../services/apiClient';
 import { Helmet } from 'react-helmet-async';
 
@@ -207,7 +210,11 @@ const BlogPostScreen = ({ navigation, route }) => {
   };
 
   return (
+<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
+=======
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>{post ? `${post.title} - SkillSphere Blog` : 'Blog Post - SkillSphere'}</title>
         <meta name="description" content={post?.excerpt || post?.summary || 'Read this article on the SkillSphere blog.'} />
@@ -269,7 +276,11 @@ const BlogPostScreen = ({ navigation, route }) => {
 
         </ScrollView>
       )}
+<<<<<<< HEAD
     </ThemedView>
+=======
+    </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

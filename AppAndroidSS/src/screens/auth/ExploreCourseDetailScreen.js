@@ -5,7 +5,10 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
+<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import AppHeader from '../../components/ui/AppHeader';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { courseAPI } from '../../services/apiClient';
@@ -75,6 +78,7 @@ const nb = StyleSheet.create({
   getStartedText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 });
 
+<<<<<<< HEAD
 // ─── Inline markdown parser ──────────────────────────────────────────────────
 function parseInline(text, baseStyle, boldColor) {
   const parts = [];
@@ -159,6 +163,8 @@ const mdS = StyleSheet.create({
   mdParagraph: { fontSize: 15, lineHeight: 26 },
 });
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 // ── Section Card ──────────────────────────────────────────────────────────────
 const SCard = ({ children, isDark, style }) => (
   <View style={[{
@@ -236,7 +242,11 @@ const ExploreCourseDetailScreen = () => {
 
   if (loading) {
     return (
+<<<<<<< HEAD
       <ThemedView colorKey="background" style={{ flex: 1 }}>
+=======
+      <View style={{ flex: 1, backgroundColor: bgMain }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         {renderNav()}
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 }}>
           <ActivityIndicator size="large" color={ORANGE} />
@@ -244,13 +254,21 @@ const ExploreCourseDetailScreen = () => {
             Loading course details...
           </Text>
         </View>
+<<<<<<< HEAD
       </ThemedView>
+=======
+      </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     );
   }
 
   if (error || !course) {
     return (
+<<<<<<< HEAD
       <ThemedView colorKey="background" style={{ flex: 1 }}>
+=======
+      <View style={{ flex: 1, backgroundColor: bgMain }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         {renderNav()}
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14, padding: 32 }}>
           <Icon name="alert-circle-outline" size={56} color={ORANGE + '80'} />
@@ -262,7 +280,11 @@ const ExploreCourseDetailScreen = () => {
             <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Go Back</Text>
           </TouchableOpacity>
         </View>
+<<<<<<< HEAD
       </ThemedView>
+=======
+      </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     );
   }
 
@@ -274,7 +296,11 @@ const ExploreCourseDetailScreen = () => {
   ];
 
   return (
+<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
+=======
+    <View style={{ flex: 1, backgroundColor: bgMain }}>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       {renderNav()}
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -320,6 +346,7 @@ const ExploreCourseDetailScreen = () => {
                   <Text style={{ fontSize: 13, fontWeight: '600', color: m.color }}>{m.label}</Text>
                 </View>
               ))}
+<<<<<<< HEAD
               {/* Course Type badge */}
               <View style={[s.metaBadge, { backgroundColor: course.creationMode === 'ai' ? 'rgba(139,92,246,0.12)' : 'rgba(34,211,238,0.1)', borderWidth: 1, borderColor: course.creationMode === 'ai' ? 'rgba(139,92,246,0.3)' : 'rgba(34,211,238,0.25)' }]}>
                 <Icon name={course.creationMode === 'ai' ? 'sparkles' : 'person'} size={15} color={course.creationMode === 'ai' ? '#8B5CF6' : '#22D3EE'} />
@@ -327,6 +354,8 @@ const ExploreCourseDetailScreen = () => {
                   {course.creationMode === 'ai' ? 'AI-Powered' : 'Instructor-Led'}
                 </Text>
               </View>
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             </View>
 
             {/* Instructor + Enrollment */}
@@ -351,10 +380,16 @@ const ExploreCourseDetailScreen = () => {
           {/* ── About ── */}
           <SCard isDark={isDark}>
             <SectionLabel text="About This Course" />
+<<<<<<< HEAD
             {course.description
               ? <MarkdownContent content={course.description} c={theme.colors} isDark={isDark} />
               : <Text style={{ fontSize: 15, lineHeight: 26, color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(26,26,46,0.75)' }}>No description available for this course.</Text>
             }
+=======
+            <Text style={{ fontSize: 15, lineHeight: 26, color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(26,26,46,0.75)' }}>
+              {course.description || 'No description available for this course.'}
+            </Text>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </SCard>
 
           {/* ── Prerequisites ── */}
@@ -476,7 +511,11 @@ const ExploreCourseDetailScreen = () => {
         course={course}
         isDark={isDark}
       />
+<<<<<<< HEAD
     </ThemedView>
+=======
+    </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

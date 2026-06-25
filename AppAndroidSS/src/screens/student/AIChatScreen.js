@@ -22,7 +22,10 @@ import Toast from 'react-native-toast-message';
 import MainLayout from '../../components/ui/MainLayout';
 import MarkdownText from '../../components/ui/MarkdownText';
 import { useTheme } from '../../context/ThemeContext';
+<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { aiChatAPI, aiTutorAPI } from '../../services/apiClient';
@@ -517,9 +520,15 @@ const AIChatScreen = () => {
 
   const renderSidebar = () => (
     <View style={{ width: sidebarWidth, flexDirection: 'row' }}>
+<<<<<<< HEAD
       <ThemedView colorKey="background" style={{ flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
         <SidebarContent glass={false} />
       </ThemedView>
+=======
+      <View style={{ flex: 1, backgroundColor: isDark ? theme.colors.background : '#ffffff', flexDirection: 'column', overflow: 'hidden' }}>
+        <SidebarContent glass={false} />
+      </View>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       {isWeb ? (
         <View style={{ width: 2, alignSelf: 'stretch', background: 'linear-gradient(180deg, #FF8C42, #7C6FCD)' }} />
       ) : (

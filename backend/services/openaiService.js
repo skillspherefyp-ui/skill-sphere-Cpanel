@@ -744,6 +744,7 @@ async function moderateContent(text) {
   };
 }
 
+<<<<<<< HEAD
 async function evaluateCheckpointAnswer({ question, studentAnswer, chunkText, language }) {
   const client = getClient();
   const model = process.env.OPENAI_MODEL_QA;
@@ -786,6 +787,8 @@ async function evaluateCheckpointAnswer({ question, studentAnswer, chunkText, la
   return JSON.parse(raw);
 }
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 module.exports = {
   generateLecturePackage,
   repairLecturePackage,
@@ -797,5 +800,8 @@ module.exports = {
   smokeTest,
   createAudioCacheKey,
   moderateContent,
+<<<<<<< HEAD
   evaluateCheckpointAnswer,
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 };

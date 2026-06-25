@@ -60,7 +60,11 @@ function OrbitParticle({ color, index, total, orbitRadius, active }) {
   );
 }
 
+<<<<<<< HEAD
 export default function AITeacherAvatar({ state = 'idle', size = 110, showLabel = true, minimal = false, compact = false }) {
+=======
+export default function AITeacherAvatar({ state = 'idle', size = 110, showLabel = true, minimal = false }) {
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const cfg = STATES[state] || STATES.idle;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -118,6 +122,7 @@ export default function AITeacherAvatar({ state = 'idle', size = 110, showLabel 
   const orbitRadius = size * 0.58;
   const particlesActive = cfg.pulse;
 
+<<<<<<< HEAD
   if (compact) {
     return (
       <Animated.View
@@ -143,6 +148,8 @@ export default function AITeacherAvatar({ state = 'idle', size = 110, showLabel 
     );
   }
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   return (
     <View style={[styles.wrapper, { width: minimal ? size * 1.3 : size * 2.2, paddingVertical: minimal ? 2 : 12 }]}>
       {/* Outer glow halo */}

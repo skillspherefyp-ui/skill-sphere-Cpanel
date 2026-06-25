@@ -20,7 +20,11 @@ function getClient() {
 }
 
 // Sections worth a screenshot walkthrough.
+<<<<<<< HEAD
 const HOWTO_RE = /(install|download|set[\s-]?up|configure|sign[\s-]?up|create an account|register|getting started|launch|run the|environment|\bide\b|editor|interpreter|command\s?line|terminal|browser|website|tool|account|extension|package manager|انسٹال|ڈاؤن لوڈ|ترتیب|شروع کریں|ٹرمینل|ایڈیٹر|ماحول|ویب سائٹ|اکاؤنٹ|رجسٹر|انسٹالیشن|ڈاؤنلوڈ)/i;
+=======
+const HOWTO_RE = /(install|download|set[\s-]?up|configure|sign[\s-]?up|create an account|register|getting started|launch|run the|environment|\bide\b|editor|interpreter|command\s?line|terminal|browser|website|tool|account|extension|package manager)/i;
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const MAX_SECTIONS = Number(process.env.GUIDED_STEPS_MAX_SECTIONS || 2);
 
 async function generateSteps(section, lectureTitle) {
@@ -52,7 +56,10 @@ Rules:
     ],
   });
   const parsed = JSON.parse(completion.choices[0].message.content);
+<<<<<<< HEAD
   console.log(`🖼️  GPT for section "${section.title}": applicable=${parsed.applicable}, steps=${Array.isArray(parsed.steps) ? parsed.steps.length : 0}`);
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   if (parsed.applicable === false) return [];
   return Array.isArray(parsed.steps) ? parsed.steps : [];
 }
@@ -67,7 +74,10 @@ async function attachGuidedStepsToSection(section, { lectureTitle }) {
     if (!instruction) continue;
     let image = null;
     let url = null;
+<<<<<<< HEAD
     console.log(`🖼️  Step: "${instruction}" | url=${s.url || 'null'}`);
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     if (s.url && screenshotService.isPublicHttpUrl(s.url)) {
       const shot = await screenshotService.captureUrlScreenshot(s.url, { width: 1280, height: 900, selector: s.selector || null });
       if (shot) { image = shot.urlPath; url = s.url; }
@@ -75,10 +85,16 @@ async function attachGuidedStepsToSection(section, { lectureTitle }) {
     guidedSteps.push({ instruction, image, url, caption: `${s.caption || ''}`.trim() });
   }
 
+<<<<<<< HEAD
   if (!guidedSteps.length) return false;
 
   const withImages = guidedSteps.filter((g) => g.image).length;
   console.log(`🖼️  Guided steps: ${guidedSteps.length} steps generated, ${withImages} with screenshots for section "${section.title}"`);
+=======
+  // Only keep the walkthrough if at least one real screenshot landed — avoids
+  // walls of instruction-only text.
+  if (!guidedSteps.some((g) => g.image)) return false;
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const existing = section.visualData && typeof section.visualData === 'object' ? section.visualData : {};
   await section.update({ visualData: { ...existing, guidedSteps } });
@@ -90,6 +106,7 @@ async function attachGuidedStepsToSection(section, { lectureTitle }) {
  * MAX_SECTIONS of them. Safe to call after a lecture is persisted.
  */
 async function enrichLectureWithGuidedSteps(topicId, { lectureTitle, language } = {}) {
+<<<<<<< HEAD
   if (process.env.ENABLE_GUIDED_STEPS === 'false') {
     console.log(`🖼️  Guided steps: disabled via ENABLE_GUIDED_STEPS=false`);
     return;
@@ -107,11 +124,20 @@ async function enrichLectureWithGuidedSteps(topicId, { lectureTitle, language } 
     console.log(`🖼️  Guided steps: no lecture found for topic ${topicId}`);
     return;
   }
+=======
+  if (process.env.ENABLE_GUIDED_STEPS === 'false') return;
+  if (language === 'Urdu') return; // screenshots + English UI; skip Urdu for now
+  if (!screenshotService.findBrowser()) return; // no Chrome/Edge available
+
+  const lecture = await AILecture.findOne({ where: { topicId } });
+  if (!lecture) return;
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const sections = await AILectureSection.findAll({
     where: { lectureId: lecture.id },
     order: [['sectionIndex', 'ASC'], ['chunkIndex', 'ASC']],
   });
 
+<<<<<<< HEAD
   const matchedSections = sections.filter((s) => {
     const vd = s.visualData || {};
     if (Array.isArray(vd.guidedSteps) && vd.guidedSteps.length) return false; // already done
@@ -124,6 +150,13 @@ async function enrichLectureWithGuidedSteps(topicId, { lectureTitle, language } 
   }
 
   const candidates = matchedSections.slice(0, MAX_SECTIONS);
+=======
+  const candidates = sections.filter((s) => {
+    const vd = s.visualData || {};
+    if (Array.isArray(vd.guidedSteps) && vd.guidedSteps.length) return false; // already done
+    return HOWTO_RE.test(`${s.title || ''} ${s.learningObjective || ''} ${s.summary || ''}`);
+  }).slice(0, MAX_SECTIONS);
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   let attached = 0;
   for (const section of candidates) {

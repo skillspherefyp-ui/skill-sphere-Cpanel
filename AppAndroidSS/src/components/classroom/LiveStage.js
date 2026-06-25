@@ -7,7 +7,11 @@
 // already keeps in lockstep with real audio position — so the choreography
 // stays in sync with the tutor's actual voice for free.
 
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+=======
+import React, { useEffect, useMemo, useRef } from 'react';
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AITeacherAvatar from './AITeacherAvatar';
@@ -120,6 +124,7 @@ export function Reveal({ children, active = true, delay = 0, from = 14, style })
 // ─── Live caption — reveals words in lockstep with the active beat's progress.
 // Acts like real lecture subtitles: a sliding window of the most-recent spoken
 // words so the height stays fixed and the leading word is always in view.
+<<<<<<< HEAD
 // Detect RTL scripts (Arabic, Urdu, Hebrew, etc.)
 const RTL_RE = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
 
@@ -129,10 +134,16 @@ export function StageCaption({ text, progress = 1, color = '#a5b4fc', playing = 
   if (!words.length) return null;
 
   const isRTL = RTL_RE.test(text);
+=======
+export function StageCaption({ text, progress = 1, color = '#a5b4fc', playing = true, windowWords = 0, size = 16 }) {
+  const words = useMemo(() => `${text || ''}`.split(/\s+/).filter(Boolean), [text]);
+  if (!words.length) return null;
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const shown = playing
     ? clamp(Math.ceil(words.length * clamp(progress)), 0, words.length)
     : words.length;
   const done = shown >= words.length;
+<<<<<<< HEAD
 
   // Estimate chars that fit: RTL scripts (Urdu/Arabic) are wider per char
   const charWidth = size * (isRTL ? 0.72 : 0.56);
@@ -164,6 +175,15 @@ export function StageCaption({ text, progress = 1, color = '#a5b4fc', playing = 
         ? <>{playing && !done ? <Text style={[captionStyles.cursor, { color }]}>▍ </Text> : null}{visible}</>
         : <>{visible}{playing && !done ? <Text style={[captionStyles.cursor, { color }]}> ▍</Text> : null}</>
       }
+=======
+  const start = windowWords > 0 ? Math.max(0, shown - windowWords) : 0;
+  const visible = words.slice(start, shown).join(' ');
+  return (
+    <Text style={[captionStyles.text, { fontSize: size, lineHeight: Math.round(size * 1.5) }]}>
+      {start > 0 ? '… ' : ''}
+      {visible}
+      {playing && !done ? <Text style={[captionStyles.cursor, { color }]}> ▍</Text> : null}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     </Text>
   );
 }
@@ -267,7 +287,11 @@ export function TutorPresence({
 }
 
 const captionStyles = StyleSheet.create({
+<<<<<<< HEAD
   text: { color: '#e2e8f0', fontSize: 14, lineHeight: 22, overflow: 'hidden' },
+=======
+  text: { color: '#e2e8f0', fontSize: 14, lineHeight: 22 },
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   cursor: { fontWeight: '700' },
 });
 

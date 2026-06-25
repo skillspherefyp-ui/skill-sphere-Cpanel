@@ -31,7 +31,10 @@ const CourseCard = ({
   price,
   isFree = false,
   status, // 'in-progress', 'completed', 'new', 'popular'
+<<<<<<< HEAD
   creationMode, // 'ai' | 'manual'
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   onPress,
   variant = 'default', // default, compact, horizontal
   style,
@@ -55,6 +58,7 @@ const CourseCard = ({
     return config ? <StatusBadge label={config.label} variant={config.variant} /> : null;
   };
 
+<<<<<<< HEAD
   const getCourseTypeBadge = () => {
     if (!creationMode) return null;
     const isAI = creationMode === 'ai';
@@ -68,6 +72,8 @@ const CourseCard = ({
     );
   };
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // Horizontal variant
   if (variant === 'horizontal') {
     return (
@@ -103,6 +109,7 @@ const CourseCard = ({
 
         {/* Content */}
         <View style={styles.horizontalContent}>
+<<<<<<< HEAD
           <View style={styles.categoryRow}>
             {category && (
               <Text style={[styles.category, { color: ORANGE }]}>
@@ -111,6 +118,13 @@ const CourseCard = ({
             )}
             {getCourseTypeBadge()}
           </View>
+=======
+          {category && (
+            <Text style={[styles.category, { color: ORANGE }]}>
+              {category}
+            </Text>
+          )}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           <Text
             style={[
               styles.horizontalTitle,
@@ -261,6 +275,7 @@ const CourseCard = ({
 
       {/* Content */}
       <View style={styles.content}>
+<<<<<<< HEAD
         <View style={styles.categoryRow}>
           {category && (
             <Text style={[styles.category, { color: ORANGE }]}>
@@ -269,6 +284,13 @@ const CourseCard = ({
           )}
           {getCourseTypeBadge()}
         </View>
+=======
+        {category && (
+          <Text style={[styles.category, { color: ORANGE }]}>
+            {category}
+          </Text>
+        )}
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <Text
           style={[
             styles.title,
@@ -400,6 +422,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
+<<<<<<< HEAD
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -407,11 +430,14 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 6,
   },
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   category: {
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+<<<<<<< HEAD
   },
   courseTypeBadge: {
     flexDirection: 'row',
@@ -426,6 +452,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.2,
+=======
+    marginBottom: 6,
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   },
   title: {
     fontSize: 16,

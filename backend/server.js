@@ -169,8 +169,13 @@ app.use((req, res, next) => {
   return next();
 });
 
+<<<<<<< HEAD
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+=======
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
@@ -257,6 +262,7 @@ async function startServer() {
       // Ignore if already correct or table doesn't exist yet
     }
 
+<<<<<<< HEAD
     // Fix topics.title charset to support Urdu/Arabic topic titles
     try {
       await sequelize.query(
@@ -268,6 +274,8 @@ async function startServer() {
     }
 
 
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     // Admin account check
     const adminEmail = process.env.ADMIN_EMAIL;
     const existingAdmin = adminEmail

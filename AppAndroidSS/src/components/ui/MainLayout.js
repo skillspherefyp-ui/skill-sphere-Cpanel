@@ -11,7 +11,10 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from './AppHeader';
+<<<<<<< HEAD
 import ThemedView from '../ThemedView';
+=======
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 const MainLayout = ({
   children,
@@ -71,6 +74,7 @@ const MainLayout = ({
   ) : null;
 
   return (
+<<<<<<< HEAD
     <ThemedView colorKey="background" style={[styles.safeArea]}>
       <SafeAreaView style={{ flex: 1 }}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -110,6 +114,45 @@ const MainLayout = ({
         </View>
       </SafeAreaView>
     </ThemedView>
+=======
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
+
+      <View style={styles.container}>
+
+        {/* Header — always full width across top */}
+        {showHeader && (
+          <AppHeader
+            showBack={showBack}
+            rightActions={rightActions}
+            leftComponent={HeaderLeftComponent}
+            style={headerStyle}
+            navItems={showSidebar && sidebarItems.length > 0 ? sidebarItems : []}
+            activeRoute={activeRoute}
+            onNavigate={onNavigate}
+          />
+        )}
+
+        {/* Body row: sidebar panel + content side-by-side */}
+        <View style={styles.bodyRow}>
+
+          {/* Custom sidebar panel — slides in from left, no overlay */}
+          {hasCustomSidebar && customSidebarVisible && (
+            <View style={[styles.sidebarPanel, { width: sidebarWidth }]}>
+              {customSidebar}
+            </View>
+          )}
+
+          {/* Main content — takes remaining space */}
+          <View style={[styles.content, contentStyle]}>
+            {children}
+          </View>
+
+        </View>
+
+      </View>
+    </SafeAreaView>
+>>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

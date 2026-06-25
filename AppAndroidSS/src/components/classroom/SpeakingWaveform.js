@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-<<<<<<< HEAD
 import { View, Animated, Easing, StyleSheet, Platform } from 'react-native';
 
 function makeBars(count) {
@@ -77,77 +76,19 @@ export default function SpeakingWaveform({ active = false, color = '#6C63FF', nu
           useNativeDriver: true,
           tension: 55,
           friction: 10,
-=======
-import { View, Animated, StyleSheet } from 'react-native';
-
-const BARS = [
-  { maxH: 14, dur: 340 },
-  { maxH: 22, dur: 260 },
-  { maxH: 32, dur: 200 },
-  { maxH: 40, dur: 170 },
-  { maxH: 32, dur: 200 },
-  { maxH: 22, dur: 260 },
-  { maxH: 14, dur: 340 },
-];
-
-export default function SpeakingWaveform({ active = false, color = '#6C63FF' }) {
-  const anims = useRef(BARS.map(() => new Animated.Value(0.08))).current;
-  const loops = useRef([]);
-
-  useEffect(() => {
-    loops.current.forEach(l => l && l.stop());
-    loops.current = [];
-
-    if (active) {
-      BARS.forEach((bar, i) => {
-        const delay = i * 55;
-        const loop = Animated.loop(
-          Animated.sequence([
-            Animated.delay(delay),
-            Animated.timing(anims[i], {
-              toValue: 0.9,
-              duration: bar.dur,
-              useNativeDriver: true,
-            }),
-            Animated.timing(anims[i], {
-              toValue: 0.1,
-              duration: bar.dur,
-              useNativeDriver: true,
-            }),
-          ])
-        );
-        loop.start();
-        loops.current.push(loop);
-      });
-    } else {
-      anims.forEach(anim => {
-        Animated.spring(anim, {
-          toValue: 0.08,
-          useNativeDriver: true,
-          tension: 80,
-          friction: 8,
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         }).start();
       });
     }
 
-<<<<<<< HEAD
     return () => {
       activeRef.current = false;
       runningAnims.current.forEach(a => a?.stop());
     };
-=======
-    return () => loops.current.forEach(l => l && l.stop());
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   }, [active]);
 
   return (
     <View style={styles.container}>
-<<<<<<< HEAD
       {barsData.map((bar, i) => (
-=======
-      {BARS.map((bar, i) => (
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <Animated.View
           key={i}
           style={[
@@ -155,15 +96,11 @@ export default function SpeakingWaveform({ active = false, color = '#6C63FF' }) 
             {
               height: bar.maxH,
               backgroundColor: color,
-<<<<<<< HEAD
               opacity: bar.opacity,
               transform: [{ scaleY: anims[i] }],
               ...(Platform.OS === 'web'
                 ? { boxShadow: `0 0 8px ${color}cc, 0 0 3px ${color}` }
                 : {}),
-=======
-              transform: [{ scaleY: anims[i] }],
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             },
           ]}
         />
@@ -178,17 +115,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-<<<<<<< HEAD
     height: 52,
   },
   bar: {
     width: 3,
-=======
-    height: 44,
-  },
-  bar: {
-    width: 4,
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     borderRadius: 2,
   },
 });

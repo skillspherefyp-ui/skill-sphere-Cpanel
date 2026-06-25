@@ -5,10 +5,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from '../../components/ui/AppHeader';
-<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
@@ -40,11 +37,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
   );
 
   return (
-<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
-=======
-    <View style={{ flex: 1, backgroundColor: c.background }}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>Privacy Policy - SkillSphere</title>
         <meta name="description" content="Read SkillSphere's privacy policy to understand how we collect, use, and protect your personal data on our online learning platform." />
@@ -147,11 +140,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
         </Section>
 
       </ScrollView>
-<<<<<<< HEAD
     </ThemedView>
-=======
-    </View>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

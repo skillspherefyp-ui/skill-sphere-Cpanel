@@ -1,5 +1,4 @@
 /**
-<<<<<<< HEAD
  * Screenshot service — captures real screenshots of public web pages.
  *
  * Priority:
@@ -8,13 +7,6 @@
  *   3. Puppeteer unavailable or launch fails → @sparticuz/chromium (pre-built,
  *      no system library dependencies, works on cPanel shared hosting)
  *      Run: npm install @sparticuz/chromium puppeteer-core --legacy-peer-deps
-=======
- * Screenshot service — captures real screenshots of public web pages using the
- * locally-installed Chrome/Edge (via puppeteer-core, no bundled Chromium).
- *
- * Used at lecture-authoring time to grab real "how-to" screenshots (e.g. the
- * python.org download page) which the AI tutor then walks through on the board.
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
  *
  * Design goals: never throw (a failed screenshot must not break generation),
  * reuse one browser instance, and cache by content hash so the same URL is
@@ -23,7 +15,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-<<<<<<< HEAD
 
 const IMAGE_DIR = path.join(__dirname, '..', 'uploads', 'ai-images');
 
@@ -48,12 +39,6 @@ function getPuppeteer() {
   return { lib: _puppeteer, bundled: _usingBundled };
 }
 
-=======
-const puppeteer = require('puppeteer-core');
-
-const IMAGE_DIR = path.join(__dirname, '..', 'uploads', 'ai-images');
-
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const BROWSER_CANDIDATES = [
   process.env.CHROME_PATH,
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -76,7 +61,6 @@ function findBrowser() {
 
 let browserPromise = null;
 async function getBrowser() {
-<<<<<<< HEAD
   if (!browserPromise) {
     let { lib, bundled } = getPuppeteer();
     let exe = !bundled ? findBrowser() : null;
@@ -115,18 +99,6 @@ async function getBrowser() {
     };
     if (exe) launchOpts.executablePath = exe;
     browserPromise = lib.launch(launchOpts).catch((e) => { browserPromise = null; throw e; });
-=======
-  const exe = findBrowser();
-  if (!exe) throw new Error('No Chrome/Edge found for screenshots. Set CHROME_PATH in backend/.env');
-  if (!browserPromise) {
-    browserPromise = puppeteer
-      .launch({
-        executablePath: exe,
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--hide-scrollbars', '--disable-gpu', '--mute-audio'],
-      })
-      .catch((e) => { browserPromise = null; throw e; });
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   }
   return browserPromise;
 }
@@ -162,15 +134,11 @@ function isPublicHttpUrl(u) {
 
 async function captureUrlScreenshot(url, opts = {}) {
   const { width = 1280, height = 800, fullPage = false, selector = null, cacheKey = null } = opts;
-<<<<<<< HEAD
   if (!isPublicHttpUrl(url)) {
     console.warn(`📸 Screenshot blocked (not a public URL): ${url}`);
     return null;
   }
   console.log(`📸 Taking screenshot: ${url}`);
-=======
-  if (!isPublicHttpUrl(url)) return null;
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const key = cacheKey
     || crypto.createHash('sha1').update(`${url}|${width}x${height}|${fullPage ? 'full' : 'fit'}|${selector || ''}`).digest('hex');
@@ -190,10 +158,6 @@ async function captureUrlScreenshot(url, opts = {}) {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
       );
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-<<<<<<< HEAD
-=======
-      // Give late-loading hero images/fonts a moment.
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       await new Promise((r) => setTimeout(r, 800));
 
       let clip;
@@ -202,18 +166,7 @@ async function captureUrlScreenshot(url, opts = {}) {
           const el = await page.$(selector);
           if (el) {
             const box = await el.boundingBox();
-<<<<<<< HEAD
             if (box) clip = { x: Math.max(0, box.x - 14), y: Math.max(0, box.y - 14), width: Math.min(width, box.width + 28), height: Math.min(height * 3, box.height + 28) };
-=======
-            if (box) {
-              clip = {
-                x: Math.max(0, box.x - 14),
-                y: Math.max(0, box.y - 14),
-                width: Math.min(width, box.width + 28),
-                height: Math.min(height * 3, box.height + 28),
-              };
-            }
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           }
         } catch (_) { /* selector optional */ }
       }
@@ -229,7 +182,6 @@ async function captureUrlScreenshot(url, opts = {}) {
   }
 }
 
-<<<<<<< HEAD
 /** Returns true if screenshots can be taken (local browser, bundled puppeteer, or @sparticuz/chromium). */
 function isAvailable() {
   if (findBrowser()) return true;
@@ -238,6 +190,3 @@ function isAvailable() {
 }
 
 module.exports = { captureUrlScreenshot, closeBrowser, findBrowser, isPublicHttpUrl, isAvailable };
-=======
-module.exports = { captureUrlScreenshot, closeBrowser, findBrowser, isPublicHttpUrl };
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821

@@ -1,12 +1,8 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-<<<<<<< HEAD
 import { useColorScheme, View, StyleSheet, Dimensions, Platform } from 'react-native';
 import Animated, { useSharedValue, withTiming, runOnJS, Easing, useAnimatedStyle } from 'react-native-reanimated';
-=======
-import { useColorScheme, Animated, View, StyleSheet } from 'react-native';
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 const ThemeContext = createContext();
 
@@ -478,7 +474,6 @@ export const ThemeProvider = ({ children }) => {
   const [themeMode, setThemeMode] = useState('light');
   const [isLoading, setIsLoading] = useState(true);
 
-<<<<<<< HEAD
   const { width, height } = Dimensions.get('window');
   const isAnimating = useRef(false);
 
@@ -504,33 +499,12 @@ export const ThemeProvider = ({ children }) => {
       const saved = await AsyncStorage.getItem('themeMode');
       setThemeMode(saved || systemColorScheme || 'light');
     } catch {
-=======
-  // Theme transition overlay
-  const transitionAnim = useRef(new Animated.Value(0)).current;
-  const [overlayColor, setOverlayColor] = useState('#F9FAFB');
-
-  useEffect(() => {
-    loadTheme();
-  }, []);
-
-  const loadTheme = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem('themeMode');
-      if (savedTheme) {
-        setThemeMode(savedTheme);
-      } else {
-        setThemeMode(systemColorScheme || 'light');
-      }
-    } catch (error) {
-      console.error('Error loading theme:', error);
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       setThemeMode('light');
     } finally {
       setIsLoading(false);
     }
   };
 
-<<<<<<< HEAD
   // Called on JS thread after ripple fully expands
   const applyTheme = (newMode) => {
     setThemeMode(newMode);
@@ -597,39 +571,6 @@ export const ThemeProvider = ({ children }) => {
 
   const setTheme = (mode, originX, originY) => {
     if (mode !== themeMode) animateThemeSwitch(mode, originX, originY);
-=======
-  // Animate a full-screen color wash: fade in the new theme's bg color,
-  // switch theme at peak (invisible behind overlay), then fade out.
-  const animateThemeSwitch = (newMode) => {
-    const bgColor = newMode === 'dark' ? '#0D0D1E' : '#F9FAFB';
-    setOverlayColor(bgColor);
-
-    Animated.timing(transitionAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(() => {
-      setThemeMode(newMode);
-      AsyncStorage.setItem('themeMode', newMode).catch(() => {});
-
-      Animated.timing(transitionAnim, {
-        toValue: 0,
-        duration: 420,
-        useNativeDriver: true,
-      }).start();
-    });
-  };
-
-  const toggleTheme = () => {
-    const newTheme = themeMode === 'light' ? 'dark' : 'light';
-    animateThemeSwitch(newTheme);
-  };
-
-  const setTheme = (mode) => {
-    if (mode !== themeMode) {
-      animateThemeSwitch(mode);
-    }
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   };
 
   const theme = themeMode === 'dark' ? darkTheme : lightTheme;
@@ -647,7 +588,6 @@ export const ThemeProvider = ({ children }) => {
     <ThemeContext.Provider value={value}>
       <View style={themeProviderStyles.root}>
         {children}
-<<<<<<< HEAD
 
         {/* Expanding ripple circle — fixed to viewport so scroll position doesn't matter */}
         {ripple && (() => {
@@ -706,27 +646,12 @@ export const ThemeProvider = ({ children }) => {
             </>
           );
         })()}
-=======
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: overlayColor, opacity: transitionAnim },
-          ]}
-        />
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       </View>
     </ThemeContext.Provider>
   );
 };
 
 const themeProviderStyles = StyleSheet.create({
-<<<<<<< HEAD
   root: { flex: 1 },
-=======
-  root: {
-    flex: 1,
-  },
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 });
 

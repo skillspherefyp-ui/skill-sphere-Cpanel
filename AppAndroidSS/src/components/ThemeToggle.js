@@ -7,7 +7,6 @@ const ThemeToggle = ({ style, size = 'md' }) => {
   const { theme, toggleTheme, isDark } = useTheme();
   const isWeb = Platform.OS === 'web';
 
-<<<<<<< HEAD
   const sizeConfig = {
     sm: { buttonSize: 36, iconSize: 18 },
     md: { buttonSize: 40, iconSize: 20 },
@@ -21,16 +20,6 @@ const ThemeToggle = ({ style, size = 'md' }) => {
     const { pageX, pageY } = event.nativeEvent;
     toggleTheme(pageX, pageY);
   };
-=======
-  // Size configurations matching header action button specs
-  const sizeConfig = {
-    sm: { buttonSize: 36, iconSize: 18 },
-    md: { buttonSize: 40, iconSize: 20 },  // Header actions: 40x40px
-    lg: { buttonSize: 44, iconSize: 24 },
-  };
-
-  const currentSize = sizeConfig[size] || sizeConfig.md;
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   return (
     <TouchableOpacity
@@ -44,24 +33,11 @@ const ThemeToggle = ({ style, size = 'md' }) => {
           borderWidth: 1,
           borderColor: theme.colors.border,
         },
-<<<<<<< HEAD
         theme.shadows.sm,
         isWeb && { cursor: 'pointer', transition: 'all 0.2s ease-in-out' },
         style,
       ]}
       onPress={handlePress}
-=======
-        // Add shadow
-        theme.shadows.sm,
-        // Web hover styles
-        isWeb && {
-          cursor: 'pointer',
-          transition: 'all 0.2s ease-in-out',
-        },
-        style
-      ]}
-      onPress={toggleTheme}
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       activeOpacity={0.7}
     >
       <Icon

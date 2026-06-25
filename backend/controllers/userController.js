@@ -92,7 +92,6 @@ exports.getUserById = async (req, res) => {
     const { id } = req.params;
 
     const user = await User.findByPk(id, {
-<<<<<<< HEAD
       attributes: { exclude: ['password'] },
       include: [{
         model: Enrollment,
@@ -104,9 +103,6 @@ exports.getUserById = async (req, res) => {
           attributes: ['id', 'name', 'thumbnailImage', 'language', 'level'],
         }],
       }],
-=======
-      attributes: { exclude: ['password'] }
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     });
 
     if (!user) {

@@ -6,10 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from '../../components/ui/AppHeader';
-<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { blogAPI } from '../../services/apiClient';
 import { Helmet } from 'react-helmet-async';
 
@@ -53,11 +50,7 @@ const BlogScreen = ({ navigation }) => {
   const rest = posts.slice(1);
 
   return (
-<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
-=======
-    <View style={{ flex: 1, backgroundColor: c.background }}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>Blog - SkillSphere Learning Resources &amp; Tips</title>
         <meta name="description" content="Read the SkillSphere blog for learning tips, course guides, career advice, and the latest in online education and AI-powered learning in Pakistan." />
@@ -191,11 +184,7 @@ const BlogScreen = ({ navigation }) => {
         </View>
 
       </ScrollView>
-<<<<<<< HEAD
     </ThemedView>
-=======
-    </View>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

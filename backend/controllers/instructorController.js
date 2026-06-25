@@ -2,10 +2,7 @@ const { User, Notification } = require('../models');
 const { sendInstructorAccountCreatedEmail, sendAccountSuspensionEmail } = require('../services/emailService');
 
 const SAFE_USER_EXCLUDE_FIELDS = ['password', 'otpCode', 'otpExpiry'];
-<<<<<<< HEAD
 const LIST_EXCLUDE_FIELDS = ['password', 'otpCode', 'otpExpiry', 'profilePicture', 'instructorSignature'];
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 exports.createInstructor = async (req, res) => {
   console.log('====== CREATE INSTRUCTOR CALLED ======');
@@ -72,17 +69,12 @@ exports.getAllInstructors = async (req, res) => {
       where: {
         role: ['instructor', 'expert']
       },
-<<<<<<< HEAD
       attributes: { exclude: LIST_EXCLUDE_FIELDS },
-=======
-      attributes: { exclude: SAFE_USER_EXCLUDE_FIELDS },
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       order: [['createdAt', 'DESC']]
     });
 
     const usersWithPermissions = users.map(user => {
       const userJson = user.toJSON();
-<<<<<<< HEAD
       // Normalize permissions — parse string if MariaDB returned LONGTEXT
       if (typeof userJson.permissions === 'string') {
         try { userJson.permissions = JSON.parse(userJson.permissions); } catch { userJson.permissions = {}; }
@@ -97,16 +89,6 @@ exports.getAllInstructors = async (req, res) => {
             canViewFeedback: true
           };
         }
-=======
-      if (!userJson.permissions && ['instructor', 'expert'].includes(userJson.role)) {
-        userJson.permissions = {
-          canManageAllCourses: true,
-          canManageCategories: true,
-          canManageStudents: true,
-          canManageCertificates: true,
-          canViewFeedback: true
-        };
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       }
       return userJson;
     });
@@ -253,13 +235,7 @@ exports.updateInstructorPermissions = async (req, res) => {
       return res.status(400).json({ error: 'Permissions can only be set for instructor and expert users' });
     }
 
-<<<<<<< HEAD
     await user.update({ permissions }, { fields: ['permissions'] });
-=======
-    user.setDataValue('permissions', permissions);
-    user.changed('permissions', true);
-    await user.save();
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
     res.json({
       success: true,

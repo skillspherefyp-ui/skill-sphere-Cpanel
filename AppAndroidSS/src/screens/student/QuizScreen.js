@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, AppState } from 'react-native';
-=======
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -20,11 +15,8 @@ import { useData } from '../../context/DataContext';
 import AIQuizScreen from './AIQuizScreen';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
-<<<<<<< HEAD
 const SECONDS_PER_QUESTION = 30;
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const QuizScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -53,7 +45,6 @@ const QuizScreen = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
 
-<<<<<<< HEAD
   // Timer
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   const [timedOut, setTimedOut] = useState(false);
@@ -62,8 +53,6 @@ const QuizScreen = () => {
   const cheatingRef = useRef(false);
   const quizRef = useRef(null);
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const isWeb = Platform.OS === 'web';
   const maxWidth = isWeb && width > 1200 ? 1200 : '100%';
 
@@ -90,7 +79,6 @@ const QuizScreen = () => {
   const question = quiz?.questions?.[currentQuestion];
   const totalQuestions = quiz?.questions?.length || 0;
 
-<<<<<<< HEAD
   // Keep ref in sync so cheat handler can read latest value without stale closure
   useEffect(() => { quizRef.current = quiz; }, [quiz]);
 
@@ -161,8 +149,6 @@ const QuizScreen = () => {
     }
   }, [timedOut]);
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const handleSelectAnswer = (optionIndex) => {
     if (!question) return;
     setSelectedAnswers(prev => ({ ...prev, [question.id]: optionIndex }));
@@ -183,15 +169,10 @@ const QuizScreen = () => {
   };
 
   const handleSubmit = async () => {
-<<<<<<< HEAD
     if (submitting || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     if (timerRef.current) clearInterval(timerRef.current);
-=======
-    if (submitting) return;
-    setSubmitting(true);
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     try {
       const data = await quizAPI.submit({
         quizId: quiz.id,
@@ -205,31 +186,14 @@ const QuizScreen = () => {
           text1: '🎉 Quiz Passed!',
           text2: `Score: ${result.score}% — Moving to next topic...`,
         });
-<<<<<<< HEAD
         await fetchCourses();
         const targetTopicId = result.nextTopicId;
-=======
-
-        // Refresh DataContext so completion state is current
-        await fetchCourses();
-
-        // Use nextTopicId from backend response (most reliable)
-        const targetTopicId = result.nextTopicId;
-
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         setTimeout(() => {
           if (targetTopicId) {
             navigation.replace('Learning', { courseId, topicId: targetTopicId });
           } else {
-<<<<<<< HEAD
             navigation.navigate('QuizResult', {
               courseId, topicId,
-=======
-            // Course complete
-            navigation.navigate('QuizResult', {
-              courseId,
-              topicId,
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
               score: result.score,
               totalQuestions: result.totalQuestions,
               correctCount: result.correctAnswers,
@@ -246,12 +210,7 @@ const QuizScreen = () => {
         });
         setTimeout(() => {
           navigation.navigate('QuizResult', {
-<<<<<<< HEAD
             courseId, topicId,
-=======
-            courseId,
-            topicId,
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             score: result.score,
             totalQuestions: result.totalQuestions,
             correctCount: result.correctAnswers,
@@ -262,10 +221,7 @@ const QuizScreen = () => {
       }
     } catch (err) {
       Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to submit quiz' });
-<<<<<<< HEAD
       submittingRef.current = false;
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     } finally {
       setSubmitting(false);
     }
@@ -273,16 +229,7 @@ const QuizScreen = () => {
 
   if (loading) {
     return (
-<<<<<<< HEAD
       <MainLayout showSidebar={true} sidebarItems={sidebarItems} activeRoute="EnrolledCourses" onNavigate={handleNavigate}>
-=======
-      <MainLayout
-        showSidebar={true}
-        sidebarItems={sidebarItems}
-        activeRoute="EnrolledCourses"
-        onNavigate={handleNavigate}
-      >
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading quiz...</Text>
@@ -293,16 +240,7 @@ const QuizScreen = () => {
 
   if (!quiz || !quiz.questions || quiz.questions.length === 0) {
     return (
-<<<<<<< HEAD
       <MainLayout showSidebar={true} sidebarItems={sidebarItems} activeRoute="EnrolledCourses" onNavigate={handleNavigate}>
-=======
-      <MainLayout
-        showSidebar={true}
-        sidebarItems={sidebarItems}
-        activeRoute="EnrolledCourses"
-        onNavigate={handleNavigate}
-      >
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <View style={styles.centered}>
           <Icon name="help-circle-outline" size={64} color={theme.colors.textTertiary} />
           <Text style={[styles.noQuizText, { color: theme.colors.textSecondary }]}>
@@ -316,21 +254,10 @@ const QuizScreen = () => {
 
   const isLastQuestion = currentQuestion === totalQuestions - 1;
   const hasAnswered = question && selectedAnswers[question.id] !== undefined;
-<<<<<<< HEAD
   const isTimeLow = timeLeft <= 10;
 
   return (
     <MainLayout showSidebar={true} sidebarItems={sidebarItems} activeRoute="EnrolledCourses" onNavigate={handleNavigate}>
-=======
-
-  return (
-    <MainLayout
-      showSidebar={true}
-      sidebarItems={sidebarItems}
-      activeRoute="EnrolledCourses"
-      onNavigate={handleNavigate}
-    >
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <ProgressBar
         progress={((currentQuestion + 1) / totalQuestions) * 100}
         style={styles.progressBar}
@@ -340,7 +267,6 @@ const QuizScreen = () => {
         style={styles.content}
         contentContainerStyle={[styles.contentContainer, { maxWidth, alignSelf: 'center', width: '100%' }]}
       >
-<<<<<<< HEAD
         {/* Question card */}
         <AppCard style={styles.questionContainer}>
           {/* Header row: question number + timer */}
@@ -368,21 +294,11 @@ const QuizScreen = () => {
             style={[styles.questionText, { color: theme.colors.textPrimary }, isWeb && { userSelect: 'none' }]}
             selectable={false}
           >
-=======
-        <AppCard style={styles.questionContainer}>
-          <Text style={[styles.questionNumber, { color: theme.colors.primary }]}>
-            Question {currentQuestion + 1} of {totalQuestions}
-          </Text>
-          <Text style={[styles.questionText, { color: theme.colors.textPrimary }]}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             {question.question}
           </Text>
         </AppCard>
 
-<<<<<<< HEAD
         {/* Options */}
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <View style={styles.optionsContainer}>
           {question.options.map((option, index) => {
             const isSelected = selectedAnswers[question.id] === index;
@@ -401,7 +317,6 @@ const QuizScreen = () => {
                 >
                   <View style={styles.optionContent}>
                     <View style={[styles.optionLetter, { backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface }]}>
-<<<<<<< HEAD
                       <Text style={[styles.optionLetterText, { color: isSelected ? '#fff' : theme.colors.textSecondary }]} selectable={false}>
                         {String.fromCharCode(65 + index)}
                       </Text>
@@ -410,16 +325,6 @@ const QuizScreen = () => {
                       {option}
                     </Text>
                     {isSelected && <Icon name="checkmark-circle" size={20} color={theme.colors.primary} />}
-=======
-                      <Text style={[styles.optionLetterText, { color: isSelected ? '#fff' : theme.colors.textSecondary }]}>
-                        {String.fromCharCode(65 + index)}
-                      </Text>
-                    </View>
-                    <Text style={[styles.optionText, { color: theme.colors.textPrimary }]}>{option}</Text>
-                    {isSelected && (
-                      <Icon name="checkmark-circle" size={20} color={theme.colors.primary} />
-                    )}
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                   </View>
                 </TouchableOpacity>
               </Animated.View>
@@ -427,12 +332,7 @@ const QuizScreen = () => {
           })}
         </View>
 
-<<<<<<< HEAD
         <Text style={[styles.passingInfo, { color: theme.colors.textTertiary }]} selectable={false}>
-=======
-        {/* Passing score info */}
-        <Text style={[styles.passingInfo, { color: theme.colors.textTertiary }]}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           Passing score: {quiz.passingScore || 70}%
         </Text>
       </ScrollView>
@@ -460,7 +360,6 @@ const QuizScreen = () => {
 };
 
 const styles = StyleSheet.create({
-<<<<<<< HEAD
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 },
   loadingText: { fontSize: 16, marginTop: 8 },
   noQuizText: { fontSize: 16, textAlign: 'center', lineHeight: 24 },
@@ -484,97 +383,6 @@ const styles = StyleSheet.create({
   passingInfo: { marginTop: 24, fontSize: 13, textAlign: 'center' },
   footer: { flexDirection: 'row', padding: 20, borderTopWidth: 1, gap: 12 },
   footerButton: { flex: 1 },
-=======
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 8,
-  },
-  noQuizText: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  progressBar: {
-    marginBottom: 0,
-    backgroundColor: '#FF8C42',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 32,
-  },
-  questionContainer: {
-    marginBottom: 24,
-    padding: 20,
-    borderTopWidth: 3,
-    borderTopColor: '#FF8C42',
-  },
-  questionNumber: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  questionText: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  optionsContainer: {
-    gap: 12,
-  },
-  option: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 0,
-    // Active state border is handled inline via isSelected ? theme.colors.primary : theme.colors.border
-  },
-  optionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  optionLetter: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  optionLetterText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  passingInfo: {
-    marginTop: 24,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 20,
-    borderTopWidth: 1,
-    gap: 12,
-  },
-  footerButton: {
-    flex: 1,
-  },
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 });
 
 export default QuizScreen;

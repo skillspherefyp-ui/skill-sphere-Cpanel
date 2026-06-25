@@ -21,12 +21,8 @@ router.put('/:id', requireAdmin, instructorController.updateInstructor);
 // Toggle instructor active status (admin only)
 router.patch('/:id/toggle-status', requireAdmin, instructorController.toggleInstructorStatus);
 
-<<<<<<< HEAD
 // Update instructor permissions (admin only) — POST used for cPanel proxy compatibility
 router.post('/:id/permissions', requireAdmin, instructorController.updateInstructorPermissions);
-=======
-// Update instructor permissions (admin only)
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 router.patch('/:id/permissions', requireAdmin, instructorController.updateInstructorPermissions);
 
 // Delete instructor (admin only) - Kept for backward compatibility but not used in UI

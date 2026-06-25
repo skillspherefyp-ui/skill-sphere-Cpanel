@@ -5,10 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-<<<<<<< HEAD
   ActivityIndicator,
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   Platform,
   useWindowDimensions,
   Linking,
@@ -28,10 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { resolveFileUrl } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
-<<<<<<< HEAD
 import { aiTutorAPI } from '../../services/apiClient';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 const ORANGE = '#FF8C42';
 
@@ -46,7 +40,6 @@ const TOPIC_COLORS = [
   '#F59E0B',
 ];
 
-<<<<<<< HEAD
 const VM_INFO = {
   comparison_table: { label: 'Table', icon: 'grid-outline', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)' },
   whiteboard:       { label: 'Whiteboard', icon: 'easel-outline', color: '#06B6D4', bg: 'rgba(6,182,212,0.1)', border: 'rgba(6,182,212,0.25)' },
@@ -142,8 +135,6 @@ const mdS = StyleSheet.create({
   mdParagraph: { fontSize: 15, lineHeight: 26 },
 });
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const CourseDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -154,12 +145,9 @@ const CourseDetailScreen = () => {
   const { width } = useWindowDimensions();
   const course = courses.find(c => c.id === courseId);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-<<<<<<< HEAD
   const [expandedTopicId, setExpandedTopicId] = useState(null);
   const [topicPackages, setTopicPackages] = useState({});
   const [loadingTopicId, setLoadingTopicId] = useState(null);
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 1024;
@@ -191,7 +179,6 @@ const CourseDetailScreen = () => {
     }
   };
 
-<<<<<<< HEAD
   const handleTopicPress = async (topicId) => {
     if (expandedTopicId === topicId) {
       setExpandedTopicId(null);
@@ -210,8 +197,6 @@ const CourseDetailScreen = () => {
     }
   };
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const handlePublish = () => {
     const newStatus = course.status === 'published' ? 'draft' : 'published';
     const message = newStatus === 'published' ? 'Course published!' : 'Course unpublished!';
@@ -442,16 +427,10 @@ const CourseDetailScreen = () => {
                   </View>
                 </View>
 
-<<<<<<< HEAD
                 {course.description
                   ? <MarkdownContent content={course.description} c={theme.colors} isDark={isDark} />
                   : <Text style={[styles.description, { color: theme.colors.textSecondary }]}>No description available.</Text>
                 }
-=======
-                <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
-                  {course.description}
-                </Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
                 <View style={styles.metaGrid}>
                   <View style={styles.metaItem}>
@@ -580,7 +559,6 @@ const CourseDetailScreen = () => {
                 <View style={styles.topicsList}>
                   {course.topics.map((topic, index) => {
                     const topicColor = TOPIC_COLORS[index % TOPIC_COLORS.length];
-<<<<<<< HEAD
                     const isAI = course.creationMode === 'ai';
                     const isExpanded = expandedTopicId === topic.id;
                     const isLoading = loadingTopicId === topic.id;
@@ -591,11 +569,6 @@ const CourseDetailScreen = () => {
 
                     const topicRow = (
                       <View
-=======
-                    return (
-                      <View
-                        key={topic.id}
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                         style={[
                           styles.topicItem,
                           {
@@ -604,11 +577,8 @@ const CourseDetailScreen = () => {
                               : theme.colors.background,
                             borderLeftColor: topicColor,
                             borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(26,26,46,0.07)',
-<<<<<<< HEAD
                             borderBottomLeftRadius: isExpanded ? 0 : 12,
                             borderBottomRightRadius: isExpanded ? 0 : 12,
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                           },
                         ]}
                       >
@@ -619,11 +589,7 @@ const CourseDetailScreen = () => {
                           {topic.title}
                         </Text>
                         {/* Materials shown as chips */}
-<<<<<<< HEAD
                         {!isAI && topic.materials?.length > 0 && (
-=======
-                        {topic.materials?.length > 0 && (
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                           <View style={styles.topicChipsRow}>
                             {topic.materials.slice(0, 3).map((mat, mIdx) => {
                               const isPdf = mat.type === 'pdf';
@@ -653,7 +619,6 @@ const CourseDetailScreen = () => {
                             )}
                           </View>
                         )}
-<<<<<<< HEAD
                         {isAI ? (
                           <View style={[styles.topicChip, { backgroundColor: '#8B5CF6' + '18', borderColor: '#8B5CF6' + '30', borderWidth: 1 }]}>
                             <Icon name="sparkles" size={11} color="#8B5CF6" />
@@ -740,13 +705,6 @@ const CourseDetailScreen = () => {
                             )}
                           </View>
                         )}
-=======
-                        <View style={[styles.topicMatCount, { backgroundColor: topicColor + '18' }]}>
-                          <Text style={[styles.topicMatCountText, { color: topicColor }]}>
-                            {topic.materials?.length || 0}
-                          </Text>
-                        </View>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                       </View>
                     );
                   })}
@@ -1201,7 +1159,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       fontSize: 12,
       fontWeight: '700',
     },
-<<<<<<< HEAD
     topicExpandWrapper: {
       gap: 0,
     },
@@ -1281,8 +1238,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       lineHeight: 17,
       fontStyle: 'italic',
     },
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
     // Materials Grid
     materialsGrid: {

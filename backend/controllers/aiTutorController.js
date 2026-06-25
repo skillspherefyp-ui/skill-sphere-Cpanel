@@ -426,7 +426,6 @@ exports.smokeTest = async (req, res) => {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
-<<<<<<< HEAD
 
 exports.evaluateCheckpoint = async (req, res) => {
   try {
@@ -463,5 +462,3 @@ exports.retriggerGuidedSteps = async (req, res) => {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821

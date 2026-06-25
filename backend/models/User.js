@@ -42,7 +42,6 @@ const User = sequelize.define('User', {
     defaultValue: null,
     get() {
       const rawValue = this.getDataValue('permissions');
-<<<<<<< HEAD
       if (!rawValue) {
         return ['instructor', 'expert'].includes(this.role) ? {} : null;
       }
@@ -51,13 +50,6 @@ const User = sequelize.define('User', {
         try { return JSON.parse(rawValue); } catch { return {}; }
       }
       return rawValue;
-=======
-      // Return empty object if null, frontend will handle defaults
-      if (!rawValue && ['instructor', 'expert'].includes(this.role)) {
-        return {};
-      }
-      return rawValue || {};
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     }
   },
   profilePicture: {

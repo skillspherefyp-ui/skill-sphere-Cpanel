@@ -5,10 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
-<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import AppHeader from '../../components/ui/AppHeader';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { categoryAPI, courseAPI } from '../../services/apiClient';
@@ -17,7 +14,6 @@ import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
-<<<<<<< HEAD
 
 const stripMarkdown = (text) => {
   if (!text) return '';
@@ -32,8 +28,6 @@ const stripMarkdown = (text) => {
     .replace(/\n+/g, ' ')
     .trim();
 };
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const NAVY2  = '#16213E';
 
 
@@ -64,7 +58,6 @@ const CourseCard = ({ course, isDark, theme, isMobile, isTablet, onDetails, onEn
       </View>
 
       <View style={[cc.body, isMobile && cc.bodyMobile]}>
-<<<<<<< HEAD
         {/* Category + Course Type badges */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
           <View style={[cc.catBadge, { backgroundColor: catColor + '20', marginBottom: 0 }]}>
@@ -76,11 +69,6 @@ const CourseCard = ({ course, isDark, theme, isMobile, isTablet, onDetails, onEn
               {course.creationMode === 'ai' ? 'AI-Powered' : 'Instructor-Led'}
             </Text>
           </View>
-=======
-        {/* Category badge */}
-        <View style={[cc.catBadge, { backgroundColor: catColor + '20' }]}>
-          <Text style={[cc.catText, { color: catColor }]}>{catName}</Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         </View>
 
         {/* Title */}
@@ -91,11 +79,7 @@ const CourseCard = ({ course, isDark, theme, isMobile, isTablet, onDetails, onEn
         {/* Description */}
         {!isMobile && (
           <Text style={[cc.desc, { color: theme.colors.textSecondary }]} numberOfLines={2}>
-<<<<<<< HEAD
             {stripMarkdown(course.description)}
-=======
-            {course.description}
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </Text>
         )}
 
@@ -214,11 +198,7 @@ const ExploreCoursesScreen = () => {
   const bgCard = isDark ? NAVY2 : '#FFFFFF';
 
   return (
-<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
-=======
-    <View style={{ flex: 1, backgroundColor: bgMain }}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>Explore Courses - SkillSphere Pakistan</title>
         <meta name="description" content="Browse hundreds of expert-led online courses on SkillSphere. Learn programming, cybersecurity, data science, business, design and more in Pakistan." />
@@ -429,11 +409,7 @@ const ExploreCoursesScreen = () => {
           <View style={{ height: 40 }} />
         </View>
       </ScrollView>
-<<<<<<< HEAD
     </ThemedView>
-=======
-    </View>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

@@ -5,10 +5,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from '../../components/ui/AppHeader';
-<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
@@ -48,11 +45,7 @@ const AboutScreen = ({ navigation }) => {
   const c = theme.colors;
 
   return (
-<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
-=======
-    <View style={{ flex: 1, backgroundColor: c.background }}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>About SkillSphere - Pakistan's AI-Powered Learning Platform</title>
         <meta name="description" content="Learn about SkillSphere, Pakistan's leading AI-powered online learning platform offering expert-led courses, verified certificates, and personalised AI tutors." />
@@ -124,11 +117,7 @@ const AboutScreen = ({ navigation }) => {
         </Section>
 
       </ScrollView>
-<<<<<<< HEAD
     </ThemedView>
-=======
-    </View>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

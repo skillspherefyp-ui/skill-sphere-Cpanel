@@ -29,7 +29,6 @@ import { resolveFileUrl } from '../../utils/urlHelpers';
 import { getSidebarItems } from '../../utils/sidebarItems';
 import ShareCourseModal from '../../components/ui/ShareCourseModal';
 
-<<<<<<< HEAD
 // ─── Inline markdown parser ──────────────────────────────────────────────────
 function parseInline(text, baseStyle, boldColor) {
   const parts = [];
@@ -114,8 +113,6 @@ const mdS = StyleSheet.create({
   mdParagraph: { fontSize: 15, lineHeight: 26 },
 });
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const CourseDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -213,7 +210,6 @@ const CourseDetailScreen = () => {
     return { total, completed, unlocked };
   }, [course?.topics]);
 
-<<<<<<< HEAD
   // Check if all prerequisites are completed
   const prereqsCompleted = useMemo(() => {
     if (!course?.prerequisiteIds?.length) return true;
@@ -231,8 +227,6 @@ const CourseDetailScreen = () => {
     }) ?? null;
   }, [course?.prerequisiteIds, enrollments]);
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // Handle enroll
   const handleEnroll = async () => {
     setEnrolling(true);
@@ -493,16 +487,10 @@ const CourseDetailScreen = () => {
                 </View>
               </View>
 
-<<<<<<< HEAD
               {course.description
                 ? <MarkdownContent content={course.description} c={theme.colors} isDark={isDark} />
                 : <Text style={[styles.description, { color: theme.colors.textSecondary }]}>No description available for this course.</Text>
               }
-=======
-              <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
-                {course.description || 'No description available for this course.'}
-              </Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
               <View style={styles.metaGrid}>
                 <View style={styles.metaItem}>
@@ -873,7 +861,6 @@ const CourseDetailScreen = () => {
 
               <View style={styles.actionsList}>
                 {!isEnrolled ? (
-<<<<<<< HEAD
                   prereqsCompleted ? (
                     <AppButton
                       title={enrolling ? 'Enrolling...' : 'Enroll in Course'}
@@ -893,17 +880,6 @@ const CourseDetailScreen = () => {
                       style={[styles.actionBtn, { borderColor: '#F59E0B' }]}
                     />
                   )
-=======
-                  <AppButton
-                    title={enrolling ? 'Enrolling...' : 'Enroll in Course'}
-                    onPress={handleEnroll}
-                    variant="primary"
-                    leftIcon="add-circle-outline"
-                    style={styles.actionBtn}
-                    disabled={enrolling}
-                    loading={enrolling}
-                  />
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 ) : (
                   <>
                     <AppButton

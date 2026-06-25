@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-<<<<<<< HEAD
   Image,
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -425,7 +422,6 @@ const StudentDetailScreen = () => {
             </View>
           </Animated.View>
         </View>
-<<<<<<< HEAD
 
         {/* Enrolled Courses — full width below the two-column grid */}
         <Animated.View entering={FadeInDown.duration(400).delay(300)} style={styles.enrolledSection}>
@@ -506,8 +502,6 @@ const StudentDetailScreen = () => {
             )}
           </AppCard>
         </Animated.View>
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       </ScrollView>
     </MainLayout>
   );
@@ -822,7 +816,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       lineHeight: 20,
       fontFamily: theme.typography.fontFamily.regular,
     },
-<<<<<<< HEAD
 
     // Enrolled Courses
     enrolledSection: {
@@ -903,8 +896,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       fontSize: 14,
       fontFamily: theme.typography.fontFamily.regular,
     },
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   });
 
 export default StudentDetailScreen;

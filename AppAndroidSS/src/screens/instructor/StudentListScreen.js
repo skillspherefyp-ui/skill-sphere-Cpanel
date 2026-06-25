@@ -461,10 +461,7 @@ const StudentListScreen = () => {
                 </View>
               )}
             </View>
-<<<<<<< HEAD
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </View>
         </AppCard>
 

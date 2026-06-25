@@ -2435,7 +2435,6 @@ async function getOrCreateAudioAsset({ lectureId, sessionId, assetType, text }) 
 
   await openaiService.synthesizeSpeech(text, outputPath);
 
-<<<<<<< HEAD
   const [asset] = await AIAudioAsset.findOrCreate({
     where: { cacheKey },
     defaults: {
@@ -2450,19 +2449,6 @@ async function getOrCreateAudioAsset({ lectureId, sessionId, assetType, text }) 
     }
   });
   return asset;
-=======
-  return AIAudioAsset.create({
-    lectureId: lectureId || null,
-    sessionId: sessionId || null,
-    cacheKey,
-    assetType,
-    voice: 'alloy',
-    mimeType: 'audio/mpeg',
-    storagePath: outputPath,
-    urlPath: `/uploads/ai-audio/${filename}`,
-    textPreview: text.slice(0, 120)
-  });
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 }
 
 module.exports = {

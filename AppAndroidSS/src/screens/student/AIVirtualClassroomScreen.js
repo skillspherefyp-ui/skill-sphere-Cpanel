@@ -33,10 +33,7 @@ import AutoNotes from '../../components/classroom/AutoNotes';
 import ClassroomQuizPanel from '../../components/classroom/ClassroomQuizPanel';
 import { getAudioUrl } from '../../services/aiClassroomClient';
 import { aiTutorAPI } from '../../services/apiClient';
-<<<<<<< HEAD
 import { useData } from '../../context/DataContext';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -120,7 +117,6 @@ function ClassroomLoader({ topic }) {
 
 // ── Question Panel ────────────────────────────────────────────────────────────
 
-<<<<<<< HEAD
 const QA_GREETINGS = {
   Urdu:    { title: 'سوال پوچھیں',        subtitle: 'لیکچر رکا ہوا ہے · AI تیار ہے' },
   Arabic:  { title: 'اطرح سؤالك',         subtitle: 'المحاضرة متوقفة · AI جاهز' },
@@ -130,10 +126,6 @@ const QA_GREETINGS = {
 function QuestionPanel({ onAsk, onDismiss, loading, history, language }) {
   const [q, setQ] = useState('');
   const { title: qTitle, subtitle: qSubtitle } = QA_GREETINGS[language] || QA_GREETINGS.default;
-=======
-function QuestionPanel({ onAsk, onDismiss, loading, history }) {
-  const [q, setQ] = useState('');
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const submit = () => {
     if (!q.trim()) return;
@@ -146,15 +138,9 @@ function QuestionPanel({ onAsk, onDismiss, loading, history }) {
       <View style={styles.qHeader}>
         <View style={styles.qBadge}>
           <Icon name="hand-left-outline" size={14} color="#f59e0b" />
-<<<<<<< HEAD
           <Text style={styles.qTitle}>{qTitle}</Text>
         </View>
         <Text style={styles.qSubtitle}>{qSubtitle}</Text>
-=======
-          <Text style={styles.qTitle}>Ask Your Question</Text>
-        </View>
-        <Text style={styles.qSubtitle}>Lecture paused · AI is ready</Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <TouchableOpacity style={styles.qClose} onPress={onDismiss}>
           <Icon name="close" size={18} color="#9ca3af" />
         </TouchableOpacity>
@@ -209,11 +195,8 @@ export default function AIVirtualClassroomScreen() {
   const { topicId, courseId, topicTitle } = route.params || {};
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-<<<<<<< HEAD
   const { courses } = useData();
   const courseLanguage = courses?.find(c => String(c.id) === String(courseId))?.language;
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   // Lecture + session data
   const [lecture, setLecture] = useState(null);
@@ -731,10 +714,7 @@ export default function AIVirtualClassroomScreen() {
             onDismiss={handleDismissQuestion}
             loading={qLoading}
             history={chatHistory}
-<<<<<<< HEAD
             language={courseLanguage}
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           />
         </View>
       )}

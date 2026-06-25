@@ -5,10 +5,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import AppHeader from '../../components/ui/AppHeader';
-<<<<<<< HEAD
 import ThemedView from '../../components/ThemedView';
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import { Helmet } from 'react-helmet-async';
 
 const ORANGE = '#F68B3C';
@@ -117,11 +114,7 @@ const HelpCenterScreen = ({ navigation }) => {
   const [openItem, setOpenItem] = useState(null); // 'cat-idx'
 
   return (
-<<<<<<< HEAD
     <ThemedView colorKey="background" style={{ flex: 1 }}>
-=======
-    <View style={{ flex: 1, backgroundColor: c.background }}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       <Helmet>
         <title>Help Center - SkillSphere Support</title>
         <meta name="description" content="Find answers to common questions about SkillSphere courses, certificates, payments, and account management. Get help with your learning journey." />
@@ -193,11 +186,7 @@ const HelpCenterScreen = ({ navigation }) => {
         </View>
 
       </ScrollView>
-<<<<<<< HEAD
     </ThemedView>
-=======
-    </View>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   );
 };
 

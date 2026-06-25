@@ -30,11 +30,8 @@ router.post('/lectures/:lectureId/quiz/submit', aiTutorController.submitQuiz);
 router.post('/audio/transcribe', aiTutorController.audioUploadMiddleware, aiTutorController.transcribeAudio);
 router.post('/audio/speak', aiTutorController.speakText);
 router.get('/smoke-test', aiTutorController.smokeTest);
-<<<<<<< HEAD
 router.post('/checkpoint/evaluate', aiTutorController.evaluateCheckpoint);
 router.post('/topics/:topicId/guided-steps', aiTutorController.retriggerGuidedSteps);
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
 // Phase 3: Student memory
 router.get('/memory/:courseId', aiTutorController.getStudentMemory);

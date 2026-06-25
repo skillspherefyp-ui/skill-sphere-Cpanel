@@ -122,7 +122,6 @@ const NavigationWrapper = ({ theme }) => {
   const { user, isInitialized } = useAuth();
   const navigationRef = useRef(null);
 
-<<<<<<< HEAD
   // Inject browser history entries on direct URL navigation so the browser's
   // back button works correctly. pushState/replaceState do NOT fire popstate,
   // so React Navigation is not affected — only the browser history stack changes.
@@ -153,8 +152,6 @@ const NavigationWrapper = ({ theme }) => {
     window.history.pushState(null, '', current);
   }, []); // runs once on mount only
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // After auth initializes, if the URL is /verify/:certId navigate programmatically.
   // This is needed because getStateFromPath runs before the role is known, so the
   // initial state targets Auth navigator. Once the role-specific navigator mounts,

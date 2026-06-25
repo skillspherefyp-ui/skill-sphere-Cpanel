@@ -10,13 +10,10 @@ const getWebFallbackHost = () => {
 
   const { protocol, hostname } = window.location;
   const normalizedProtocol = protocol === 'https:' ? 'https:' : 'http:';
-<<<<<<< HEAD
   // In production (non-localhost), use Apache reverse proxy — no port needed
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
     return `${normalizedProtocol}//${hostname}`;
   }
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   return `${normalizedProtocol}//${hostname}:${DEFAULT_PORT}`;
 };
 
@@ -217,11 +214,7 @@ export const instructorAPI = {
   create: (data) => post('/instructors', data),
   update: (id, data) => put(`/instructors/${id}`, data),
   toggleStatus: (id) => patch(`/instructors/${id}/toggle-status`, {}),
-<<<<<<< HEAD
   updatePermissions: (id, permissions) => post(`/instructors/${id}/permissions`, { permissions }),
-=======
-  updatePermissions: (id, permissions) => patch(`/instructors/${id}/permissions`, { permissions }),
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   delete: (id) => del(`/instructors/${id}`),
 };
 
@@ -478,10 +471,7 @@ export const aiTutorAPI = {
   transcribeAudio: (formData) => uploadMultipart('/ai-tutor/audio/transcribe', formData),
   speakText: (data) => post('/ai-tutor/audio/speak', data),
   smokeTest: () => get('/ai-tutor/smoke-test'),
-<<<<<<< HEAD
   retriggerGuidedSteps: (topicId) => post(`/ai-tutor/topics/${topicId}/guided-steps`, {}),
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // Phase 3: Memory
   getStudentMemory: (courseId, topicId) => get(`/ai-tutor/memory/${courseId}${topicId ? `?topicId=${topicId}` : ''}`),
   clearStudentMemory: (courseId) => del(`/ai-tutor/memory/${courseId}`),
@@ -489,10 +479,7 @@ export const aiTutorAPI = {
   generateAdaptivePlan: (topicId, data) => post(`/ai-tutor/topics/${topicId}/adaptive`, data),
   getAdaptivePlan: (topicId) => get(`/ai-tutor/topics/${topicId}/adaptive`),
   completeAdaptivePlan: (planId) => patch(`/ai-tutor/adaptive/${planId}/complete`, {}),
-<<<<<<< HEAD
   evaluateCheckpoint: (data) => post('/ai-tutor/checkpoint/evaluate', data),
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 };
 
 export const memoryAPI = {

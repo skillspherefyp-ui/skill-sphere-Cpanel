@@ -623,16 +623,6 @@ const InstructorDashboard = () => {
               <Icon name="add" size={16} color="#FFFFFF" />
               <Text style={styles.createBtnText}>Create New Course</Text>
             </TouchableOpacity>
-<<<<<<< HEAD
-=======
-            <TouchableOpacity
-              style={styles.analyticsBtn}
-              onPress={() => navigation.navigate('AIAnalytics')}
-            >
-              <Icon name="bar-chart-outline" size={15} color="#7c3aed" />
-              <Text style={styles.analyticsBtnText}>AI Analytics</Text>
-            </TouchableOpacity>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           </View>
         </View>
 

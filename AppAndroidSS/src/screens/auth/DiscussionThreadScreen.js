@@ -107,15 +107,11 @@ const DiscussionThreadScreen = () => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     const now = new Date();
-<<<<<<< HEAD
     const diffMs = now - d;
     if (diffMs < 60000) return 'Just now'; // handles negatives (clock skew) and < 1 min
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 60) return `${diffMins}m ago`;
     const diffDays = Math.floor(diffMs / 86400000);
-=======
-    const diffDays = Math.floor((now - d) / 86400000);
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;

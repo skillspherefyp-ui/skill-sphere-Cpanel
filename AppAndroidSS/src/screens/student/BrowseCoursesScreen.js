@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
-=======
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import {
   View,
   Text,
@@ -17,7 +13,6 @@ import {
 } from 'react-native';
 
 const ORANGE = '#FF8C42';
-<<<<<<< HEAD
 
 const stripMarkdown = (text) => {
   if (!text) return '';
@@ -32,8 +27,6 @@ const stripMarkdown = (text) => {
     .replace(/\n+/g, ' ')
     .trim();
 };
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
@@ -65,10 +58,7 @@ const BrowseCoursesScreen = () => {
   const [sortOrder, setSortOrder] = useState('newest');
   const [showLevelDropdown, setShowLevelDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-<<<<<<< HEAD
   const [roadmapMode, setRoadmapMode] = useState(true);
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 1024;
@@ -91,10 +81,7 @@ const BrowseCoursesScreen = () => {
     { label: 'Name A-Z', value: 'name-asc' },
     { label: 'Name Z-A', value: 'name-desc' },
     { label: 'Most Popular', value: 'popular' },
-<<<<<<< HEAD
     { label: 'Learning Roadmap', value: 'roadmap' },
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   ];
 
   const handleNavigate = (routeName) => {
@@ -146,7 +133,6 @@ const BrowseCoursesScreen = () => {
     return { totalCourses, totalCategories, beginnerCourses, advancedCourses };
   }, [courses, categories]);
 
-<<<<<<< HEAD
   // Build chains for roadmap mode.
   // If a root has multiple children, creates one separate chain per child (root duplicated).
   const buildChains = (courseList) => {
@@ -194,8 +180,6 @@ const BrowseCoursesScreen = () => {
     return chains;
   };
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // Filter and sort courses
   const filteredCourses = useMemo(() => {
     let filtered = courses.filter(course => {
@@ -218,12 +202,9 @@ const BrowseCoursesScreen = () => {
       return matchesSearch && matchesCategory && matchesLevel;
     });
 
-<<<<<<< HEAD
     // Roadmap mode handled separately via buildChains
     if (roadmapMode) return filtered;
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     // Sort
     switch (sortOrder) {
       case 'oldest':
@@ -245,7 +226,6 @@ const BrowseCoursesScreen = () => {
     }
 
     return filtered;
-<<<<<<< HEAD
   }, [courses, searchQuery, selectedCategory, selectedLevel, sortOrder, roadmapMode]);
 
   const styles = getStyles(theme, isDark, isLargeScreen, isTablet, isMobile);
@@ -330,12 +310,6 @@ const BrowseCoursesScreen = () => {
     </TouchableOpacity>
   );
 
-=======
-  }, [courses, searchQuery, selectedCategory, selectedLevel, sortOrder]);
-
-  const styles = getStyles(theme, isDark, isLargeScreen, isTablet, isMobile);
-
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   // Loading state
   if (loading) {
     return (
@@ -554,32 +528,20 @@ const BrowseCoursesScreen = () => {
             {/* Sort Filter */}
             <View style={[styles.filterDropdownContainer, { zIndex: 90 }]}>
               <TouchableOpacity
-<<<<<<< HEAD
                 style={[styles.filterBtn, {
                   borderColor: roadmapMode ? '#8B5CF6' : theme.colors.border,
                   backgroundColor: roadmapMode ? '#8B5CF615' : (isDark ? theme.colors.card : theme.colors.background),
                 }]}
-=======
-                style={[styles.filterBtn, { borderColor: theme.colors.border, backgroundColor: isDark ? theme.colors.card : theme.colors.background }]}
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                 onPress={() => {
                   setShowSortDropdown(!showSortDropdown);
                   setShowLevelDropdown(false);
                 }}
               >
-<<<<<<< HEAD
                 <Icon name={roadmapMode ? 'git-branch-outline' : 'swap-vertical'} size={16} color={roadmapMode ? '#8B5CF6' : theme.colors.textSecondary} />
                 <Text style={[styles.filterBtnText, { color: roadmapMode ? '#8B5CF6' : theme.colors.textPrimary }]}>
                   {roadmapMode ? 'Learning Roadmap' : (sortOptions.find(o => o.value === sortOrder)?.label || 'Sort')}
                 </Text>
                 <Icon name="chevron-down" size={16} color={roadmapMode ? '#8B5CF6' : theme.colors.textSecondary} />
-=======
-                <Icon name="swap-vertical" size={16} color={theme.colors.textSecondary} />
-                <Text style={[styles.filterBtnText, { color: theme.colors.textPrimary }]}>
-                  {sortOptions.find(o => o.value === sortOrder)?.label || 'Sort'}
-                </Text>
-                <Icon name="chevron-down" size={16} color={theme.colors.textSecondary} />
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
               </TouchableOpacity>
               {showSortDropdown && (
                 <View style={[styles.dropdown, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface, borderColor: theme.colors.border }]}>
@@ -588,7 +550,6 @@ const BrowseCoursesScreen = () => {
                       key={index}
                       style={[
                         styles.dropdownItem,
-<<<<<<< HEAD
                         { flexDirection: 'row', alignItems: 'center' },
                         option.value === 'roadmap'
                           ? roadmapMode && { backgroundColor: '#8B5CF615' }
@@ -608,16 +569,6 @@ const BrowseCoursesScreen = () => {
                         <Icon name="git-branch-outline" size={14} color="#8B5CF6" style={{ marginRight: 6 }} />
                       )}
                       <Text style={[styles.dropdownItemText, { color: option.value === 'roadmap' ? '#8B5CF6' : theme.colors.textPrimary }]}>
-=======
-                        sortOrder === option.value && { backgroundColor: theme.colors.primary + '15' }
-                      ]}
-                      onPress={() => {
-                        setSortOrder(option.value);
-                        setShowSortDropdown(false);
-                      }}
-                    >
-                      <Text style={[styles.dropdownItemText, { color: theme.colors.textPrimary }]}>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                         {option.label}
                       </Text>
                     </TouchableOpacity>
@@ -633,7 +584,6 @@ const BrowseCoursesScreen = () => {
           </View>
         </AppCard>
 
-<<<<<<< HEAD
         {/* Courses Grid / Roadmap */}
         {filteredCourses.length > 0 ? (
           roadmapMode ? (
@@ -661,10 +611,6 @@ const BrowseCoursesScreen = () => {
             </View>
           ) : (
           /* ── Normal Grid View ── */
-=======
-        {/* Courses Grid */}
-        {filteredCourses.length > 0 ? (
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
           <View style={styles.coursesGrid}>
             {filteredCourses.map((course, index) => {
               const isEnrolled = enrolledCourseIds.has(course.id);
@@ -675,46 +621,23 @@ const BrowseCoursesScreen = () => {
                   style={styles.courseCardWrapper}
                 >
                   <TouchableOpacity
-<<<<<<< HEAD
                     style={[styles.courseCard, { backgroundColor: isDark ? theme.colors.card : theme.colors.surface }]}
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                   >
                     {course.thumbnailImage ? (
                       <Image source={{ uri: resolveFileUrl(course.thumbnailImage) }} style={styles.courseImage} resizeMode="cover" />
-=======
-                    style={[
-                      styles.courseCard,
-                      { backgroundColor: isDark ? theme.colors.card : theme.colors.surface },
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
-                  >
-                    {/* Course Image */}
-                    {course.thumbnailImage ? (
-                      <Image
-                        source={{ uri: resolveFileUrl(course.thumbnailImage) }}
-                        style={styles.courseImage}
-                        resizeMode="cover"
-                      />
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                     ) : (
                       <View style={[styles.courseImagePlaceholder, { backgroundColor: theme.colors.primary + '20' }]}>
                         <Icon name="image-outline" size={40} color={theme.colors.primary} />
                       </View>
                     )}
-<<<<<<< HEAD
-=======
-
-                    {/* Enrolled Badge */}
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                     {isEnrolled && (
                       <View style={[styles.enrolledBadge, { backgroundColor: '#10B981' }]}>
                         <Icon name="checkmark-circle" size={12} color="#FFFFFF" />
                         <Text style={styles.enrolledBadgeText}>Enrolled</Text>
                       </View>
                     )}
-<<<<<<< HEAD
                     <View style={[styles.levelBadge, { backgroundColor: getLevelColor(course.level) + '20' }]}>
                       <Text style={[styles.levelBadgeText, { color: getLevelColor(course.level) }]}>{course.level || 'All Levels'}</Text>
                     </View>
@@ -730,51 +653,10 @@ const BrowseCoursesScreen = () => {
                         <View style={styles.metaItem}>
                           <Icon name="time-outline" size={14} color={theme.colors.textTertiary} />
                           <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>{course.duration || 'N/A'}</Text>
-=======
-
-                    {/* Level Badge */}
-                    <View style={[styles.levelBadge, { backgroundColor: getLevelColor(course.level) + '20' }]}>
-                      <Text style={[styles.levelBadgeText, { color: getLevelColor(course.level) }]}>
-                        {course.level || 'All Levels'}
-                      </Text>
-                    </View>
-
-                    {/* Course Content */}
-                    <View style={styles.courseContent}>
-                      {/* Category */}
-                      <Text style={[styles.courseCategory, { color: theme.colors.primary }]}>
-                        {course.category?.name || 'Uncategorized'}
-                      </Text>
-
-                      {/* Title */}
-                      <Text style={[styles.courseTitle, { color: theme.colors.textPrimary }]} numberOfLines={2}>
-                        {course.name}
-                      </Text>
-
-                      {/* Description */}
-                      <Text style={[styles.courseDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
-                        {course.description || 'No description available'}
-                      </Text>
-
-                      {/* Meta Info */}
-                      <View style={styles.courseMeta}>
-                        <View style={styles.metaItem}>
-                          <Icon name="book-outline" size={14} color={theme.colors.textTertiary} />
-                          <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>
-                            {course.topics?.length || 0} topics
-                          </Text>
-                        </View>
-                        <View style={styles.metaItem}>
-                          <Icon name="time-outline" size={14} color={theme.colors.textTertiary} />
-                          <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>
-                            {course.duration || 'N/A'}
-                          </Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                         </View>
                         {course.studentsCount > 0 && (
                           <View style={styles.metaItem}>
                             <Icon name="people-outline" size={14} color={theme.colors.textTertiary} />
-<<<<<<< HEAD
                             <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>{course.studentsCount}</Text>
                           </View>
                         )}
@@ -784,26 +666,6 @@ const BrowseCoursesScreen = () => {
                         onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
                       >
                         <Text style={styles.courseActionText}>{isEnrolled ? 'Continue Learning' : 'View Course'}</Text>
-=======
-                            <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>
-                              {course.studentsCount}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Action Button */}
-                      <TouchableOpacity
-                        style={[
-                          styles.courseActionBtn,
-                          { backgroundColor: isEnrolled ? '#10B981' : theme.colors.primary }
-                        ]}
-                        onPress={() => navigation.navigate('CourseDetail', { courseId: course.id, courseName: slugify(course.name) })}
-                      >
-                        <Text style={styles.courseActionText}>
-                          {isEnrolled ? 'Continue Learning' : 'View Course'}
-                        </Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                         <Icon name="arrow-forward" size={16} color="#FFFFFF" />
                       </TouchableOpacity>
                     </View>
@@ -812,10 +674,7 @@ const BrowseCoursesScreen = () => {
               );
             })}
           </View>
-<<<<<<< HEAD
           )
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         ) : (
           <AppCard style={styles.emptyContainer}>
             <EmptyState
@@ -1071,7 +930,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       flexWrap: 'wrap',
       gap: 16,
     },
-<<<<<<< HEAD
     roadmapList: {
       flexDirection: 'column',
       gap: 0,
@@ -1081,8 +939,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       width: '100%',
       maxWidth: 640,
     },
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     courseCardWrapper: {
       width: isLargeScreen
         ? 'calc(33.333% - 11px)'
@@ -1193,7 +1049,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
       color: '#FFFFFF',
     },
 
-<<<<<<< HEAD
     // Roadmap
     roadmapContainer: { gap: 20 },
     roadmapCategoryGroup: { gap: 12 },
@@ -1413,8 +1268,6 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
     roadmapList: { flexDirection: 'column', gap: 0, alignItems: 'center' },
     roadmapCardWrapper: { width: '100%', maxWidth: 640 },
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     // Empty State
     emptyContainer: {
       padding: 40,

@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, AppState } from 'react-native';
-=======
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -19,11 +14,8 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
-<<<<<<< HEAD
 const SECONDS_PER_QUESTION = 30;
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
 const QuizScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -41,17 +33,13 @@ const QuizScreen = () => {
       navigation.navigate(routeName);
     }
   };
-<<<<<<< HEAD
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
 
-<<<<<<< HEAD
   // Timer
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   const [timedOut, setTimedOut] = useState(false);
@@ -60,25 +48,14 @@ const QuizScreen = () => {
   const cheatingRef = useRef(false);
   const quizRef = useRef(null);
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const isWeb = Platform.OS === 'web';
   const maxWidth = isWeb && width > 1200 ? 1200 : '100%';
   const questions = quiz?.questions || [];
   const question = questions[currentQuestion];
   const totalQuestions = questions.length;
-<<<<<<< HEAD
 
   useEffect(() => {
     if (!lectureId) { setLoading(false); return; }
-=======
-  useEffect(() => {
-    if (!lectureId) {
-      setLoading(false);
-      return;
-    }
-
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     loadQuiz();
   }, [lectureId]);
 
@@ -86,29 +63,15 @@ const QuizScreen = () => {
     setLoading(true);
     try {
       const response = await aiTutorAPI.getQuiz(lectureId);
-<<<<<<< HEAD
       if (!response.success) throw new Error(response.error || 'Unable to load quiz');
       setQuiz(response.quiz);
     } catch (error) {
       Toast.show({ type: 'error', text1: 'Quiz Unavailable', text2: error.message || 'Unable to load the stored quiz.' });
-=======
-      if (!response.success) {
-        throw new Error(response.error || 'Unable to load quiz');
-      }
-      setQuiz(response.quiz);
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Quiz Unavailable',
-        text2: error.message || 'Unable to load the stored quiz.',
-      });
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     } finally {
       setLoading(false);
     }
   };
 
-<<<<<<< HEAD
   // Keep ref in sync
   useEffect(() => { quizRef.current = quiz; }, [quiz]);
 
@@ -179,33 +142,22 @@ const QuizScreen = () => {
     }
   }, [timedOut]);
 
-=======
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   const canAdvance = useMemo(() => selectedAnswers[question?.id] !== undefined, [selectedAnswers, question]);
 
   const handleSelectAnswer = (optionIndex) => {
     if (!question) return;
-<<<<<<< HEAD
     setSelectedAnswers(prev => ({ ...prev, [question.id]: optionIndex }));
-=======
-    setSelectedAnswers((prev) => ({ ...prev, [question.id]: optionIndex }));
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   };
 
   const handleNext = () => {
     if (currentQuestion < totalQuestions - 1) {
-<<<<<<< HEAD
       setCurrentQuestion(prev => prev + 1);
-=======
-      setCurrentQuestion((prev) => prev + 1);
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       return;
     }
     handleSubmit();
   };
 
   const handlePrevious = () => {
-<<<<<<< HEAD
     if (currentQuestion > 0) setCurrentQuestion(prev => prev - 1);
   };
 
@@ -217,23 +169,6 @@ const QuizScreen = () => {
     try {
       const response = await aiTutorAPI.submitQuiz(lectureId, selectedAnswers);
       if (!response.success) throw new Error(response.error || 'Unable to submit quiz');
-=======
-    if (currentQuestion > 0) {
-      setCurrentQuestion((prev) => prev - 1);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!quiz || !lectureId) return;
-    setSubmitting(true);
-
-    try {
-      const response = await aiTutorAPI.submitQuiz(lectureId, selectedAnswers);
-      if (!response.success) {
-        throw new Error(response.error || 'Unable to submit quiz');
-      }
-
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
       await fetchCourses();
       const result = response.result;
       Toast.show({
@@ -241,26 +176,10 @@ const QuizScreen = () => {
         text1: result.passed ? 'Quiz Passed' : 'Quiz Submitted',
         text2: `Score: ${result.score}%`,
       });
-<<<<<<< HEAD
       navigation.replace('QuizResult', { courseId, topicId, lectureId, ...result });
     } catch (error) {
       Toast.show({ type: 'error', text1: 'Submission Failed', text2: error.message || 'Unable to submit quiz answers.' });
       submittingRef.current = false;
-=======
-
-      navigation.replace('QuizResult', {
-        courseId,
-        topicId,
-        lectureId,
-        ...result,
-      });
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Submission Failed',
-        text2: error.message || 'Unable to submit quiz answers.',
-      });
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
     } finally {
       setSubmitting(false);
     }
@@ -268,16 +187,7 @@ const QuizScreen = () => {
 
   if (loading) {
     return (
-<<<<<<< HEAD
       <MainLayout showSidebar={true} sidebarItems={sidebarItems} activeRoute="EnrolledCourses" onNavigate={handleNavigate}>
-=======
-      <MainLayout
-        showSidebar={true}
-        sidebarItems={sidebarItems}
-        activeRoute="EnrolledCourses"
-        onNavigate={handleNavigate}
-      >
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading lecture quiz...</Text>
@@ -288,16 +198,7 @@ const QuizScreen = () => {
 
   if (!quiz || !question) {
     return (
-<<<<<<< HEAD
       <MainLayout showSidebar={true} sidebarItems={sidebarItems} activeRoute="EnrolledCourses" onNavigate={handleNavigate}>
-=======
-      <MainLayout
-        showSidebar={true}
-        sidebarItems={sidebarItems}
-        activeRoute="EnrolledCourses"
-        onNavigate={handleNavigate}
-      >
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
         <View style={styles.loadingWrap}>
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Quiz not available for this lecture.</Text>
         </View>
@@ -305,7 +206,6 @@ const QuizScreen = () => {
     );
   }
 
-<<<<<<< HEAD
   const isTimeLow = timeLeft <= 10;
   const parsedOptions = Array.isArray(question.options)
     ? question.options
@@ -356,37 +256,6 @@ const QuizScreen = () => {
         {/* Options */}
         <View style={styles.optionsContainer}>
           {parsedOptions.map((option, index) => {
-=======
-  return (
-    <MainLayout
-      showSidebar={true}
-      sidebarItems={sidebarItems}
-      activeRoute="EnrolledCourses"
-      onNavigate={handleNavigate}
-    >
-      <ProgressBar progress={((currentQuestion + 1) / totalQuestions) * 100} style={styles.progressBar} />
-
-      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { maxWidth, alignSelf: 'center', width: '100%' }]}>
-        <AppCard style={[styles.summaryCard, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.summaryRow}>
-            <View>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Stored lecture quiz</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>Question {currentQuestion + 1} of {totalQuestions}</Text>
-            </View>
-            <View style={[styles.summaryBadge, { backgroundColor: canAdvance ? `${theme.colors.primary}18` : theme.colors.border }]}>
-              <Text style={[styles.summaryBadgeText, { color: canAdvance ? theme.colors.primary : theme.colors.textTertiary }]}>{canAdvance ? 'Answered' : 'Select one answer'}</Text>
-            </View>
-          </View>
-        </AppCard>
-
-        <AppCard style={styles.questionContainer}>
-          <Text style={[styles.questionNumber, { color: theme.colors.primary }]}>Question {currentQuestion + 1}</Text>
-          <Text style={[styles.questionText, { color: theme.colors.textPrimary }]}>{question.prompt}</Text>
-        </AppCard>
-
-        <View style={styles.optionsContainer}>
-          {(Array.isArray(question.options) ? question.options : (() => { try { return JSON.parse(question.options); } catch { return []; } })()).map((option, index) => {
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
             const isSelected = selectedAnswers[question.id] === index;
             return (
               <Animated.View key={index} entering={FadeIn.duration(300).delay(index * 80)}>
@@ -405,17 +274,12 @@ const QuizScreen = () => {
                       <Icon name={isSelected ? 'radio-button-on' : 'radio-button-off'} size={22} color={isSelected ? theme.colors.primary : theme.colors.textTertiary} />
                     </View>
                     <View style={styles.optionTextWrap}>
-<<<<<<< HEAD
                       <Text style={[styles.optionLabel, { color: isSelected ? theme.colors.primary : theme.colors.textSecondary }]} selectable={false}>
                         {String.fromCharCode(65 + index)}
                       </Text>
                       <Text style={[styles.optionText, { color: theme.colors.textPrimary }, isWeb && { userSelect: 'none' }]} selectable={false}>
                         {option}
                       </Text>
-=======
-                      <Text style={[styles.optionLabel, { color: isSelected ? theme.colors.primary : theme.colors.textSecondary }]}>{String.fromCharCode(65 + index)}</Text>
-                      <Text style={[styles.optionText, { color: theme.colors.textPrimary }]}>{option}</Text>
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -450,10 +314,6 @@ const QuizScreen = () => {
 };
 
 const styles = StyleSheet.create({
-<<<<<<< HEAD
-=======
-  container: { flex: 1 },
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   progressBar: { marginBottom: 0 },
   content: { flex: 1 },
   contentContainer: { padding: 20 },
@@ -463,15 +323,10 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   summaryLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.6 },
   summaryValue: { fontSize: 16, fontWeight: '700' },
-<<<<<<< HEAD
   timerBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
   timerText: { fontSize: 13, fontWeight: '700' },
   timerBarBg: { height: 3, borderRadius: 2, overflow: 'hidden' },
   timerBarFill: { height: '100%', borderRadius: 2 },
-=======
-  summaryBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  summaryBadgeText: { fontSize: 11, fontWeight: '700' },
->>>>>>> be3d69ffc72914af79917c25892abfeecfd83821
   questionContainer: { marginBottom: 24 },
   questionNumber: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   questionText: { fontSize: 20, fontWeight: '600', lineHeight: 28 },

@@ -1,0 +1,20 @@
+{
+  "name": "skillsphere-monorepo",
+  "private": true,
+  "workspaces": [
+    "AppAndroidSS"
+  ],
+  "scripts": {
+    "dev": "npm run dev:web",
+    "web": "npm run dev:web",
+    "dev:web": "npm run web:dev --workspace AppAndroidSS",
+    "build": "npm run build:web",
+    "build:web": "npm run build:web --workspace AppAndroidSS && node scripts/sync-web-build.cjs",
+    "backend:dev": "npm run dev --prefix backend",
+    "backend:start": "npm run start --prefix backend"
+  },
+  "dependencies": {
+    "react-native-reanimated": "^3.3.0",
+    "react-native-safe-area-context": "^4.6.3"
+  }
+}

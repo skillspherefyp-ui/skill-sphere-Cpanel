@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="theme-color" content="#020818" />
+    <meta name="description" content="SkillSphere is Pakistan's #1 AI-powered online learning platform. Enroll in expert-led courses, learn with AI tutors, earn certificates, and master in-demand skills in technology, business, and more." />
+    <meta name="keywords" content="SkillSphere, SkillSphere Pakistan, SkillSphere courses, SkillSphere AI, SkillSphere online, SkillSphere learning, SkillSphere platform, SkillSphere certificates, SkillSphere AI tutor, SkillSphere e-learning, SkillSphere LMS, SkillSphere skillsphere.com.pk, online courses Pakistan, AI learning platform Pakistan, learn online Pakistan, online education Pakistan, e-learning Pakistan, AI tutor Pakistan, online courses, certificate courses Pakistan, skill development Pakistan, technology courses Pakistan, programming courses Pakistan, business courses Pakistan, learn programming Pakistan, online learning platform, best online courses Pakistan, free online courses Pakistan, paid courses Pakistan, learn with AI Pakistan, AI powered education, personalized learning Pakistan, expert led courses, online certification Pakistan, professional development Pakistan, upskill Pakistan, digital skills Pakistan, web development courses, data science courses Pakistan, machine learning courses, graphic design courses, cybersecurity courses, English language courses, accounting courses Pakistan, marketing courses Pakistan, entrepreneurship courses Pakistan, university students Pakistan, working professionals Pakistan, career growth Pakistan, remote learning Pakistan, mobile learning, learn anywhere Pakistan" />
+    <meta name="author" content="SkillSphere" />
+    <meta name="robots" content="index, follow" />
+    <meta name="googlebot" content="index, follow" />
+    <title>SkillSphere - Online Courses & AI Learning Platform Pakistan</title>
+
+    <!-- Open Graph / WhatsApp / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://skillsphere.com.pk/" />
+    <meta property="og:title" content="SkillSphere - Online Courses & AI Learning Platform Pakistan" />
+    <meta property="og:description" content="Pakistan's AI-powered learning platform. Master new skills with expert-led courses, AI tutors, and personalized learning paths." />
+    <meta property="og:image" content="https://skillsphere.com.pk/og-image.png" />
+    <meta property="og:site_name" content="SkillSphere" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://skillsphere.com.pk/" />
+    <meta name="twitter:title" content="SkillSphere - Learn, Grow, Succeed" />
+    <meta name="twitter:description" content="Pakistan's AI-powered learning platform. Master new skills with expert-led courses, AI tutors, and personalized learning paths." />
+    <meta name="twitter:image" content="https://skillsphere.com.pk/og-image.png" />
+    <!-- CANONICAL REMOVED — was blocking /blog /explore from Google indexing.
+         Uncomment only if you want to force all pages to point to homepage.
+    <link rel="canonical" href="https://skillsphere.com.pk/" />
+    -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      html, body {
+        height: 100%;
+        width: 100%;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      code {
+        font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+          monospace;
+      }
+      /* Vector Icons Fonts for react-native-vector-icons */
+      @font-face {
+        font-family: 'Ionicons';
+        src: url('/assets/fonts/Ionicons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'MaterialIcons';
+        src: url('/assets/fonts/MaterialIcons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'FontAwesome';
+        src: url('/assets/fonts/FontAwesome.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'FontAwesome5';
+        src: url('/assets/fonts/FontAwesome5_Brands.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'FontAwesome5';
+        src: url('/assets/fonts/FontAwesome5_Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'FontAwesome5';
+        src: url('/assets/fonts/FontAwesome5_Solid.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Feather';
+        src: url('/assets/fonts/Feather.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'AntDesign';
+        src: url('/assets/fonts/AntDesign.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Entypo';
+        src: url('/assets/fonts/Entypo.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'EvilIcons';
+        src: url('/assets/fonts/EvilIcons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Foundation';
+        src: url('/assets/fonts/Foundation.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'MaterialCommunityIcons';
+        src: url('/assets/fonts/MaterialCommunityIcons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Octicons';
+        src: url('/assets/fonts/Octicons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'SimpleLineIcons';
+        src: url('/assets/fonts/SimpleLineIcons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Zocial';
+        src: url('/assets/fonts/Zocial.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+
+    <!-- SEO static content — indexed by Google, hidden from users -->
+    <div id="seo-content" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+      <h1>SkillSphere - Online Courses &amp; AI Learning Platform Pakistan</h1>
+      <h2>Pakistan's #1 AI-Powered Online Learning Platform</h2>
+      <p>SkillSphere is Pakistan's leading online education and e-learning platform. We offer AI-powered courses, expert-led training, personalized AI tutors, and verified certificates. Learn new skills online from anywhere in Pakistan at your own pace.</p>
+
+      <h2>SkillSphere Courses</h2>
+      <p>SkillSphere offers hundreds of online courses across multiple categories. Browse SkillSphere courses in technology, cybersecurity, programming, business, design, and more.</p>
+
+      <h2>Programming &amp; Software Development Courses</h2>
+      <ul>
+        <li>Python Programming for Beginners</li>
+        <li>Advanced Python Development</li>
+        <li>JavaScript Full Stack Development</li>
+        <li>React.js and React Native Development</li>
+        <li>Node.js Backend Development</li>
+        <li>Web Development Bootcamp</li>
+        <li>HTML, CSS and JavaScript for Beginners</li>
+        <li>PHP and MySQL Development</li>
+        <li>Java Programming</li>
+        <li>C++ Programming</li>
+        <li>C# and .NET Development</li>
+        <li>Flutter Mobile App Development</li>
+        <li>Android App Development</li>
+        <li>iOS App Development with Swift</li>
+        <li>REST API Development</li>
+        <li>Database Design and SQL</li>
+        <li>MongoDB and NoSQL Databases</li>
+        <li>Git and GitHub for Developers</li>
+        <li>Docker and Kubernetes</li>
+        <li>DevOps Engineering</li>
+        <li>Cloud Computing with AWS</li>
+        <li>Microsoft Azure Fundamentals</li>
+        <li>Google Cloud Platform</li>
+        <li>Software Engineering Principles</li>
+        <li>System Design and Architecture</li>
+      </ul>
+
+      <h2>Cybersecurity &amp; Ethical Hacking Courses</h2>
+      <ul>
+        <li>Ethical Hacking for Beginners</li>
+        <li>Advanced Ethical Hacking</li>
+        <li>Penetration Testing</li>
+        <li>Cybersecurity Fundamentals</li>
+        <li>Network Security</li>
+        <li>Web Application Security</li>
+        <li>OWASP Top 10 Vulnerabilities</li>
+        <li>Kali Linux for Hackers</li>
+        <li>Bug Bounty Hunting</li>
+        <li>Malware Analysis</li>
+        <li>Digital Forensics</li>
+        <li>Incident Response</li>
+        <li>Security Operations Center (SOC)</li>
+        <li>CEH Certification Preparation</li>
+        <li>CompTIA Security+ Preparation</li>
+        <li>OSCP Preparation</li>
+        <li>Social Engineering and Phishing</li>
+        <li>Wireless Network Hacking</li>
+        <li>Cryptography Fundamentals</li>
+        <li>Dark Web and OSINT</li>
+        <li>Firewall and VPN Configuration</li>
+        <li>Cloud Security</li>
+      </ul>
+
+      <h2>Data Science &amp; Artificial Intelligence Courses</h2>
+      <ul>
+        <li>Data Science for Beginners</li>
+        <li>Machine Learning with Python</li>
+        <li>Deep Learning and Neural Networks</li>
+        <li>Artificial Intelligence Fundamentals</li>
+        <li>Natural Language Processing (NLP)</li>
+        <li>Computer Vision</li>
+        <li>Data Analysis with Pandas</li>
+        <li>Data Visualization with Matplotlib</li>
+        <li>TensorFlow and Keras</li>
+        <li>PyTorch for Deep Learning</li>
+        <li>Big Data with Hadoop and Spark</li>
+        <li>Business Intelligence and Power BI</li>
+        <li>Tableau for Data Visualization</li>
+        <li>Statistics for Data Science</li>
+        <li>AI Chatbot Development</li>
+        <li>Generative AI and ChatGPT</li>
+        <li>Prompt Engineering</li>
+      </ul>
+
+      <h2>Networking &amp; IT Courses</h2>
+      <ul>
+        <li>Computer Networking Fundamentals</li>
+        <li>CCNA Cisco Networking</li>
+        <li>Network Administration</li>
+        <li>Linux System Administration</li>
+        <li>Windows Server Administration</li>
+        <li>IT Support and Help Desk</li>
+        <li>CompTIA A+ Certification</li>
+        <li>CompTIA Network+ Certification</li>
+        <li>Virtualization with VMware</li>
+        <li>IoT Internet of Things</li>
+      </ul>
+
+      <h2>Business &amp; Management Courses</h2>
+      <ul>
+        <li>Business Management Fundamentals</li>
+        <li>Project Management Professional (PMP)</li>
+        <li>Agile and Scrum Methodology</li>
+        <li>Entrepreneurship and Startup</li>
+        <li>Financial Accounting</li>
+        <li>QuickBooks Accounting Software</li>
+        <li>Human Resource Management</li>
+        <li>Supply Chain Management</li>
+        <li>E-commerce Business</li>
+        <li>Dropshipping Business Pakistan</li>
+        <li>Amazon FBA for Pakistanis</li>
+        <li>Freelancing on Upwork and Fiverr</li>
+        <li>Business Communication</li>
+        <li>Leadership and Management Skills</li>
+      </ul>
+
+      <h2>Digital Marketing Courses</h2>
+      <ul>
+        <li>Digital Marketing Complete Course</li>
+        <li>Search Engine Optimization (SEO)</li>
+        <li>Google Ads and PPC Advertising</li>
+        <li>Facebook and Instagram Marketing</li>
+        <li>Social Media Marketing</li>
+        <li>Content Marketing</li>
+        <li>Email Marketing</li>
+        <li>Affiliate Marketing</li>
+        <li>YouTube Marketing</li>
+        <li>TikTok Marketing</li>
+        <li>Shopify and E-commerce Marketing</li>
+        <li>Brand Building and Strategy</li>
+      </ul>
+
+      <h2>Graphic Design &amp; Creative Courses</h2>
+      <ul>
+        <li>Graphic Design for Beginners</li>
+        <li>Adobe Photoshop Complete Course</li>
+        <li>Adobe Illustrator</li>
+        <li>Adobe Premiere Pro Video Editing</li>
+        <li>UI UX Design</li>
+        <li>Figma for Designers</li>
+        <li>Logo Design</li>
+        <li>3D Modeling with Blender</li>
+        <li>Motion Graphics and Animation</li>
+        <li>Photography and Photo Editing</li>
+        <li>Canva for Beginners</li>
+      </ul>
+
+      <h2>Language &amp; Soft Skills Courses</h2>
+      <ul>
+        <li>English Speaking Course Pakistan</li>
+        <li>IELTS Preparation</li>
+        <li>Business English</li>
+        <li>Communication Skills</li>
+        <li>Public Speaking</li>
+        <li>Personality Development</li>
+        <li>Time Management</li>
+        <li>Critical Thinking</li>
+        <li>Interview Preparation Pakistan</li>
+        <li>CV and Resume Writing</li>
+      </ul>
+
+      <h2>SkillSphere AI Tutor</h2>
+      <p>SkillSphere's built-in AI tutor teaches you step by step with personalized lessons, AI-generated quizzes, interactive slides, and real-time Q&amp;A. Our AI tutor adapts to your learning speed and helps you master any skill faster than traditional methods.</p>
+
+      <h2>SkillSphere Certificates</h2>
+      <p>Earn verified completion certificates from SkillSphere after finishing any course. SkillSphere certificates are recognized by employers and can be shared on LinkedIn and your resume to boost your career in Pakistan.</p>
+
+      <h2>Why Choose SkillSphere?</h2>
+      <ul>
+        <li>AI-powered personalized learning experience</li>
+        <li>Expert instructors from Pakistan and around the world</li>
+        <li>Learn at your own pace from anywhere in Pakistan</li>
+        <li>Earn verified certificates on course completion</li>
+        <li>Affordable online courses for Pakistani students</li>
+        <li>Mobile-friendly — learn on phone, tablet or computer</li>
+        <li>Interactive quizzes and AI-generated assessments</li>
+        <li>Gamified learning with streaks and progress tracking</li>
+        <li>Courses in Urdu and English</li>
+        <li>Best online learning platform in Pakistan</li>
+      </ul>
+
+      <h2>Who is SkillSphere For?</h2>
+      <p>SkillSphere is for university students, college students, working professionals, fresh graduates, freelancers, job seekers, and anyone in Pakistan who wants to learn new skills, advance their career, or start a business online. Whether you are in Karachi, Lahore, Islamabad, Rawalpindi, Peshawar, Quetta, Multan, Faisalabad or any city in Pakistan — SkillSphere is for you.</p>
+
+      <h2>Start Learning on SkillSphere Today</h2>
+      <p>Join SkillSphere now and start your learning journey. Sign up for free, browse SkillSphere courses, learn with AI tutors, and earn certificates. SkillSphere is the best online learning platform in Pakistan for skill development, career growth, and professional training.</p>
+      <p>Visit skillsphere.com.pk to get started.</p>
+    </div>
+  </body>
+</html>
+
+
+
+

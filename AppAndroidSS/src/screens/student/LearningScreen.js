@@ -961,13 +961,14 @@ const LearningScreen = () => {
       const embedUrl = getEmbedUrl(material.uri);
 
       if (Platform.OS === 'web') {
+        const iframeH = isMobile ? Math.round(windowHeight * 0.38) : '100%';
         return (
           <View style={styles.embeddedLinkWrapper}>
-            <View style={styles.iframeWrapper}>
+            <View style={[styles.iframeWrapper, isMobile && { minHeight: Math.round(windowHeight * 0.38) }]}>
               <iframe
                 src={embedUrl}
                 title={material.title || meta.label}
-                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
+                style={{ width: '100%', height: iframeH, border: 'none', borderRadius: 8, display: 'block' }}
                 allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
@@ -1004,15 +1005,23 @@ const LearningScreen = () => {
     }
 
     if (material.type === 'pdf') {
-      return Platform.OS === 'web' ? (
-        <View style={styles.iframeWrapper}>
-          <iframe
-            src={resolvedUri}
-            title={material.title || 'PDF'}
-            style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
-          />
-        </View>
-      ) : (
+      if (Platform.OS === 'web') {
+        // Mobile browsers can't render PDFs in iframes — use Google Docs viewer instead
+        const pdfSrc = isMobile
+          ? `https://docs.google.com/viewer?url=${encodeURIComponent(resolvedUri)}&embedded=true`
+          : resolvedUri;
+        const iframeH = isMobile ? Math.round(windowHeight * 0.40) : '100%';
+        return (
+          <View style={[styles.iframeWrapper, isMobile && { minHeight: Math.round(windowHeight * 0.40) }]}>
+            <iframe
+              src={pdfSrc}
+              title={material.title || 'PDF'}
+              style={{ width: '100%', height: iframeH, border: 'none', borderRadius: 8, display: 'block' }}
+            />
+          </View>
+        );
+      }
+      return (
         <TouchableOpacity style={styles.videoFallback} onPress={() => openMaterial(material)}>
           <Icon name="document-text" size={72} color="#e74c3c" />
           <Text style={styles.videoFallbackTitle}>{material.title || material.fileName || 'PDF Document'}</Text>
@@ -1107,11 +1116,11 @@ const LearningScreen = () => {
       sidebarItems={sidebarItems}
       activeRoute="EnrolledCourses"
       onNavigate={handleNavigate}
-      showHeader={true}
+      showHeader={false}
     >
       <View style={[styles.mainContent, {
-        backgroundColor: isDark ? '#0f0f1a' : theme.colors.background,
-        height: Platform.OS === 'web' ? windowHeight - 64 : undefined,
+        backgroundColor: '#0d0f1f',
+        height: Platform.OS === 'web' ? windowHeight : undefined,
       }]}>
 
         {/* ── Teams-style icon rail (desktop/tablet only) ───────────────── */}
@@ -1163,7 +1172,7 @@ const LearningScreen = () => {
           <View style={[styles.slidePanel, {
             backgroundColor: isDark ? '#12122a' : theme.colors.surface,
             borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : theme.colors.border,
-            ...(isWeb && { height: windowHeight - 64 }),
+            ...(isWeb && { height: windowHeight }),
           }]}>
             {activePanel === 'topics' && renderTopicsSidebar()}
             {activePanel === 'notes' && renderNotesPanel()}
@@ -1171,37 +1180,48 @@ const LearningScreen = () => {
         )}
 
         {/* ── Main learning area ──────────────────────────────────────── */}
-        <View style={styles.learningArea}>
+        <View style={[styles.learningArea, { backgroundColor: '#0d0f1f' }, isMobile && { padding: 0 }]}>
           {/* Header bar */}
           {isMobile ? (
-            <View style={{ backgroundColor: isDark ? '#0d0f1f' : '#0f172a', paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 4 }} numberOfLines={1}>
-                  {topic?.title || 'Learning'}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: isDark ? '#06060f' : '#0f172a', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
+              <TouchableOpacity
+                style={{ width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0 }}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.7}
+              >
+                <Icon name="arrow-back" size={20} color="#fff" />
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 }}>
+                <Icon name="book-outline" size={16} color={theme.colors.primary} />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>
+                  {topic?.title || course?.name || 'Learning'}
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={{ flex: 1, height: 4, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2 }}>
-                    <View style={{ height: 4, width: `${enrollmentProgress}%`, backgroundColor: theme.colors.primary, borderRadius: 2 }} />
-                  </View>
-                  <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '700' }}>{enrollmentProgress}%</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                  <View style={{ height: '100%', width: `${enrollmentProgress}%`, backgroundColor: '#10b981', borderRadius: 3 }} />
                 </View>
               </View>
-              <View style={{ backgroundColor: `${theme.colors.primary}22`, borderWidth: 1, borderColor: `${theme.colors.primary}55`, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 }}>
-                  {selectedMaterial?.type?.toUpperCase() || 'MATERIAL'}
-                </Text>
-              </View>
+              <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '600', flexShrink: 0 }}>{enrollmentProgress}%</Text>
             </View>
           ) : (
             <View style={styles.progressSection}>
+              <TouchableOpacity
+                style={[styles.lectureBackBtn, { borderColor: isDark ? 'rgba(255,255,255,0.12)' : theme.colors.border }]}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.7}
+              >
+                <Icon name="arrow-back" size={20} color="#fff" />
+              </TouchableOpacity>
               <View style={styles.progressLabel}>
-                <Icon name="trending-up" size={16} color={theme.colors.primary} />
-                <Text style={[styles.progressText, { color: theme.colors.textSecondary }]}>Progress</Text>
+                <Icon name="book-outline" size={16} color={theme.colors.primary} />
+                <Text style={[styles.progressText, { color: '#fff', fontWeight: '700' }]} numberOfLines={1}>
+                  {topic?.title || course?.name || 'Learning'}
+                </Text>
               </View>
               <View style={styles.progressBarContainer}>
                 <View style={styles.progressBar}>
-                  <View style={[styles.progressFillGreen, { width: `${enrollmentProgress * 0.7}%` }]} />
-                  <View style={[styles.progressFillPurple, { width: `${enrollmentProgress * 0.3}%`, left: `${enrollmentProgress * 0.7}%` }]} />
+                  <View style={[styles.progressFillGreen, { width: `${enrollmentProgress}%` }]} />
                 </View>
               </View>
               <Text style={[styles.progressPercent, { color: theme.colors.primary }]}>{enrollmentProgress}%</Text>
@@ -1210,60 +1230,62 @@ const LearningScreen = () => {
 
           {isManualMode ? (
             /* ── Manual Mode ─── */
-            <View style={[styles.manualFlexArea, isMobile && { flexDirection: 'column' }]}>
-              <View style={[styles.manualContentArea, isMobile ? { height: Math.round(windowHeight * 0.42) } : { flex: 1 }]}>
-                <View style={[styles.manualHeader, { backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
-                  <Icon name={getMaterialIcon(selectedMaterial?.type)} size={16}
-                    color={getMaterialColor(selectedMaterial?.type)} />
-                  <Text style={styles.manualHeaderTitle} numberOfLines={1}>
-                    {selectedMaterial?.title || selectedMaterial?.fileName || topic?.title || 'Topic Materials'}
-                  </Text>
-                  {selectedMaterial?.type === 'link' && (
-                    <TouchableOpacity style={styles.manualOpenBtn} onPress={() => openMaterial(selectedMaterial)}>
-                      <Icon name="open-outline" size={14} color="#fff" />
-                      <Text style={styles.manualOpenBtnText}>Open</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+            <>
+              <View style={[styles.manualFlexArea, isMobile && { flexDirection: 'column', height: Math.round(windowHeight * 0.56), flexGrow: 0, flexShrink: 0, flexBasis: 'auto' }]}>
+                <View style={[styles.manualContentArea, { flex: 1 }]}>
+                  <View style={[styles.manualHeader, { backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
+                    <Icon name={getMaterialIcon(selectedMaterial?.type)} size={16}
+                      color={getMaterialColor(selectedMaterial?.type)} />
+                    <Text style={styles.manualHeaderTitle} numberOfLines={1}>
+                      {selectedMaterial?.title || selectedMaterial?.fileName || topic?.title || 'Topic Materials'}
+                    </Text>
+                    {selectedMaterial?.type === 'link' && (
+                      <TouchableOpacity style={styles.manualOpenBtn} onPress={() => openMaterial(selectedMaterial)}>
+                        <Icon name="open-outline" size={14} color="#fff" />
+                        <Text style={styles.manualOpenBtnText}>Open</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
 
-                {topicMaterials.length > 1 && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={[styles.materialTabsBar, { backgroundColor: isDark ? '#12122a' : '#0f172a' }]}
-                    contentContainerStyle={styles.materialTabsContent}
-                  >
-                    {topicMaterials.map((mat, idx) => {
-                      const isActive = selectedMaterial?.id === mat.id || (!selectedMaterial && idx === 0);
-                      return (
-                        <TouchableOpacity
-                          key={mat.id || idx}
-                          style={[styles.materialTab, isActive && { backgroundColor: theme.colors.primary }]}
-                          onPress={() => setSelectedMaterial(mat)}
-                        >
-                          <Icon name={getMaterialIcon(mat.type)} size={13} color={isActive ? '#fff' : '#9ca3af'} />
-                          <Text style={[styles.materialTabText, { color: isActive ? '#fff' : '#9ca3af' }]} numberOfLines={1}>
-                            {mat.title || mat.fileName || `Material ${idx + 1}`}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-
-                <View style={[styles.materialViewerBox, { backgroundColor: isDark ? '#1a1a2e' : '#1e293b', flex: 1 }]}>
-                  {topicMaterials.length === 0 ? (
-                    <View style={styles.viewerEmpty}>
-                      <Icon name="folder-open-outline" size={48} color="rgba(255,255,255,0.25)" />
-                      <Text style={styles.viewerEmptyText}>No materials added to this topic yet</Text>
-                    </View>
-                  ) : (
-                    renderMaterialViewer(selectedMaterial || topicMaterials[0])
+                  {topicMaterials.length > 1 && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={[styles.materialTabsBar, { backgroundColor: isDark ? '#12122a' : '#0f172a' }]}
+                      contentContainerStyle={styles.materialTabsContent}
+                    >
+                      {topicMaterials.map((mat, idx) => {
+                        const isActive = selectedMaterial?.id === mat.id || (!selectedMaterial && idx === 0);
+                        return (
+                          <TouchableOpacity
+                            key={mat.id || idx}
+                            style={[styles.materialTab, isActive && { backgroundColor: theme.colors.primary }]}
+                            onPress={() => setSelectedMaterial(mat)}
+                          >
+                            <Icon name={getMaterialIcon(mat.type)} size={13} color={isActive ? '#fff' : '#9ca3af'} />
+                            <Text style={[styles.materialTabText, { color: isActive ? '#fff' : '#9ca3af' }]} numberOfLines={1}>
+                              {mat.title || mat.fileName || `Material ${idx + 1}`}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
                   )}
+
+                  <View style={[styles.materialViewerBox, { backgroundColor: isDark ? '#1a1a2e' : '#1e293b', flex: 1 }]}>
+                    {topicMaterials.length === 0 ? (
+                      <View style={styles.viewerEmpty}>
+                        <Icon name="folder-open-outline" size={48} color="rgba(255,255,255,0.25)" />
+                        <Text style={styles.viewerEmptyText}>No materials added to this topic yet</Text>
+                      </View>
+                    ) : (
+                      renderMaterialViewer(selectedMaterial || topicMaterials[0])
+                    )}
+                  </View>
                 </View>
               </View>
 
-              {/* Mobile inline panel — shows between viewer and bottom tab bar */}
+              {/* Mobile inline panel — sibling to viewer, fills space between viewer and tab bar */}
               {isMobile && (
                 <View style={[styles.mobileInlinePanel, {
                   backgroundColor: isDark ? '#12122a' : theme.colors.surface,
@@ -1297,7 +1319,7 @@ const LearningScreen = () => {
                       })}
                     </ScrollView>
                   ) : (
-                    <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
                       <Text style={{ color: theme.colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>
                         {topic?.title}
                       </Text>
@@ -1308,10 +1330,10 @@ const LearningScreen = () => {
                   )}
                 </View>
               )}
-            </View>
+            </>
           ) : (
             /* ── AI Mode (placeholder — AI courses redirect to AILearning) ─── */
-            <View style={[styles.aiFlexArea, isMobile && { flexDirection: 'column' }]}>
+            <View style={[styles.aiFlexArea, isMobile && { flexDirection: 'column', height: Math.round(windowHeight * 0.56), flexGrow: 0, flexShrink: 0, flexBasis: 'auto' }]}>
               <View style={[styles.manualContentArea, isMobile ? { height: Math.round(windowHeight * 0.42), backgroundColor: isDark ? '#1a1a2e' : '#1e293b' } : { flex: 1, backgroundColor: isDark ? '#1a1a2e' : '#1e293b' }]}>
                 <View style={[styles.manualHeader, { backgroundColor: isDark ? '#12122a' : '#0f172a' }]}>
                   <MaterialIcon name="presentation" size={16} color="#fff" />
@@ -1806,7 +1828,8 @@ const styles = StyleSheet.create({
   learningArea: {
     flex: 1,
     overflow: 'hidden',
-    padding: 16,
+    padding: 14,
+    flexDirection: 'column',
   },
   learningScrollView: {
     flex: 1,
@@ -1816,29 +1839,31 @@ const styles = StyleSheet.create({
   progressSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
     gap: 12,
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  lectureBackBtn: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    justifyContent: 'center',
+    borderWidth: 1,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    flexShrink: 0,
   },
   progressLabel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    maxWidth: 340,
+    minWidth: 0,
+    flexShrink: 1,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
+    flexShrink: 1,
   },
   progressBarContainer: {
     flex: 1,
@@ -1848,16 +1873,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 3,
     overflow: 'hidden',
-    flexDirection: 'row',
   },
   progressFillGreen: {
     height: '100%',
     backgroundColor: '#10b981',
-  },
-  progressFillPurple: {
-    height: '100%',
-    backgroundColor: '#a855f7',
-    position: 'absolute',
+    borderRadius: 3,
   },
   progressPercent: {
     fontSize: 12,

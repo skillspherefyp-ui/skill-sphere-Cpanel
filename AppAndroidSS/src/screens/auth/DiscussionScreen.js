@@ -393,6 +393,12 @@ const DiscussionScreen = () => {
               onChangeText={handleComposerChange}
               onFocus={() => setComposerFocused(true)}
               onBlur={() => setComposerFocused(false)}
+              onKeyPress={(e) => {
+                if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                  e.preventDefault?.();
+                  if (newPost.trim() && !posting) handlePost();
+                }
+              }}
               placeholder="Share something with the community… (type @ to mention a course)"
               placeholderTextColor={theme.colors.textTertiary}
               multiline

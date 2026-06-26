@@ -29,7 +29,6 @@ import { lectureChatAPI } from '../../services/apiClient';
 import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSidebarItems } from '../../utils/sidebarItems';
-import AITeacherAvatar from '../../components/classroom/AITeacherAvatar';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -166,7 +165,67 @@ const renderAnswerBlock = (block, index) => {
   return <Text key={index} style={qStyles.qaAnswerText}>{block.text}</Text>;
 };
 
+// ─── Phase status visual (listening / transcribing / speaking) ────────────────
+const QA_PhaseVisual = ({ phase, isListening }) => {
+  const accent = '#f59e0b';
+  const innerPulse = React.useRef(new RNAnimated.Value(1)).current;
+  const outerPulse = React.useRef(new RNAnimated.Value(1)).current;
+  const waveAnims  = React.useRef(Array.from({ length: 10 }, () => new RNAnimated.Value(8))).current;
+  const timers     = React.useRef([]);
+
+  React.useEffect(() => {
+    timers.current.forEach(t => clearTimeout(t));
+    timers.current = [];
+    innerPulse.stopAnimation(); innerPulse.setValue(1);
+    outerPulse.stopAnimation(); outerPulse.setValue(0);
+
+    if (isListening) {
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(innerPulse, { toValue: 1.18, duration: 550, useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(innerPulse, { toValue: 1,    duration: 550, useNativeDriver: USE_NATIVE_DRIVER }),
+      ])).start();
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(outerPulse, { toValue: 1,  duration: 0,   useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(outerPulse, { toValue: 0,  duration: 900, useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(outerPulse, { toValue: 1,  duration: 0,   useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.delay(300),
+      ])).start();
+    }
+    return () => { timers.current.forEach(t => clearTimeout(t)); timers.current = []; };
+  }, [isListening]);
+
+  if (isListening) {
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: 36, gap: 20 }}>
+        <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
+          <RNAnimated.View style={{
+            position: 'absolute', width: 120, height: 120, borderRadius: 60,
+            borderWidth: 2, borderColor: '#ef4444',
+            opacity: outerPulse.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }),
+            transform: [{ scale: outerPulse.interpolate({ inputRange: [0, 1], outputRange: [1.4, 1] }) }],
+          }} />
+          <RNAnimated.View style={{
+            width: 80, height: 80, borderRadius: 40,
+            backgroundColor: 'rgba(239,68,68,0.15)',
+            borderWidth: 2.5, borderColor: '#ef4444',
+            alignItems: 'center', justifyContent: 'center',
+            transform: [{ scale: innerPulse }],
+          }}>
+            <Icon name="mic" size={36} color="#ef4444" />
+          </RNAnimated.View>
+        </View>
+        <Text style={{ color: '#fca5a5', fontSize: 20, fontWeight: '800' }}>Listening…</Text>
+        <Text style={{ color: '#475569', fontSize: 13, textAlign: 'center' }}>
+          Speak your question · English, Urdu &amp; Roman Urdu supported
+        </Text>
+      </View>
+    );
+  }
+  return null;
+};
+
 function ManualQuestionPanel({ onAsk, onDismiss, loading, history, language, studentName, windowHeight }) {
+  const isMobile = Platform.OS !== 'web';
   const [phase, setPhase] = React.useState('composing'); // 'composing' | 'thinking' | 'done'
   const [qaInput, setQaInput] = React.useState('');
   const [qaListening, setQaListening] = React.useState(false);
@@ -264,55 +323,46 @@ function ManualQuestionPanel({ onAsk, onDismiss, loading, history, language, stu
     ? history[history.length - 1].content : '';
   const blocks = phase === 'done' ? parseAnswerBlocks(latestAnswer) : [];
 
-  const cardH = Math.max(360, (windowHeight || 600) - 28);
-  const HEADER_H = 56;
-  const CHIP_H = currentQuestion ? 78 : 0;
-  const FOOTER_H = 68;
-  const bodyHeight = Math.max(140, cardH - HEADER_H - CHIP_H - FOOTER_H);
 
-  return (
-    <Modal visible transparent animationType="fade" onRequestClose={onDismiss} statusBarTranslucent>
-    <View style={qStyles.qaOverlay}>
-      <View style={[qStyles.qaCard, { height: cardH }]}>
-
-        <View style={qStyles.qaHeader}>
-          <View style={qStyles.qaHeaderLeft}>
-            <View style={qStyles.qaHeaderAvatar} pointerEvents="none">
-              <AITeacherAvatar state={qaAvatarState} size={34} minimal showLabel={false} />
-            </View>
-            <Text style={qStyles.qaHeaderTitle}>AI Tutor</Text>
-            <View style={[qStyles.qaPhasePill, { borderColor: `${accent}66`, backgroundColor: `${accent}1f` }]}>
-              <View style={[qStyles.qaPhaseDot, { backgroundColor: accent }]} />
-              <Text style={[qStyles.qaPhaseText, { color: accent }]}>{phaseLabel}</Text>
-            </View>
+  // cardContent is now just the scrollable area (no wrapper card View)
+  const cardContent = (
+    <ScrollView
+      style={{ height: windowHeight - 70, backgroundColor: '#0d0f1f' }}
+      contentContainerStyle={{ paddingBottom: 20 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={qStyles.qaHeader}>
+        <View style={qStyles.qaHeaderLeft}>
+          <View style={qStyles.qaSSBrand}><MaterialIcon name="robot" size={22} color="#FF8C42" /></View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={qStyles.qaHeaderTitle}>SkillSphere AI</Text>
+            <Text style={qStyles.qaHeaderSub}>Your AI Learning Companion</Text>
           </View>
-          <TouchableOpacity onPress={onDismiss} style={qStyles.qaClose} accessibilityLabel="Resume lecture">
-            <Icon name="close" size={18} color="#e2e8f0" />
-          </TouchableOpacity>
+          <View style={[qStyles.qaPhasePill, { borderColor: `${accent}66`, backgroundColor: `${accent}1f` }]}>
+            <View style={[qStyles.qaPhaseDot, { backgroundColor: accent }]} />
+            <Text style={[qStyles.qaPhaseText, { color: accent }]}>{phaseLabel}</Text>
+          </View>
         </View>
+        <TouchableOpacity onPress={onDismiss} style={qStyles.qaClose} accessibilityLabel="Resume lecture">
+          <Icon name="close" size={18} color="#e2e8f0" />
+        </TouchableOpacity>
+      </View>
 
-        {!!currentQuestion && (
-          <View style={[qStyles.qaQuestionChip, { borderColor: `${accent}44` }]}>
-            <Text style={[qStyles.qaQuestionLabel, { color: accent }]}>YOU ASKED</Text>
-            <Text style={qStyles.qaQuestionText}>{currentQuestion}</Text>
-          </View>
-        )}
+      {!!currentQuestion && (
+        <View style={[qStyles.qaQuestionChip, { borderColor: `${accent}44` }]}>
+          <Text style={[qStyles.qaQuestionLabel, { color: accent }]}>YOU ASKED</Text>
+          <Text style={qStyles.qaQuestionText}>{currentQuestion}</Text>
+        </View>
+      )}
 
-        <View style={[qStyles.qaBody, { height: bodyHeight }]}>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={qStyles.qaAnswerScroll} showsVerticalScrollIndicator={false}>
-            {phase === 'composing' && (
-              <View style={{ gap: 16, width: '100%' }}>
-                {!!greeting && <Text style={qStyles.qaGreetingText}>{greeting}</Text>}
-                {qaListening ? (
-                  <View style={qStyles.qaListeningRow}>
-                    <View style={qStyles.qaListeningPulse} />
-                    <Text style={qStyles.qaListeningText}>Listening… speak your question, then tap ✓ or press Enter</Text>
-                  </View>
-                ) : (
-                  <Text style={qStyles.qaPrompt}>
-                    Tap the mic and speak, or type your question below — then press ✓.
-                  </Text>
-                )}
+      <View style={{ paddingHorizontal: 20, paddingTop: 10, gap: 12 }}>
+        {phase === 'composing' && (
+          <View style={{ gap: 16 }}>
+            {!!greeting && !qaListening && <Text style={qStyles.qaGreetingText}>{greeting}</Text>}
+            <QA_PhaseVisual phase={phase} isListening={qaListening} />
+            {!qaListening && (
+              <>
+                <Text style={qStyles.qaPrompt}>Tap the mic and speak, or type your question below — then press ✓.</Text>
                 <View>
                   <Text style={qStyles.qaChipsHint}>QUICK ASKS</Text>
                   <View style={qStyles.qaChipsRow}>
@@ -329,74 +379,84 @@ function ManualQuestionPanel({ onAsk, onDismiss, loading, history, language, stu
                     ))}
                   </View>
                 </View>
-              </View>
+              </>
             )}
-            {phase === 'thinking' && (
-              <QA_ThinkingIndicator accent={accent} />
-            )}
-            {(phase === 'done') && !!latestAnswer && (
-              <View style={qStyles.qaAnswerContainer}>
-                {blocks.map((b, i) => renderAnswerBlock(b, i))}
-              </View>
-            )}
-          </ScrollView>
-        </View>
-
-        <View style={qStyles.qaFooter}>
-          {phase === 'composing' ? (
-            <>
-              <TouchableOpacity
-                onPress={handleQaMic}
-                style={[qStyles.qaMic, qaListening
-                  ? { backgroundColor: '#ef4444', borderColor: '#ef4444' }
-                  : { borderColor: `${accent}66` }
-                ]}
-                accessibilityLabel={qaListening ? 'Stop recording' : 'Speak your question'}
-              >
-                <Icon name={qaListening ? 'stop' : 'mic-outline'} size={18} color={qaListening ? '#fff' : accent} />
-              </TouchableOpacity>
-              <TextInput
-                style={qStyles.qaInputField}
-                value={qaInput}
-                onChangeText={setQaInput}
-                placeholder={qaListening ? 'Listening… speak now, then tap ✓' : 'Speak (mic) or type your question…'}
-                placeholderTextColor="#64748b"
-                onSubmitEditing={finishAndSubmit}
-                blurOnSubmit={false}
-                onKeyPress={(e) => {
-                  if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
-                    e.preventDefault?.();
-                    finishAndSubmit();
-                  }
-                }}
-                returnKeyType="send"
-                autoFocus
-              />
-              <TouchableOpacity
-                onPress={finishAndSubmit}
-                disabled={!(qaListening || qaInput.trim())}
-                style={[qStyles.qaTickBtn, { opacity: (qaListening || qaInput.trim()) ? 1 : 0.4 }]}
-                accessibilityLabel="Submit question"
-              >
-                <Icon name="checkmark" size={22} color="#04110b" />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity onPress={resetToComposing} style={qStyles.qaSecondaryBtn}>
-                <Icon name="add" size={16} color="#cbd5e1" />
-                <Text style={qStyles.qaSecondaryText}>Ask another</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onDismiss} style={qStyles.qaResumeBtn}>
-                <Icon name="play-skip-forward" size={16} color="#fff" />
-                <Text style={qStyles.qaResumeText}>{phase === 'thinking' ? 'Skip — Resume' : 'Resume lecture'}</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
+          </View>
+        )}
+        {phase === 'thinking' && <QA_ThinkingIndicator accent={accent} />}
+        {phase === 'done' && !!latestAnswer && (
+          <View style={qStyles.qaAnswerContainer}>
+            {blocks.map((b, i) => renderAnswerBlock(b, i))}
+          </View>
+        )}
       </View>
+    </ScrollView>
+  );
+
+  const footerJSX = (
+    <View style={[qStyles.qaFooter, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
+      {phase === 'composing' ? (
+        <>
+          <TouchableOpacity
+            onPress={handleQaMic}
+            style={[qStyles.qaMic, qaListening
+              ? { backgroundColor: '#ef4444', borderColor: '#ef4444' }
+              : { borderColor: `${accent}66` }
+            ]}
+            accessibilityLabel={qaListening ? 'Stop recording' : 'Speak your question'}
+          >
+            <Icon name={qaListening ? 'stop' : 'mic-outline'} size={18} color={qaListening ? '#fff' : accent} />
+          </TouchableOpacity>
+          <TextInput
+            style={qStyles.qaInputField}
+            value={qaInput}
+            onChangeText={setQaInput}
+            placeholder={qaListening ? 'Listening… speak now, then tap ✓' : 'Speak (mic) or type your question…'}
+            placeholderTextColor="#64748b"
+            onSubmitEditing={finishAndSubmit}
+            blurOnSubmit={false}
+            onKeyPress={(e) => {
+              if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                e.preventDefault?.();
+                finishAndSubmit();
+              }
+            }}
+            returnKeyType="send"
+            autoFocus
+          />
+          <TouchableOpacity
+            onPress={finishAndSubmit}
+            disabled={!(qaListening || qaInput.trim())}
+            style={[qStyles.qaTickBtn, { opacity: (qaListening || qaInput.trim()) ? 1 : 0.4 }]}
+            accessibilityLabel="Submit question"
+          >
+            <Icon name="checkmark" size={22} color="#04110b" />
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <TouchableOpacity onPress={resetToComposing} style={qStyles.qaSecondaryBtn}>
+            <Icon name="add" size={16} color="#cbd5e1" />
+            <Text style={qStyles.qaSecondaryText}>Ask another</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDismiss} style={qStyles.qaResumeBtn}>
+            <Icon name="play-skip-forward" size={16} color="#fff" />
+            <Text style={qStyles.qaResumeText}>{phase === 'thinking' ? 'Skip — Resume' : 'Resume lecture'}</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
+  );
+
+  return (
+    <Modal visible transparent animationType={isMobile ? 'slide' : 'fade'} onRequestClose={onDismiss} statusBarTranslucent>
+      <View style={[StyleSheet.absoluteFill, {
+        backgroundColor: isMobile ? '#0d0f1f' : 'rgba(5,7,18,0.88)',
+        ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } : {}),
+      }]}>
+        {cardContent}
+        {footerJSX}
+      </View>
     </Modal>
   );
 }
@@ -405,9 +465,6 @@ const qStyles = StyleSheet.create({
   qaOverlay: {
     flex: 1,
     backgroundColor: 'rgba(5,7,18,0.80)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
     ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } : {}),
   },
   qaCard: {
@@ -433,8 +490,14 @@ const qStyles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   qaHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
-  qaHeaderAvatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  qaHeaderTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  qaSSBrand: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: 'rgba(255,140,66,0.15)',
+    borderWidth: 1.5, borderColor: 'rgba(255,140,66,0.45)',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  qaHeaderTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  qaHeaderSub: { color: '#64748b', fontSize: 11, fontWeight: '600', letterSpacing: 0.2, marginTop: 1 },
   qaPhasePill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
   qaPhaseDot: { width: 6, height: 6, borderRadius: 3 },
   qaPhaseText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
@@ -455,7 +518,7 @@ const qStyles = StyleSheet.create({
   qaChipText: { color: '#fde68a', fontSize: 13, fontWeight: '700' },
   qaAnswerContainer: { width: '100%', borderLeftWidth: 3, borderLeftColor: 'rgba(245,158,11,0.6)', paddingLeft: 16, gap: 6 },
   qaAnswerText: { color: '#f1f5f9', fontSize: 18, lineHeight: 29, fontWeight: '400', marginVertical: 4 },
-  qaFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(2,6,23,0.5)' },
+  qaFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', backgroundColor: '#080c1a' },
   qaMic: { width: 42, height: 42, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0 },
   qaInputField: { flex: 1, minWidth: 0, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, color: '#f1f5f9', fontSize: 15, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) },
   qaTickBtn: { backgroundColor: '#34d399', borderRadius: 12, width: 48, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },

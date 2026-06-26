@@ -65,6 +65,7 @@ const SignupOTPScreen = ({ route, navigation }) => {
 
   const handleKey = (key, i) => {
     if (key === 'Backspace' && !otp[i] && i > 0) refs.current[i - 1]?.focus();
+    if (key === 'Enter') handleVerify();
   };
 
   const handleVerify = async () => {

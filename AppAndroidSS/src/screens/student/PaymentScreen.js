@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, useWindowDimensions,
+  ActivityIndicator, useWindowDimensions, Platform, Linking,
 } from 'react-native';
-
-const ORANGE = '#FF8C42';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
@@ -12,82 +10,166 @@ import MainLayout from '../../components/ui/MainLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { certificateAPI } from '../../services/apiClient';
+import { paymentAPI } from '../../services/apiClient';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
-const METHODS = [
-  { id: 'easypaisa', label: 'EasyPaisa', icon: 'cash-multiple',    color: '#00a651', type: 'mobile' },
-  { id: 'jazzcash',  label: 'JazzCash',  icon: 'lightning-bolt',   color: '#d91e2a', type: 'mobile' },
-  { id: 'visa',      label: 'Visa',      icon: 'credit-card',      color: '#1a1f71', type: 'card'   },
-  { id: 'mastercard',label: 'Mastercard',icon: 'credit-card-chip', color: '#eb001b', type: 'card'   },
-];
+const CERT_PRICE = 2000;
+const LS_KEY = 'safepay_pending';
 
 const PaymentScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme, isDark } = useTheme();
-  const { user, logout }  = useAuth();
+  const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
-  const { courseId, courseName, amount = 500 } = route.params || {};
+  // action='complete' is injected by Safepay redirect; courseId/courseName from nav params
+  const { courseId, courseName, action } = route.params || {};
 
-  const [selected, setSelected]           = useState('easypaisa');
-  const [phone, setPhone]                 = useState('');
-  const [cardNumber, setCardNumber]       = useState('');
-  const [expiry, setExpiry]               = useState('');
-  const [cvv, setCvv]                     = useState('');
-  const [cardName, setCardName]           = useState('');
-  const [processing, setProcessing]       = useState(false);
+  // 'idle' | 'creating' | 'waiting' | 'auto-verifying' | 'done'
+  const [phase, setPhase]             = useState('idle');
+  const [tracker, setTracker]         = useState(null);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
+  const [error, setError]             = useState('');
+  const pollRef                       = useRef(null);
+  const navigatedRef                  = useRef(false);
 
-  const method  = METHODS.find(m => m.id === selected);
-  const isCard  = method?.type === 'card';
   const maxWidth = width > 680 ? 520 : '100%';
+  const surface  = isDark ? theme.colors.surface : '#fff';
 
-  const fmtCard   = v => v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
-  const fmtExpiry = v => {
-    const d = v.replace(/\D/g, '').slice(0, 4);
-    return d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
-  };
+  // ── Auto-verify when Safepay redirects back with ?action=complete ──────────
+  useEffect(() => {
+    if (action !== 'complete' || Platform.OS !== 'web') return;
+    if (typeof window === 'undefined') return;
 
-  const validate = () => {
-    if (isCard) {
-      if (!cardName.trim())                         { Toast.show({ type: 'error', text1: 'Missing name' }); return false; }
-      if (cardNumber.replace(/\s/g, '').length < 16){ Toast.show({ type: 'error', text1: 'Invalid card number' }); return false; }
-      if (expiry.length < 5)                        { Toast.show({ type: 'error', text1: 'Invalid expiry date' }); return false; }
-      if (cvv.length < 3)                           { Toast.show({ type: 'error', text1: 'Invalid CVV' }); return false; }
-    } else {
-      if (phone.replace(/\D/g, '').length < 11)     { Toast.show({ type: 'error', text1: 'Enter a valid 11-digit mobile number' }); return false; }
-    }
-    return true;
-  };
-
-  const handlePay = async () => {
-    if (!validate()) return;
-    setProcessing(true);
-
-    // Simulate 2s payment processing (static/mock)
-    await new Promise(r => setTimeout(r, 2000));
-
+    let pending = null;
     try {
-      const res = await certificateAPI.generate({ courseId, grade: 'Pass', sendEmail: true });
-      if (res.success) {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) pending = JSON.parse(raw);
+    } catch (_) {}
+
+    if (!pending?.tracker || String(pending.courseId) !== String(courseId)) return;
+
+    localStorage.removeItem(LS_KEY);
+    setPhase('auto-verifying');
+
+    paymentAPI.verifyPayment({ tracker: pending.tracker, courseId })
+      .then(res => {
+        if (!res.success) throw new Error(res.error || 'Payment not confirmed');
         Toast.show({
           type: 'success',
           text1: 'Payment Successful!',
           text2: 'Your certificate has been sent to your email',
+          visibilityTime: 3000,
         });
+        setPhase('done');
         setTimeout(() => {
-          navigation.navigate('CertificatePreview', { courseId, courseName });
-        }, 1500);
+          navigation.navigate('CertificatePreview', {
+            courseId,
+            courseName: pending.courseName || courseName,
+          });
+        }, 1200);
+      })
+      .catch(err => {
+        setError(err.message || 'Could not verify payment. Please try again.');
+        setPhase('idle');
+      });
+  }, []); // run only on mount — action comes from initial params
+
+  // ── Auto-poll every 3 s while waiting (original tab stays polling) ─────────
+  useEffect(() => {
+    if (phase !== 'waiting' || !tracker) return;
+
+    const poll = async () => {
+      try {
+        const res = await paymentAPI.verifyPayment({ tracker, courseId });
+        if (res.success && !navigatedRef.current) {
+          navigatedRef.current = true;
+          clearInterval(pollRef.current);
+          localStorage.removeItem(LS_KEY);
+          setPhase('done');
+          Toast.show({
+            type: 'success',
+            text1: 'Payment Successful!',
+            text2: 'Your certificate has been sent to your email',
+            visibilityTime: 3000,
+          });
+          setTimeout(() => {
+            navigation.navigate('CertificatePreview', { courseId, courseName });
+          }, 1800);
+        }
+      } catch (_) {
+        // not paid yet — keep polling silently
+      }
+    };
+
+    pollRef.current = setInterval(poll, 3000);
+    return () => clearInterval(pollRef.current);
+  }, [phase, tracker]);
+
+  // Build redirect URL: Safepay will send the user back here with action=complete
+  const getRedirectUrl = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const params = new URLSearchParams({
+        action: 'complete',
+        courseId: String(courseId),
+        courseName: courseName || '',
+      });
+      return `${window.location.origin}/student/payment?${params.toString()}`;
+    }
+    return null;
+  };
+
+  // ── Step 1: create order, save tracker to localStorage, open Safepay ───────
+  const handleOpenSafepay = async () => {
+    setError('');
+    setPhase('creating');
+    try {
+      const redirectUrl = getRedirectUrl();
+      const res = await paymentAPI.createOrder({ courseId, courseName, redirectUrl });
+      if (!res.success) throw new Error(res.error || 'Could not create payment session');
+
+      // Persist tracker so the redirect tab can auto-verify without state
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        localStorage.setItem(LS_KEY, JSON.stringify({
+          tracker: res.tracker,
+          courseId,
+          courseName,
+        }));
+      }
+
+      setTracker(res.tracker);
+      setCheckoutUrl(res.checkoutUrl);
+      setPhase('waiting');
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.open(res.checkoutUrl, '_blank');
+      } else {
+        await Linking.openURL(res.checkoutUrl);
       }
     } catch (err) {
-      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Something went wrong' });
-    } finally {
-      setProcessing(false);
+      setError(err.message || 'Failed to start payment');
+      setPhase('idle');
     }
   };
 
-  const surface = isDark ? theme.colors.surface : '#fff';
-  const inputBg = isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc';
+  const handleReOpen = () => {
+    if (!checkoutUrl) return;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(checkoutUrl, '_blank');
+    } else {
+      Linking.openURL(checkoutUrl);
+    }
+  };
+
+  const handleCancel = () => {
+    clearInterval(pollRef.current);
+    navigatedRef.current = false;
+    localStorage.removeItem(LS_KEY);
+    setPhase('idle');
+    setTracker(null);
+    setCheckoutUrl(null);
+    setError('');
+  };
 
   return (
     <MainLayout
@@ -99,182 +181,161 @@ const PaymentScreen = () => {
       onLogout={logout}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { maxWidth, alignSelf: 'center', width: '100%' }]}
+        contentContainerStyle={[styles.scroll, { maxWidth, alignSelf: 'center', width: '100%' }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* Page Header Banner */}
-        <View style={[styles.pageHeaderBanner, {
+        {/* Header */}
+        <View style={[styles.banner, {
           backgroundColor: isDark ? 'rgba(16,185,129,0.06)' : 'rgba(16,185,129,0.05)',
           borderColor: 'rgba(16,185,129,0.15)',
         }]}>
-          <View style={styles.bannerLeft}>
-            <TouchableOpacity
-              style={[styles.backButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.06)' }]}
-              onPress={() => navigation.goBack()}
-            >
-              <Icon name="arrow-back" size={20} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-            <View style={[styles.bannerIconCircle, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
-              <Icon name="card" size={22} color="#10B981" />
-            </View>
-            <View style={styles.bannerTextGroup}>
-              <Text style={[styles.bannerTitle, { color: theme.colors.textPrimary }]}>Payment</Text>
-              <Text style={[styles.bannerSubtitle, { color: theme.colors.textSecondary }]}>Complete your certificate purchase</Text>
-            </View>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.06)' }]}
+            onPress={() => navigation.navigate('CertificatePreview', { courseId, courseName })}
+          >
+            <Icon name="arrow-back" size={20} color={theme.colors.textPrimary} />
+          </TouchableOpacity>
+          <View style={[styles.bannerIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
+            <Icon name="card" size={22} color="#10B981" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.bannerTitle, { color: theme.colors.textPrimary }]}>Secure Payment</Text>
+            <Text style={[styles.bannerSub, { color: theme.colors.textSecondary }]}>Powered by Safepay</Text>
           </View>
         </View>
 
         {/* Order Summary */}
         <View style={[styles.summaryCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>
           <View style={styles.summaryLeft}>
-            <View style={[styles.summaryIconWrap, { backgroundColor: theme.colors.primary + '15' }]}>
+            <View style={[styles.summaryIcon, { backgroundColor: theme.colors.primary + '15' }]}>
               <Icon name="ribbon" size={22} color={theme.colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.summaryLabel, { color: theme.colors.textTertiary }]}>Certificate for</Text>
-              <Text style={[styles.summaryCourseName, { color: theme.colors.textPrimary }]} numberOfLines={2}>
+              <Text style={[styles.summaryName, { color: theme.colors.textPrimary }]} numberOfLines={2}>
                 {courseName}
               </Text>
             </View>
           </View>
-          <View style={[styles.amountPill, { backgroundColor: theme.colors.primary }]}>
-            <Text style={styles.amountPillText}>PKR {amount}</Text>
+          <View style={[styles.pricePill, { backgroundColor: theme.colors.primary }]}>
+            <Text style={styles.pricePillText}>PKR {CERT_PRICE}</Text>
           </View>
         </View>
 
-        {/* Method Selection */}
-        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-          Select Payment Method
-        </Text>
-        <View style={styles.methodsGrid}>
-          {METHODS.map(m => {
-            const active = selected === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[
-                  styles.methodCard,
-                  { backgroundColor: active ? m.color + '14' : surface, borderColor: active ? m.color : theme.colors.border },
-                ]}
-                onPress={() => setSelected(m.id)}
-                activeOpacity={0.8}
-              >
-                {active && (
-                  <View style={[styles.methodCheckmark, { backgroundColor: m.color }]}>
-                    <Icon name="checkmark" size={9} color="#fff" />
-                  </View>
-                )}
-                <MaterialIcon name={m.icon} size={28} color={active ? m.color : theme.colors.textSecondary} />
-                <Text style={[styles.methodLabel, {
-                  color: active ? m.color : theme.colors.textPrimary,
-                  fontWeight: active ? '700' : '500',
-                }]}>
-                  {m.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* What you get */}
+        <View style={[styles.benefitsCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>
+          <Text style={[styles.benefitsTitle, { color: theme.colors.textPrimary }]}>What you'll receive</Text>
+          {[
+            { icon: 'document-text',    text: 'Official signed PDF certificate' },
+            { icon: 'mail',             text: 'Delivered instantly to your email' },
+            { icon: 'shield-checkmark', text: 'Verifiable certificate with unique ID' },
+            { icon: 'logo-linkedin',    text: 'Add directly to your LinkedIn profile' },
+          ].map((item, i) => (
+            <View key={i} style={styles.benefitRow}>
+              <Icon name={item.icon} size={16} color="#10B981" />
+              <Text style={[styles.benefitText, { color: theme.colors.textSecondary }]}>{item.text}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Payment Form */}
-        <View style={[styles.formCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>
-          <Text style={[styles.formTitle, { color: theme.colors.textPrimary }]}>
-            {isCard ? 'Card Information' : `${method?.label} Account`}
+        {/* Payment methods badge */}
+        <View style={[styles.methodsBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc', borderColor: theme.colors.border }]}>
+          <Icon name="lock-closed" size={13} color="#10B981" />
+          <Text style={[styles.methodsText, { color: theme.colors.textTertiary }]}>
+            Accepts: EasyPaisa · JazzCash · Visa · Mastercard · Local &amp; International Cards
           </Text>
-
-          {!isCard ? (
-            <FormInput
-              label="Mobile Number"
-              icon="phone-portrait-outline"
-              placeholder="e.g. 03001234567"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              maxLength={13}
-              theme={theme}
-              inputBg={inputBg}
-            />
-          ) : (
-            <>
-              <FormInput
-                label="Cardholder Name"
-                icon="person-outline"
-                placeholder="Full name on card"
-                value={cardName}
-                onChangeText={setCardName}
-                theme={theme}
-                inputBg={inputBg}
-              />
-              <FormInput
-                label="Card Number"
-                icon="credit-card-outline"
-                placeholder="0000 0000 0000 0000"
-                value={cardNumber}
-                onChangeText={v => setCardNumber(fmtCard(v))}
-                keyboardType="numeric"
-                maxLength={19}
-                letterSpacing={1}
-                theme={theme}
-                inputBg={inputBg}
-                useMaterial
-              />
-              <View style={styles.rowInputs}>
-                <View style={{ flex: 1 }}>
-                  <FormInput
-                    label="Expiry Date"
-                    icon="calendar-outline"
-                    placeholder="MM/YY"
-                    value={expiry}
-                    onChangeText={v => setExpiry(fmtExpiry(v))}
-                    keyboardType="numeric"
-                    maxLength={5}
-                    theme={theme}
-                    inputBg={inputBg}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <FormInput
-                    label="CVV"
-                    icon="lock-closed-outline"
-                    placeholder="•••"
-                    value={cvv}
-                    onChangeText={setCvv}
-                    keyboardType="numeric"
-                    maxLength={4}
-                    secureTextEntry
-                    theme={theme}
-                    inputBg={inputBg}
-                  />
-                </View>
-              </View>
-            </>
-          )}
         </View>
 
-        {/* Pay Button */}
-        <TouchableOpacity
-          style={[styles.payBtn, { backgroundColor: method?.color || theme.colors.primary, opacity: processing ? 0.8 : 1 }]}
-          onPress={handlePay}
-          disabled={processing}
-          activeOpacity={0.85}
-        >
-          {processing ? (
-            <>
-              <ActivityIndicator size="small" color="#fff" />
-              <Text style={styles.payBtnText}>Processing...</Text>
-            </>
-          ) : (
-            <>
-              <Icon name="lock-closed" size={18} color="#fff" />
-              <Text style={styles.payBtnText}>Pay PKR {amount}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {/* Error */}
+        {!!error && (
+          <View style={[styles.errorBox, { backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : '#fef2f2', borderColor: '#fca5a5' }]}>
+            <Icon name="alert-circle" size={16} color="#ef4444" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* ── How it works — always visible ── */}
+        {(phase === 'idle' || phase === 'waiting') && (
+          <View style={[styles.stepsBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f0fdf4', borderColor: '#bbf7d0' }]}>
+            <Text style={[styles.stepsTitle, { color: theme.colors.textPrimary }]}>How it works</Text>
+            {[
+              { n: '1', text: 'Click the button below — Safepay will open in a new tab.' },
+              { n: '2', text: 'Complete your payment in that tab, then close it.' },
+              { n: '3', text: 'Come back to this tab — it will detect your payment automatically.' },
+            ].map(step => (
+              <View key={step.n} style={styles.stepRow}>
+                <View style={[styles.stepBadge, { backgroundColor: '#10B981' }]}>
+                  <Text style={styles.stepNum}>{step.n}</Text>
+                </View>
+                <Text style={[styles.stepText, { color: theme.colors.textSecondary }]}>{step.text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Phase: idle ── */}
+        {phase === 'idle' && (
+          <TouchableOpacity style={styles.payBtn} onPress={handleOpenSafepay} activeOpacity={0.85}>
+            <MaterialIcon name="credit-card-check" size={20} color="#fff" />
+            <Text style={styles.payBtnText}>Pay PKR {CERT_PRICE} with Safepay</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Phase: auto-verifying (redirect tab) ── */}
+        {phase === 'auto-verifying' && (
+          <View style={[styles.waitCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>
+            <ActivityIndicator size="large" color="#10B981" />
+            <Text style={[styles.waitTitle, { color: theme.colors.textPrimary }]}>Confirming your payment…</Text>
+            <Text style={[styles.waitSub, { color: theme.colors.textSecondary }]}>
+              You'll be taken to your certificate in a moment.
+            </Text>
+          </View>
+        )}
+
+        {/* ── Phase: creating order ── */}
+        {phase === 'creating' && (
+          <View style={[styles.waitCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.waitTitle, { color: theme.colors.textPrimary }]}>Creating payment session…</Text>
+          </View>
+        )}
+
+        {/* ── Phase: waiting — auto-polls every 3 s ── */}
+        {phase === 'waiting' && (
+          <View style={[styles.waitCard, { backgroundColor: surface, borderColor: '#bbf7d0' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator size="small" color="#10B981" />
+              <Text style={[styles.waitTitle, { color: '#10B981', fontSize: 14 }]}>Waiting for payment confirmation…</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.reOpenBtn, { borderColor: theme.colors.primary }]}
+              onPress={handleReOpen}
+              activeOpacity={0.8}
+            >
+              <Icon name="refresh" size={16} color={theme.colors.primary} />
+              <Text style={[styles.reOpenText, { color: theme.colors.primary }]}>Re-open Safepay tab</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleCancel}>
+              <Text style={[styles.cancelText, { color: theme.colors.textTertiary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Phase: done ── */}
+        {phase === 'done' && (
+          <View style={[styles.waitCard, { backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#d1fae5', borderColor: '#6ee7b7' }]}>
+            <Icon name="checkmark-circle" size={48} color="#10B981" />
+            <Text style={[styles.waitTitle, { color: isDark ? '#6ee7b7' : '#065f46' }]}>Payment Successful!</Text>
+            <Text style={[styles.waitSub, { color: isDark ? '#a7f3d0' : '#047857' }]}>
+              Your certificate is being prepared and will be sent to your email shortly.
+            </Text>
+          </View>
+        )}
 
         <Text style={[styles.secureNote, { color: theme.colors.textTertiary }]}>
-          🔒  This is a test payment — no real transaction will occur
+          🔒 Payments are processed securely by Safepay. SkillSphere does not store your card details.
         </Text>
 
       </ScrollView>
@@ -282,148 +343,88 @@ const PaymentScreen = () => {
   );
 };
 
-// ── Reusable input ──────────────────────────────────────────────────────────
-
-const FormInput = ({
-  label, icon, placeholder, value, onChangeText,
-  keyboardType, maxLength, secureTextEntry, letterSpacing,
-  theme, inputBg, useMaterial,
-}) => (
-  <View style={styles.inputGroup}>
-    <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
-    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: theme.colors.border }]}>
-      {useMaterial
-        ? <MaterialIcon name={icon} size={17} color={theme.colors.textTertiary} style={styles.inputIcon} />
-        : <Icon name={icon} size={17} color={theme.colors.textTertiary} style={styles.inputIcon} />
-      }
-      <TextInput
-        style={[styles.textInput, { color: theme.colors.textPrimary, letterSpacing: letterSpacing || 0 }]}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.textTertiary}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType || 'default'}
-        maxLength={maxLength}
-        secureTextEntry={secureTextEntry}
-        autoCapitalize="none"
-      />
-    </View>
-  </View>
-);
-
-// ── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  scrollContent: { padding: 20, paddingBottom: 48, gap: 16 },
+  scroll: { padding: 20, paddingBottom: 48, gap: 16 },
 
-  // Page Header Banner
-  pageHeaderBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+  banner: {
+    flexDirection: 'row', alignItems: 'center', padding: 14,
+    borderRadius: 16, borderWidth: 1, gap: 12,
   },
-  bannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bannerIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,140,66,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bannerTextGroup: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  bannerSubtitle: {
-    fontSize: 13,
-  },
+  backBtn:    { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  bannerIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  bannerTitle:  { fontSize: 18, fontWeight: '700' },
+  bannerSub:    { fontSize: 12, marginTop: 2 },
 
-  // Summary
   summaryCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderRadius: 16, borderWidth: 1, padding: 16, gap: 12,
-    borderTopWidth: 3, borderTopColor: '#FF8C42', overflow: 'hidden',
+    borderTopWidth: 3, borderTopColor: '#10B981',
   },
-  summaryLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  summaryIconWrap: {
-    width: 44, height: 44, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
-  },
+  summaryLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  summaryIcon:  { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   summaryLabel: { fontSize: 11, marginBottom: 2 },
-  summaryCourseName: { fontSize: 14, fontWeight: '600' },
-  amountPill: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20,
-  },
-  amountPillText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  summaryName:  { fontSize: 14, fontWeight: '600' },
+  pricePill:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  pricePillText:{ color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  // Section title
-  sectionTitle: {
-    fontSize: 14, fontWeight: '700', marginBottom: -4,
-    borderLeftWidth: 3, borderLeftColor: '#FF8C42', paddingLeft: 8,
+  benefitsCard: {
+    borderRadius: 16, borderWidth: 1, padding: 16, gap: 10,
+    borderTopWidth: 3, borderTopColor: '#10B981',
   },
+  benefitsTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  benefitRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  benefitText:   { fontSize: 13, flex: 1 },
 
-  // Methods grid (2×2)
-  methodsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+  methodsBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 12, borderRadius: 10, borderWidth: 1,
   },
-  methodCard: {
-    width: '47.5%', borderRadius: 14, borderWidth: 1.5,
-    paddingVertical: 18, alignItems: 'center', gap: 8,
-    position: 'relative',
-  },
-  methodCheckmark: {
-    position: 'absolute', top: 8, right: 8,
-    width: 18, height: 18, borderRadius: 9,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  methodLabel: { fontSize: 13 },
+  methodsText: { fontSize: 11, flex: 1, lineHeight: 17 },
 
-  // Form card
-  formCard: {
-    borderRadius: 16, borderWidth: 1, padding: 16, gap: 4,
-    borderTopWidth: 3, borderTopColor: '#FF8C42', overflow: 'hidden',
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 12, borderRadius: 10, borderWidth: 1,
   },
-  formTitle: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  errorText: { flex: 1, color: '#ef4444', fontSize: 13 },
 
-  // Input
-  inputGroup: { marginBottom: 12 },
-  inputLabel: { fontSize: 12, fontWeight: '500', marginBottom: 6 },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, height: 46,
-  },
-  inputIcon: { marginRight: 8 },
-  textInput: { flex: 1, fontSize: 14 },
-  rowInputs: { flexDirection: 'row', gap: 10 },
-
-  // Pay button
   payBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 16, borderRadius: 14,
+    backgroundColor: '#10B981',
   },
   payBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-  secureNote: { fontSize: 12, textAlign: 'center', marginTop: -4 },
+  waitCard: {
+    borderRadius: 16, borderWidth: 1, padding: 24,
+    alignItems: 'center', gap: 12,
+  },
+  waitIconCircle: {
+    width: 64, height: 64, borderRadius: 32,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 4,
+  },
+  waitTitle: { fontSize: 17, fontWeight: '700', textAlign: 'center' },
+  waitSub:   { fontSize: 13, textAlign: 'center', lineHeight: 20, maxWidth: 300 },
+
+  reOpenBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 10, paddingHorizontal: 20,
+    borderRadius: 10, borderWidth: 1.5,
+  },
+  reOpenText: { fontSize: 14, fontWeight: '600' },
+
+  stepsBox: {
+    width: '100%', borderRadius: 12, borderWidth: 1,
+    padding: 14, gap: 10,
+  },
+  stepsTitle: { fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  stepRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  stepBadge: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginTop: 1 },
+  stepNum:   { color: '#fff', fontSize: 12, fontWeight: '700' },
+  stepText:  { flex: 1, fontSize: 13, lineHeight: 19 },
+
+  cancelText: { fontSize: 13, textAlign: 'center' },
+
+  secureNote: { fontSize: 11, textAlign: 'center' },
 });
 
 export default PaymentScreen;

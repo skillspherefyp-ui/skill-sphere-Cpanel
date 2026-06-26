@@ -318,6 +318,12 @@ const DiscussionThreadScreen = () => {
               placeholderTextColor={theme.colors.textTertiary}
               multiline
               maxLength={500}
+              onKeyPress={(e) => {
+                if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                  e.preventDefault?.();
+                  if (newReply.trim() && !posting) handleReply();
+                }
+              }}
             />
             <View style={styles.inputBtns}>
               <Text style={[styles.charCount, { color: newReply.length > 450 ? '#EF4444' : theme.colors.textTertiary }]}>

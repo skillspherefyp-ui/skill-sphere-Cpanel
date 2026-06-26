@@ -24,7 +24,7 @@ import AppButton from '../../components/ui/AppButton';
 import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { certificateAPI, enrollmentAPI, API_BASE } from '../../services/apiClient';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
@@ -91,9 +91,7 @@ const CertificatesScreen = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchCertificates();
-  }, [fetchCertificates]);
+  useFocusEffect(useCallback(() => { fetchCertificates(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -243,7 +241,7 @@ const CertificatesScreen = () => {
           <View style={styles.bannerLeft}>
             <TouchableOpacity
               style={[styles.backButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.06)' }]}
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate('Dashboard')}
             >
               <Icon name="arrow-back" size={20} color={theme.colors.textPrimary} />
             </TouchableOpacity>

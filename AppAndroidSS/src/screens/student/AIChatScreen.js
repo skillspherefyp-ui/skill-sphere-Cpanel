@@ -682,6 +682,12 @@ const AIChatScreen = () => {
                 multiline
                 maxLength={1000}
                 editable={!isRecording}
+                onKeyPress={(e) => {
+                  if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                    e.preventDefault?.();
+                    if (inputText.trim() && !sendingMessage) handleSend();
+                  }
+                }}
               />
               <View style={styles.inputBtns}>
                 <TouchableOpacity style={styles.iconBtn} onPress={handleVoiceInput}>

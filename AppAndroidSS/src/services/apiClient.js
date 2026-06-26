@@ -325,6 +325,11 @@ export const certificateAPI = {
   delete: (id) => del(`/certificates/${id}`),
 };
 
+export const paymentAPI = {
+  createOrder: (data) => post('/payments/create-order', data),
+  verifyPayment: (data) => post('/payments/verify', data),
+};
+
 export const certificateTemplateAPI = {
   getAll: () => get('/certificate-templates'),
   getActive: () => get('/certificate-templates/active'),

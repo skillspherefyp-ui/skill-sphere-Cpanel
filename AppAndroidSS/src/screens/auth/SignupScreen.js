@@ -38,7 +38,7 @@ const getColors = (isDark) => ({
   logoText:         isDark ? '#FFFFFF'                  : '#1A1A2E',
 });
 
-const AuthInput = ({ icon, placeholder, value, onChangeText, keyboardType = 'default', autoCapitalize = 'none', right, C }) => {
+const AuthInput = ({ icon, placeholder, value, onChangeText, keyboardType = 'default', autoCapitalize = 'none', right, C, onSubmit }) => {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[inp.wrap, {
@@ -56,6 +56,14 @@ const AuthInput = ({ icon, placeholder, value, onChangeText, keyboardType = 'def
         autoCapitalize={autoCapitalize}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        onSubmitEditing={onSubmit}
+        returnKeyType={onSubmit ? 'go' : 'done'}
+        onKeyPress={(e) => {
+          if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+            e.preventDefault?.();
+            onSubmit?.();
+          }
+        }}
       />
       {right}
     </View>
@@ -155,7 +163,7 @@ const SignupScreen = ({ navigation }) => {
             <AuthInput C={C} icon="person-outline" placeholder="Full name" value={name}
               onChangeText={t => { setName(t); setError(''); }} autoCapitalize="words" />
             <AuthInput C={C} icon="mail-outline" placeholder="Email address" value={email}
-              onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" />
+              onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" onSubmit={handleSendOTP} />
 
             <TouchableOpacity style={s.primaryBtn} onPress={handleSendOTP} disabled={sendingOTP} activeOpacity={0.85}>
               {sendingOTP ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.primaryBtnText}>Continue</Text>}

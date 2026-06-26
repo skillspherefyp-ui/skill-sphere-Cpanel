@@ -36,6 +36,7 @@ const bulkEmailRoutes = require('./routes/bulkEmailRoutes');
 const newsletterRoutes = require('./routes/newsletterRoutes');
 const aiClassroomRoutes = require('./routes/aiClassroomRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const { initScheduledReminders } = require('./controllers/todoController');
 
 const app = express();
@@ -216,6 +217,7 @@ app.use('/api/bulk-email', bulkEmailRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/ai-classroom', aiClassroomRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Error:', err);

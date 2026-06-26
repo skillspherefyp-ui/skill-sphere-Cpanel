@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, useWindowDimensions, Platform, Linking,
@@ -8,7 +8,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import MainLayout from '../../components/ui/MainLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { certificateAPI, certificateTemplateAPI } from '../../services/apiClient';
 import CertificateCard from '../../components/CertificateCard';
 import { getSidebarItems } from '../../utils/sidebarItems';
@@ -335,7 +335,7 @@ const CertificatePreviewScreen = () => {
   // Card width: screen width minus padding, capped at 700
   const cardWidth = Math.min(windowWidth - 40, 700);
 
-  useEffect(() => { loadData(); }, [courseId]);
+  useFocusEffect(useCallback(() => { loadData(); }, [courseId]));
 
   const loadData = async () => {
     setLoading(true);
@@ -417,7 +417,7 @@ const CertificatePreviewScreen = () => {
             <View style={styles.bannerLeft}>
               <TouchableOpacity
                 style={[styles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.06)' }]}
-                onPress={() => navigation.goBack()}
+                onPress={() => navigation.navigate('Certificates')}
               >
                 <Icon name="arrow-back" size={20} color={theme.colors.textPrimary} />
               </TouchableOpacity>
@@ -531,14 +531,14 @@ const CertificatePreviewScreen = () => {
               }]}>
                 <MaterialIcon name="certificate-outline" size={30} color={theme.colors.primary} style={{ marginBottom: 8 }} />
                 <Text style={[styles.feeLabel, { color: theme.colors.textSecondary }]}>Certificate Fee</Text>
-                <Text style={[styles.feeAmount, { color: theme.colors.primary }]}>PKR 500</Text>
+                <Text style={[styles.feeAmount, { color: theme.colors.primary }]}>PKR 2,000</Text>
                 <Text style={[styles.feeNote, { color: theme.colors.textTertiary }]}>
                   Official signed PDF delivered to your email
                 </Text>
               </View>
               <TouchableOpacity
                 style={[styles.payBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={() => navigation.navigate('Payment', { courseId, courseName, amount: 500 })}
+                onPress={() => navigation.navigate('Payment', { courseId, courseName, amount: 2000 })}
                 activeOpacity={0.85}
               >
                 <MaterialIcon name="credit-card-outline" size={20} color="#fff" />

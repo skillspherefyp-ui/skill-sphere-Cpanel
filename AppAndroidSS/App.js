@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { NavigationContainer, getStateFromPath as defaultGetStateFromPath } from '@react-navigation/native';
+import { NavigationContainer, getStateFromPath as defaultGetStateFromPath, CommonActions } from '@react-navigation/native';
 import { StatusBar, StyleSheet, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
@@ -122,6 +122,13 @@ const NavigationWrapper = ({ theme }) => {
   const { user, isInitialized } = useAuth();
   const navigationRef = useRef(null);
 
+  // Capture the URL the user was on BEFORE auth loads (only once, on mount)
+  const initialPathRef = useRef(
+    Platform.OS === 'web' && typeof window !== 'undefined'
+      ? window.location.pathname + window.location.search
+      : null
+  );
+
   // Inject browser history entries on direct URL navigation so the browser's
   // back button works correctly. pushState/replaceState do NOT fire popstate,
   // so React Navigation is not affected — only the browser history stack changes.
@@ -132,11 +139,15 @@ const NavigationWrapper = ({ theme }) => {
 
     // Return the ordered parent paths (root → immediate parent) for a given URL.
     const getParents = (p) => {
-      if (/^\/explore\/.+/.test(p)) return ['/', '/explore'];
-      if (/^\/blog\/.+/.test(p))    return ['/', '/blog'];
-      if (/^\/verify\/.+/.test(p))  return ['/'];
-      // /login, /signup, /explore, /about, /privacy, /terms, /help,
-      // /community, /certificate-verify and any other top-level page
+      if (/^\/explore\/.+/.test(p))  return ['/', '/explore'];
+      if (/^\/blog\/.+/.test(p))     return ['/', '/blog'];
+      if (/^\/verify\/.+/.test(p))   return ['/'];
+      // Certificate preview and payment → back goes to Certificates list
+      if (/^\/student\/(certificate\/|payment)/.test(p)) return ['/', '/student/dashboard', '/student/certificates'];
+      // Certificates list → back goes to Dashboard
+      if (/^\/student\/certificates/.test(p)) return ['/', '/student/dashboard'];
+      // Any other student/instructor/admin/expert deep page → back to dashboard
+      if (/^\/(student|instructor|admin|expert)\/.+/.test(p)) return ['/', `/${p.split('/')[1]}/dashboard`];
       return ['/'];
     };
 
@@ -152,21 +163,43 @@ const NavigationWrapper = ({ theme }) => {
     window.history.pushState(null, '', current);
   }, []); // runs once on mount only
 
-  // After auth initializes, if the URL is /verify/:certId navigate programmatically.
-  // This is needed because getStateFromPath runs before the role is known, so the
-  // initial state targets Auth navigator. Once the role-specific navigator mounts,
-  // we navigate again to land on the correct Verify screen.
+  // After auth initializes, restore the URL the user was on when they refreshed.
+  // This is needed because getStateFromPath runs BEFORE the role is known, so the
+  // initial parse uses AUTH screens and falls back to root (Dashboard) for any
+  // role-specific URL. Once auth resolves we re-parse with the correct config.
   useEffect(() => {
     if (!isInitialized || Platform.OS !== 'web') return;
     if (typeof window === 'undefined') return;
-    const match = window.location.pathname.match(/^\/verify\/([^?/]+)/);
-    if (!match) return;
-    const certId = match[1];
+
+    // /verify/:certId — works for all roles
+    const verifyMatch = window.location.pathname.match(/^\/verify\/([^?/]+)/);
+    if (verifyMatch) {
+      const certId = verifyMatch[1];
+      const timer = setTimeout(() => {
+        if (navigationRef.current?.isReady()) {
+          navigationRef.current.navigate('Verify', { certId });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+
+    // Role-specific screens — re-parse original URL with role config
+    const savedPath = initialPathRef.current;
+    if (!savedPath || savedPath === '/' || !user) return;
+    initialPathRef.current = null; // only do this once
+
+    const role = user.role ?? null;
+    const roleConfig = ROLE_CONFIG[role] ?? ROLE_CONFIG['null'];
+
     const timer = setTimeout(() => {
-      if (navigationRef.current?.isReady()) {
-        navigationRef.current.navigate('Verify', { certId });
-      }
-    }, 100);
+      if (!navigationRef.current?.isReady()) return;
+      try {
+        const state = defaultGetStateFromPath(savedPath, { screens: roleConfig.screens });
+        if (state) {
+          navigationRef.current.dispatch(CommonActions.reset(state));
+        }
+      } catch (_) {}
+    }, 200);
     return () => clearTimeout(timer);
   }, [isInitialized]);
 

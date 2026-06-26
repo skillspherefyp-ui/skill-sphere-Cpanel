@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Animated as RNAnimated,
   ScrollView,
@@ -37,6 +38,108 @@ import MarkdownText from '../../components/ui/MarkdownText';
 import { getSidebarItems } from '../../utils/sidebarItems';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+// ─── Listening / transcribing visual (shown inside scroll area during composing) ─
+const QAPhaseVisual = ({ isListening, isTranscribing }) => {
+  const accent = '#f59e0b';
+  const innerPulse = useRef(new RNAnimated.Value(1)).current;
+  const outerPulse = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    innerPulse.stopAnimation(); innerPulse.setValue(1);
+    outerPulse.stopAnimation(); outerPulse.setValue(0);
+    if (isListening) {
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(innerPulse, { toValue: 1.18, duration: 550, useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(innerPulse, { toValue: 1,    duration: 550, useNativeDriver: USE_NATIVE_DRIVER }),
+      ])).start();
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(outerPulse, { toValue: 1, duration: 0,   useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.timing(outerPulse, { toValue: 0, duration: 900, useNativeDriver: USE_NATIVE_DRIVER }),
+        RNAnimated.delay(300),
+      ])).start();
+    }
+    return () => { innerPulse.stopAnimation(); outerPulse.stopAnimation(); };
+  }, [isListening]);
+
+  if (isListening) {
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: 36, gap: 20 }}>
+        <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
+          <RNAnimated.View style={{
+            position: 'absolute', width: 120, height: 120, borderRadius: 60,
+            borderWidth: 2, borderColor: '#ef4444',
+            opacity: outerPulse.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }),
+            transform: [{ scale: outerPulse.interpolate({ inputRange: [0, 1], outputRange: [1.4, 1] }) }],
+          }} />
+          <RNAnimated.View style={{
+            width: 80, height: 80, borderRadius: 40,
+            backgroundColor: 'rgba(239,68,68,0.15)',
+            borderWidth: 2.5, borderColor: '#ef4444',
+            alignItems: 'center', justifyContent: 'center',
+            transform: [{ scale: innerPulse }],
+          }}>
+            <Icon name="mic" size={36} color="#ef4444" />
+          </RNAnimated.View>
+        </View>
+        <Text style={{ color: '#fca5a5', fontSize: 20, fontWeight: '800' }}>Listening…</Text>
+        <Text style={{ color: '#475569', fontSize: 13, textAlign: 'center' }}>
+          Speak your question · English, Urdu &amp; Roman Urdu supported
+        </Text>
+      </View>
+    );
+  }
+  if (isTranscribing) {
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: 36, gap: 16 }}>
+        <ActivityIndicator size="large" color={accent} />
+        <Text style={{ color: accent, fontSize: 17, fontWeight: '800' }}>Understanding your question…</Text>
+        <Text style={{ color: '#475569', fontSize: 13 }}>Converting speech to text</Text>
+      </View>
+    );
+  }
+  return null;
+};
+
+// ─── Compact waveform banner shown ABOVE the content while AI speaks ──────────
+const QASpeakingBanner = () => {
+  const accent = '#f59e0b';
+  const waveAnims = useRef(Array.from({ length: 12 }, () => new RNAnimated.Value(4))).current;
+  const timers    = useRef([]);
+
+  useEffect(() => {
+    const run = (anim, i) => {
+      const target = 4 + Math.random() * 28;
+      RNAnimated.timing(anim, { toValue: target, duration: 100 + Math.random() * 120, useNativeDriver: false })
+        .start(({ finished }) => { if (finished) timers.current[i] = setTimeout(() => run(anim, i), 20); });
+    };
+    waveAnims.forEach((anim, i) => { timers.current[i] = setTimeout(() => run(anim, i), i * 40); });
+    return () => { timers.current.forEach(t => clearTimeout(t)); timers.current = []; };
+  }, []);
+
+  return (
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 16, paddingVertical: 10,
+      borderTopWidth: 1, borderBottomWidth: 1,
+      borderColor: `${accent}30`,
+      backgroundColor: `${accent}0d`,
+    }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', height: 28, gap: 3 }}>
+        {waveAnims.map((anim, i) => (
+          <RNAnimated.View key={i} style={{
+            width: 3, borderRadius: 2, backgroundColor: accent,
+            height: anim, opacity: 0.55 + (i % 4) * 0.1,
+          }} />
+        ))}
+      </View>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accent, marginLeft: 4 }} />
+      <Text style={{ color: accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.8, flex: 1 }}>
+        SKILLSPHERE AI IS SPEAKING
+      </Text>
+    </View>
+  );
+};
 
 // ─── Eye-catching "AI is thinking" animation ───────────────────────────────
 // A glowing brain orb: two breathing halo rings, a spinning accent arc, a
@@ -1645,7 +1748,8 @@ const AILearningScreen = () => {
     return blocks;
   };
 
-  const renderAnswerBlock = (block, index) => {
+  const renderAnswerBlock = (block, index, textColor) => {
+    const tc = textColor || (isDark ? '#f1f5f9' : '#0f172a');
     if (block.type === 'code') {
       const lines = `${block.code || ''}`.split(/\r?\n/);
       return (
@@ -1672,19 +1776,23 @@ const AILearningScreen = () => {
         <View key={index} style={[styles.chalkNoteBlock, { marginVertical: 6 }]}>
           {block.items.map((it, bi) => (
             <View key={bi} style={styles.chalkBulletRow}>
-              <Text style={styles.chalkBulletArrow}>▸</Text>
-              <Text style={styles.chalkBulletText}>{it}</Text>
+              <Text style={[styles.chalkBulletArrow, { color: tc }]}>▸</Text>
+              <Text style={[styles.chalkBulletText, { color: tc }]}>{it}</Text>
             </View>
           ))}
         </View>
       );
     }
-    return <Text key={index} style={styles.qaAnswerText}>{block.text}</Text>;
+    return <Text key={index} style={[styles.qaAnswerText, { color: tc }]}>{block.text}</Text>;
   };
 
   const renderInlineQA = () => {
     if (!qaActive) return null;
     const accent = '#f59e0b';
+    const qaBg    = isDark ? '#0d0f1f' : '#ffffff';
+    const qaText  = isDark ? '#f1f5f9' : '#0f172a';
+    const qaText2 = isDark ? '#94a3b8' : '#475569';
+    const qaBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
     const qaAvatarState = qaPhase === 'thinking' || qaTranscribing
       ? 'thinking'
       : (qaPhase === 'answering' || qaGreetingPlaying)
@@ -1702,173 +1810,158 @@ const AILearningScreen = () => {
     }[qaPhase] || '';
     const blocks = (qaPhase === 'answering' || qaPhase === 'done') ? parseAnswerBlocks(qaAnswer) : [];
 
-    // On desktop/tablet use fixed heights so the footer pins to the bottom.
-    // On mobile, use flex layout + KeyboardAvoidingView so the TextInput footer
-    // stays visible above the soft keyboard in portrait orientation.
-    const cardH = Math.max(360, windowHeight - 28);
-    const HEADER_H = 56;
-    const CHIP_H = qaQuestion ? 78 : 0;
-    const FOOTER_H = 68;
-    const bodyHeight = isMobile ? undefined : Math.max(140, cardH - HEADER_H - CHIP_H - FOOTER_H);
+
+    const qaFooterJSX = (
+      <View style={[styles.qaFooter, { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: isDark ? '#080c1a' : '#f1f5f9', borderTopColor: qaBorder }]}>
+        {qaPhase === 'composing' ? (
+          <>
+            <TouchableOpacity
+              onPress={handleQaMic}
+              style={[styles.qaMic, qaListening ? { backgroundColor: '#ef4444', borderColor: '#ef4444' } : { borderColor: `${accent}66` }]}
+              accessibilityLabel={qaListening ? 'Stop recording' : 'Speak your question'}
+            >
+              <Icon
+                name={qaListening ? 'stop' : 'mic-outline'}
+                size={18}
+                color={qaListening ? '#fff' : accent}
+              />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.qaInputField}
+              value={qaInput}
+              onChangeText={setQaInput}
+              placeholder={qaListening ? 'Listening… speak now, then tap ✓' : qaTranscribing ? 'Transcribing your question…' : 'Speak (mic) or type your question…'}
+              placeholderTextColor="#64748b"
+              editable={!qaTranscribing}
+              onSubmitEditing={finishAndSubmit}
+              blurOnSubmit={false}
+              onKeyPress={(e) => {
+                if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                  e.preventDefault?.();
+                  finishAndSubmit();
+                }
+              }}
+              returnKeyType="send"
+              autoFocus
+            />
+            <TouchableOpacity
+              onPress={finishAndSubmit}
+              disabled={!(qaListening || qaInput.trim())}
+              style={[styles.qaTickBtn, { opacity: (qaListening || qaInput.trim()) ? 1 : 0.4 }]}
+              accessibilityLabel="Submit question"
+            >
+              <Icon name="checkmark" size={22} color="#04110b" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={() => { stopQaAudio(); setQaAnswer(''); setQaVisual(null); setQaQuestion(''); setQaInput(''); setQaPhase('composing'); }}
+              style={styles.qaSecondaryBtn}
+            >
+              <Icon name="add" size={16} color="#cbd5e1" />
+              <Text style={styles.qaSecondaryText}>Ask another</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => closeInlineQA(true)} style={styles.qaResumeBtn}>
+              <Icon name="play-skip-forward" size={16} color="#fff" />
+              <Text style={styles.qaResumeText}>{qaPhase === 'answering' ? 'Skip — Resume' : 'Resume lecture'}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    );
 
     return (
-      <KeyboardAvoidingView
-        style={styles.qaOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <View style={[styles.qaCard, isMobile ? { flex: 1 } : { height: cardH }]}>
-          <View style={styles.qaHeader}>
-            <View style={styles.qaHeaderLeft}>
-              <View style={styles.qaHeaderAvatar} pointerEvents="none">
-                <AITeacherAvatar state={qaAvatarState} size={34} minimal showLabel={false} />
+      <Modal visible={qaActive} transparent animationType={isMobile ? 'slide' : 'fade'} statusBarTranslucent onRequestClose={() => closeInlineQA(true)}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: isMobile ? qaBg : (isDark ? 'rgba(5,7,18,0.88)' : 'rgba(255,255,255,0.88)'), ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } : {}) }]}>
+          <ScrollView
+            style={{ height: windowHeight - 70, backgroundColor: qaBg }}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+            contentInsetAdjustmentBehavior="never"
+          >
+            {/* ── Header ── */}
+            <View style={[styles.qaHeader, { borderBottomColor: qaBorder }]}>
+              <View style={styles.qaHeaderLeft}>
+                <View style={styles.qaSSBrand}><MaterialIcon name="robot" size={22} color="#FF8C42" /></View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.qaHeaderTitle, { color: qaText }]}>SkillSphere AI</Text>
+                  <Text style={[styles.qaHeaderSub, { color: qaText2 }]}>Your AI Learning Companion</Text>
+                </View>
+                <View style={[styles.qaPhasePill, { borderColor: `${accent}66`, backgroundColor: `${accent}1f` }]}>
+                  <View style={[styles.qaPhaseDot, { backgroundColor: accent }]} />
+                  <Text style={[styles.qaPhaseText, { color: accent }]}>{phaseLabel}</Text>
+                </View>
               </View>
-              <Text style={styles.qaHeaderTitle}>AI Tutor</Text>
-              <View style={[styles.qaPhasePill, { borderColor: `${accent}66`, backgroundColor: `${accent}1f` }]}>
-                <View style={[styles.qaPhaseDot, { backgroundColor: accent }]} />
-                <Text style={[styles.qaPhaseText, { color: accent }]}>{phaseLabel}</Text>
+              <TouchableOpacity onPress={() => closeInlineQA(true)} style={styles.qaClose} accessibilityLabel="Resume lecture">
+                <Icon name="close" size={18} color={qaText} />
+              </TouchableOpacity>
+            </View>
+
+            {!!qaQuestion && (
+              <View style={[styles.qaQuestionChip, { borderColor: `${accent}44`, backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.10)' }]}>
+                <Text style={[styles.qaQuestionLabel, { color: accent }]}>YOU ASKED</Text>
+                <Text style={[styles.qaQuestionText, { color: qaText }]}>{qaQuestion}</Text>
               </View>
-            </View>
-            <TouchableOpacity onPress={() => closeInlineQA(true)} style={styles.qaClose} accessibilityLabel="Resume lecture">
-              <Icon name="close" size={18} color="#e2e8f0" />
-            </TouchableOpacity>
-          </View>
+            )}
 
-          {!!qaQuestion && (
-            <View style={[styles.qaQuestionChip, { borderColor: `${accent}44` }]}>
-              <Text style={[styles.qaQuestionLabel, { color: accent }]}>YOU ASKED</Text>
-              <Text style={styles.qaQuestionText}>{qaQuestion}</Text>
-            </View>
-          )}
+            {qaPhase === 'answering' && <QASpeakingBanner />}
 
-          <View style={[styles.qaBody, isMobile ? { flex: 1 } : { height: bodyHeight }]}>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.qaAnswerScroll} showsVerticalScrollIndicator={false}>
+            {/* ── Content ── */}
+            <View style={{ paddingHorizontal: 20, paddingTop: 10, gap: 12 }}>
               {qaPhase === 'composing' && (
-                <View style={{ gap: 16, width: '100%' }}>
-                  {/* The tutor's spoken greeting */}
-                  {!!qaGreeting && (
-                    <Text style={styles.qaGreetingText}>{qaGreeting}</Text>
+                <View style={{ gap: 16 }}>
+                  {!!qaGreeting && !qaListening && !qaTranscribing && <Text style={[styles.qaGreetingText, { color: qaText }]}>{qaGreeting}</Text>}
+                  <QAPhaseVisual isListening={qaListening} isTranscribing={qaTranscribing} />
+                  {!qaListening && !qaTranscribing && (
+                    <>
+                      <Text style={[styles.qaPrompt, { color: qaText2 }]}>Tap the mic and speak, or type your question below — then press ✓.</Text>
+                      <View>
+                        <Text style={[styles.qaChipsHint, { color: qaText2 }]}>QUICK ASKS</Text>
+                        <View style={styles.qaChipsRow}>
+                          {[
+                            { icon: 'bulb-outline',        label: 'Give an example',   ask: 'Give a simple real-world example of this.' },
+                            { icon: 'git-network-outline', label: 'Draw a diagram',    ask: 'Draw a simple diagram to explain how this works.' },
+                            { icon: 'color-wand-outline',  label: 'Explain it simply', ask: 'Explain this in the simplest way possible.' },
+                            { icon: 'code-slash-outline',  label: 'Show me in code',   ask: 'Show me a small code example for this.' },
+                          ].map((c) => (
+                            <TouchableOpacity key={c.label} style={[styles.qaChip, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.12)' }]} onPress={() => submitInlineQA(c.ask)} activeOpacity={0.75}>
+                              <Icon name={c.icon} size={14} color="#fbbf24" />
+                              <Text style={[styles.qaChipText, { color: qaText }]}>{c.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </>
                   )}
-                  {/* Live mic state */}
-                  {qaListening ? (
-                    <View style={styles.qaListeningRow}>
-                      <View style={styles.qaListeningPulse} />
-                      <Text style={styles.qaListeningText}>Listening… speak your question, then tap ✓ or press Enter</Text>
-                    </View>
-                  ) : qaTranscribing ? (
-                    <View style={styles.qaListeningRow}>
-                      <ActivityIndicator color={accent} size="small" />
-                      <Text style={styles.qaListeningText}>Got it — turning your voice into text…</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.qaPrompt}>
-                      Tap the mic and speak, or type your question below — then press ✓.
-                    </Text>
-                  )}
-                  <View>
-                    <Text style={styles.qaChipsHint}>QUICK ASKS</Text>
-                    <View style={styles.qaChipsRow}>
-                      {[
-                        { icon: 'bulb-outline', label: 'Give an example', ask: 'Give a simple real-world example of this.' },
-                        { icon: 'git-network-outline', label: 'Draw a diagram', ask: 'Draw a simple diagram to explain how this works.' },
-                        { icon: 'color-wand-outline', label: 'Explain it simply', ask: 'Explain this in the simplest way possible.' },
-                        { icon: 'code-slash-outline', label: 'Show me in code', ask: 'Show me a small code example for this.' },
-                      ].map((c) => (
-                        <TouchableOpacity key={c.label} style={styles.qaChip} onPress={() => submitInlineQA(c.ask)} activeOpacity={0.75}>
-                          <Icon name={c.icon} size={14} color="#fbbf24" />
-                          <Text style={styles.qaChipText}>{c.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
                 </View>
               )}
-              {qaPhase === 'thinking' && (
-                <ThinkingIndicator accent={accent} label="Let me think about that…" />
-              )}
+              {qaPhase === 'thinking' && <ThinkingIndicator accent={accent} label="Let me think about that…" />}
               {(qaPhase === 'answering' || qaPhase === 'done') && (
-                <Reveal active key={`qa-${qaQuestion}`} style={{ width: '100%' }}>
+                <>
                   {!!qaVisual && (
                     <View style={styles.qaDiagramWrap}>
                       <DiagramCanvas
                         diagramData={qaVisual}
                         currentStep={(qaVisual.nodes?.length || 1) - 1}
                         isDark={isDark}
-                        width={isMobile ? (width - 96) : Math.min(700, width - 300)}
+                        width={isMobile ? (width - 64) : Math.min(820, width - 280)}
                       />
-                      {!!qaVisual.caption && <Text style={styles.qaDiagramCaption}>{qaVisual.caption}</Text>}
+                      {!!qaVisual.caption && <Text style={[styles.qaDiagramCaption, { color: qaText2 }]}>{qaVisual.caption}</Text>}
                     </View>
                   )}
                   {!!`${qaAnswer || ''}`.trim() && (
                     <View style={styles.qaAnswerContainer}>
-                      {blocks.map((b, i) => renderAnswerBlock(b, i))}
+                      {blocks.map((b, i) => renderAnswerBlock(b, i, qaText))}
                     </View>
                   )}
-                </Reveal>
+                </>
               )}
-            </ScrollView>
-          </View>
-
-          <View style={styles.qaFooter}>
-            {qaPhase === 'composing' ? (
-              <>
-                <TouchableOpacity
-                  onPress={handleQaMic}
-                  style={[styles.qaMic, qaListening ? { backgroundColor: '#ef4444', borderColor: '#ef4444' } : { borderColor: `${accent}66` }]}
-                  accessibilityLabel={qaListening ? 'Stop recording' : 'Speak your question'}
-                >
-                  <Icon
-                    name={qaListening ? 'stop' : 'mic-outline'}
-                    size={18}
-                    color={qaListening ? '#fff' : accent}
-                  />
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.qaInputField}
-                  value={qaInput}
-                  onChangeText={setQaInput}
-                  placeholder={qaListening ? 'Listening… speak now, then tap ✓' : qaTranscribing ? 'Transcribing your question…' : 'Speak (mic) or type your question…'}
-                  placeholderTextColor="#64748b"
-                  editable={!qaTranscribing}
-                  onSubmitEditing={finishAndSubmit}
-                  blurOnSubmit={false}
-                  onKeyPress={(e) => {
-                    // Reliable Enter-to-send on web (Opera/Chrome) — Shift+Enter ignored.
-                    if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
-                      e.preventDefault?.();
-                      finishAndSubmit();
-                    }
-                  }}
-                  returnKeyType="send"
-                  autoFocus
-                />
-                <TouchableOpacity
-                  onPress={finishAndSubmit}
-                  disabled={!(qaListening || qaInput.trim())}
-                  style={[styles.qaTickBtn, { opacity: (qaListening || qaInput.trim()) ? 1 : 0.4 }]}
-                  accessibilityLabel="Submit question"
-                >
-                  <Icon name="checkmark" size={22} color="#04110b" />
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <TouchableOpacity
-                  onPress={() => { stopQaAudio(); setQaAnswer(''); setQaVisual(null); setQaQuestion(''); setQaInput(''); setQaPhase('composing'); }}
-                  style={styles.qaSecondaryBtn}
-                >
-                  <Icon name="add" size={16} color="#cbd5e1" />
-                  <Text style={styles.qaSecondaryText}>Ask another</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => closeInlineQA(true)} style={styles.qaResumeBtn}>
-                  <Icon name="play-skip-forward" size={16} color="#fff" />
-                  <Text style={styles.qaResumeText}>{qaPhase === 'answering' ? 'Skip — Resume' : 'Resume lecture'}</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+            </View>
+          </ScrollView>
+          {qaFooterJSX}
         </View>
-      </KeyboardAvoidingView>
+      </Modal>
     );
   };
 
@@ -3421,15 +3514,39 @@ const AILearningScreen = () => {
                        checkpointStatus === 'skipped' ? 'SKIPPED' : 'QUICK CHECK'}
                     </Text>
                   </View>
-                  <Text style={[styles.checkpointSpotlightText, { fontSize: 15, lineHeight: 22 }]}>{checkpointText}</Text>
+                  <Text style={[styles.checkpointSpotlightText, { fontSize: 15, lineHeight: 22, color: isDark ? '#fef3c7' : '#1e293b' }]}>{checkpointText}</Text>
                   {!checkpointStatus && (
                     <>
                       <TextInput
-                        style={[styles.checkpointInput, { marginTop: 4 }]}
+                        style={[styles.checkpointInput, { marginTop: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)', color: isDark ? '#fff' : '#1e293b' }]}
                         placeholder="Type your answer..."
-                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.35)'}
                         value={checkpointInput}
                         onChangeText={setCheckpointInput}
+                        onKeyPress={(e) => {
+                          if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                            e.preventDefault?.();
+                            if (checkpointInput.trim() && !checkpointEvaluating) {
+                              setCheckpointEvaluating(true);
+                              aiTutorAPI.evaluateCheckpoint({
+                                question: checkpointText,
+                                studentAnswer: checkpointInput.trim(),
+                                chunkText: currentChunk?.text || currentNarration,
+                                language: lecture?.language,
+                              }).then(res => {
+                                const s = res.correct ? 'correct' : 'wrong';
+                                checkpointStatusRef.current = s;
+                                setCheckpointStatus(s);
+                                setCheckpointFeedback(res.feedback || '');
+                              }).catch(err => {
+                                console.error('Checkpoint evaluation error:', err);
+                                checkpointStatusRef.current = 'skipped';
+                                setCheckpointStatus('skipped');
+                                setCheckpointFeedback('Could not evaluate answer.');
+                              }).finally(() => setCheckpointEvaluating(false));
+                            }
+                          }
+                        }}
                         multiline
                         editable={!checkpointEvaluating}
                       />
@@ -3466,7 +3583,7 @@ const AILearningScreen = () => {
                           }
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.checkpointBtn, styles.checkpointSkipBtn]}
+                          style={[styles.checkpointBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }]}
                           disabled={checkpointEvaluating}
                           onPress={() => {
                             checkpointStatusRef.current = 'skipped';
@@ -3485,7 +3602,7 @@ const AILearningScreen = () => {
                     <>
                       {!!checkpointFeedback && (
                         <Text style={[styles.checkpointFeedbackText, {
-                          color: checkpointStatus === 'correct' ? '#6ee7b7' : '#fca5a5'
+                          color: checkpointStatus === 'correct' ? (isDark ? '#6ee7b7' : '#059669') : (isDark ? '#fca5a5' : '#dc2626')
                         }]}>{checkpointFeedback}</Text>
                       )}
                       <TouchableOpacity
@@ -3952,13 +4069,8 @@ const styles = StyleSheet.create({
   captionTextWrap: { flex: 1, minWidth: 0, justifyContent: 'center' },
   // ── Inline classroom Q&A overlay ──
   qaOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(5,7,18,0.80)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    zIndex: 60,
     ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } : {}),
   },
   qaCard: {
@@ -3988,7 +4100,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   qaHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
-  qaHeaderTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  qaSSBrand: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: 'rgba(255,140,66,0.15)',
+    borderWidth: 1.5, borderColor: 'rgba(255,140,66,0.45)',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  qaHeaderTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  qaHeaderSub: { color: '#64748b', fontSize: 11, fontWeight: '600', letterSpacing: 0.2, marginTop: 1 },
   qaPhasePill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
   qaPhaseDot: { width: 6, height: 6, borderRadius: 3 },
   qaPhaseText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
@@ -4020,8 +4139,8 @@ const styles = StyleSheet.create({
   qaFooter: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
-    backgroundColor: 'rgba(2,6,23,0.5)',
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#080c1a',
   },
   qaMic: { width: 42, height: 42, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0 },
   qaInputField: {
@@ -4057,12 +4176,14 @@ const styles = StyleSheet.create({
   qaDiagramWrap: {
     width: '100%',
     alignItems: 'center',
-    paddingVertical: 14,
-    marginBottom: 10,
-    borderRadius: 14,
+    paddingVertical: 20,
+    paddingHorizontal: 6,
+    marginBottom: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(139,92,246,0.28)',
     backgroundColor: 'rgba(139,92,246,0.06)',
+    minHeight: 180,
   },
   qaDiagramCaption: { color: '#a5b4fc', fontSize: 13, fontStyle: 'italic', marginTop: 8, textAlign: 'center', paddingHorizontal: 12 },
   boardSideCard: { borderWidth: 1, borderColor: 'rgba(148,163,184,0.14)', borderRadius: 14, padding: 12, backgroundColor: 'rgba(2,6,23,0.26)' },

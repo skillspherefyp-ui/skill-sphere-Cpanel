@@ -35,7 +35,7 @@ const getColors = (isDark) => ({
   logoText:         isDark ? '#FFFFFF'                  : '#1A1A2E',
 });
 
-const AuthInput = ({ icon, placeholder, value, onChangeText, keyboardType = 'default', autoCapitalize = 'none', C }) => {
+const AuthInput = ({ icon, placeholder, value, onChangeText, keyboardType = 'default', autoCapitalize = 'none', C, onSubmit }) => {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[inp.wrap, {
@@ -53,6 +53,14 @@ const AuthInput = ({ icon, placeholder, value, onChangeText, keyboardType = 'def
         autoCapitalize={autoCapitalize}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        onSubmitEditing={onSubmit}
+        returnKeyType={onSubmit ? 'go' : 'done'}
+        onKeyPress={(e) => {
+          if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+            e.preventDefault?.();
+            onSubmit?.();
+          }
+        }}
       />
     </View>
   );
@@ -136,7 +144,7 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
 
             <Text style={[s.label, { color: C.label }]}>Email Address</Text>
             <AuthInput C={C} icon="mail-outline" placeholder="Enter your email" value={email}
-              onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" />
+              onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" onSubmit={handleSend} />
 
             <TouchableOpacity style={s.primaryBtn} onPress={handleSend} disabled={isLoading} activeOpacity={0.85}>
               {isLoading

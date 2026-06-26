@@ -45,7 +45,7 @@ const getColors = (isDark) => ({
 });
 
 const AuthInput = ({ icon, placeholder, value, onChangeText, secureTextEntry,
-  keyboardType = 'default', autoCapitalize = 'none', right, C }) => {
+  keyboardType = 'default', autoCapitalize = 'none', right, C, onSubmit }) => {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[s.inputWrap, {
@@ -64,6 +64,14 @@ const AuthInput = ({ icon, placeholder, value, onChangeText, secureTextEntry,
         autoCapitalize={autoCapitalize}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        onSubmitEditing={onSubmit}
+        returnKeyType={onSubmit ? 'go' : 'done'}
+        onKeyPress={(e) => {
+          if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+            e.preventDefault?.();
+            onSubmit?.();
+          }
+        }}
       />
       {right}
     </View>
@@ -181,6 +189,7 @@ const LoginScreen = ({ navigation }) => {
                   onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" />
                 <AuthInput C={C} icon="lock-closed-outline" placeholder="Password" value={password}
                   onChangeText={t => { setPassword(t); setError(''); }} secureTextEntry={!showPw}
+                  onSubmit={handlePasswordLogin}
                   right={<TouchableOpacity onPress={() => setShowPw(!showPw)}>
                     <Icon name={showPw ? 'eye-off-outline' : 'eye-outline'} size={18} color={C.inputIcon} />
                   </TouchableOpacity>} />
@@ -196,7 +205,7 @@ const LoginScreen = ({ navigation }) => {
             {mode === 'otp' && (
               <>
                 <AuthInput C={C} icon="mail-outline" placeholder="Email address" value={email}
-                  onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" />
+                  onChangeText={t => { setEmail(t); setError(''); }} keyboardType="email-address" onSubmit={handleSendOTP} />
                 <Text style={[s.otpHint, { color: C.otpHint }]}>We'll send a 6-digit code to your email</Text>
                 <TouchableOpacity style={s.primaryBtn} onPress={handleSendOTP} disabled={sendingOTP} activeOpacity={0.85}>
                   {sendingOTP ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.primaryBtnText}>Send Verification Code</Text>}

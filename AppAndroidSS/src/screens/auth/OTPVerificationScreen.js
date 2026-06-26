@@ -42,7 +42,7 @@ const getColors = (isDark) => ({
   logoText:         isDark ? '#FFFFFF'                  : '#1A1A2E',
 });
 
-const AuthInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, C }) => {
+const AuthInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, C, onSubmit }) => {
   const [focused, setFocused] = useState(false);
   const [show, setShow] = useState(false);
   return (
@@ -60,6 +60,14 @@ const AuthInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, C 
         secureTextEntry={secureTextEntry && !show}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        onSubmitEditing={onSubmit}
+        returnKeyType={onSubmit ? 'go' : 'done'}
+        onKeyPress={(e) => {
+          if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+            e.preventDefault?.();
+            onSubmit?.();
+          }
+        }}
       />
       {secureTextEntry && (
         <TouchableOpacity onPress={() => setShow(!show)}>
@@ -255,7 +263,7 @@ const OTPVerificationScreen = ({ route, navigation }) => {
                   value={newPassword} onChangeText={t => { setNewPassword(t); setError(''); }} secureTextEntry />
                 <Text style={[s.sectionLabel, { color: C.sectionLabel }]}>Confirm Password</Text>
                 <AuthInput C={C} icon="lock-closed-outline" placeholder="Confirm new password"
-                  value={confirmPw} onChangeText={t => { setConfirmPw(t); setError(''); }} secureTextEntry />
+                  value={confirmPw} onChangeText={t => { setConfirmPw(t); setError(''); }} secureTextEntry onSubmit={handleVerify} />
               </>
             )}
 

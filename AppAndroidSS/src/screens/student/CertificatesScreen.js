@@ -392,7 +392,7 @@ const CertificatesScreen = () => {
                       </View>
                       <View style={styles.detailItem}>
                         <Icon name="cash-outline" size={14} color={theme.colors.textTertiary} />
-                        <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>Certificate Fee: PKR 500</Text>
+                        <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>Certificate Fee: PKR 2000</Text>
                       </View>
                     </View>
 

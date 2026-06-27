@@ -75,6 +75,32 @@ const PaymentScreen = () => {
       });
   }, []); // run only on mount — action comes from initial params
 
+  // ── Immediately verify when user returns to this tab (closes Safepay tab) ──
+  useEffect(() => {
+    if (phase !== 'waiting' || !tracker || Platform.OS !== 'web') return;
+    if (typeof document === 'undefined') return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && !navigatedRef.current) {
+        paymentAPI.verifyPayment({ tracker, courseId })
+          .then(res => {
+            if (res.success && !navigatedRef.current) {
+              navigatedRef.current = true;
+              clearInterval(pollRef.current);
+              if (typeof localStorage !== 'undefined') localStorage.removeItem(LS_KEY);
+              setPhase('done');
+              Toast.show({ type: 'success', text1: 'Payment Successful!', text2: 'Your certificate has been sent to your email', visibilityTime: 3000 });
+              setTimeout(() => navigation.navigate('CertificatePreview', { courseId, courseName }), 1200);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [phase, tracker]);
+
   // ── Auto-poll every 3 s while waiting (original tab stays polling) ─────────
   useEffect(() => {
     if (phase !== 'waiting' || !tracker) return;
@@ -85,7 +111,7 @@ const PaymentScreen = () => {
         if (res.success && !navigatedRef.current) {
           navigatedRef.current = true;
           clearInterval(pollRef.current);
-          localStorage.removeItem(LS_KEY);
+          if (typeof localStorage !== 'undefined') localStorage.removeItem(LS_KEY);
           setPhase('done');
           Toast.show({
             type: 'success',
@@ -106,26 +132,12 @@ const PaymentScreen = () => {
     return () => clearInterval(pollRef.current);
   }, [phase, tracker]);
 
-  // Build redirect URL: Safepay will send the user back here with action=complete
-  const getRedirectUrl = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const params = new URLSearchParams({
-        action: 'complete',
-        courseId: String(courseId),
-        courseName: courseName || '',
-      });
-      return `${window.location.origin}/student/payment?${params.toString()}`;
-    }
-    return null;
-  };
-
   // ── Step 1: create order, save tracker to localStorage, open Safepay ───────
   const handleOpenSafepay = async () => {
     setError('');
     setPhase('creating');
     try {
-      const redirectUrl = getRedirectUrl();
-      const res = await paymentAPI.createOrder({ courseId, courseName, redirectUrl });
+      const res = await paymentAPI.createOrder({ courseId, courseName });
       if (!res.success) throw new Error(res.error || 'Could not create payment session');
 
       // Persist tracker so the redirect tab can auto-verify without state
@@ -164,7 +176,7 @@ const PaymentScreen = () => {
   const handleCancel = () => {
     clearInterval(pollRef.current);
     navigatedRef.current = false;
-    localStorage.removeItem(LS_KEY);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(LS_KEY);
     setPhase('idle');
     setTracker(null);
     setCheckoutUrl(null);
@@ -261,9 +273,9 @@ const PaymentScreen = () => {
           <View style={[styles.stepsBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f0fdf4', borderColor: '#bbf7d0' }]}>
             <Text style={[styles.stepsTitle, { color: theme.colors.textPrimary }]}>How it works</Text>
             {[
-              { n: '1', text: 'Click the button below — Safepay will open in a new tab.' },
-              { n: '2', text: 'Complete your payment in that tab, then close it.' },
-              { n: '3', text: 'Come back to this tab — it will detect your payment automatically.' },
+              { n: '1', text: 'Click the button below — Safepay opens in a new tab.' },
+              { n: '2', text: 'Complete your payment — you\'ll be redirected back automatically.' },
+              { n: '3', text: 'Your certificate is prepared and sent to your email instantly.' },
             ].map(step => (
               <View key={step.n} style={styles.stepRow}>
                 <View style={[styles.stepBadge, { backgroundColor: '#10B981' }]}>
@@ -339,6 +351,7 @@ const PaymentScreen = () => {
         </Text>
 
       </ScrollView>
+
     </MainLayout>
   );
 };

@@ -140,7 +140,7 @@ export const DataProvider = ({ children }) => {
     try {
       const response = await courseAPI.update(id, courseData);
       if (response.success) {
-        setCourses((prev) => prev.map((c) => (c.id === id ? response.course : c)));
+        setCourses((prev) => prev.map((c) => (String(c.id) === String(id) ? response.course : c)));
       }
       return response;
     } catch (err) {
@@ -152,7 +152,7 @@ export const DataProvider = ({ children }) => {
     try {
       const response = await courseAPI.delete(id);
       if (response.success) {
-        setCourses((prev) => prev.filter((c) => c.id !== id));
+        setCourses((prev) => prev.filter((c) => String(c.id) !== String(id)));
       }
       return response;
     } catch (err) {

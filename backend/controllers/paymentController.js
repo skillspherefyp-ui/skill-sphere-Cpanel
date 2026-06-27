@@ -72,12 +72,10 @@ exports.createOrder = async (req, res) => {
       return res.status(502).json({ error: 'Invalid response from Safepay' });
     }
 
-    // Safepay hosted checkout URL
-    // beacon = the tracker token (as per Safepay's official React Native SDK)
-    const redirectUrl = req.body.redirectUrl;
-    const sourceParam = redirectUrl ? 'web' : 'mobile';
-    const redirectParam = redirectUrl ? `&redirect_url=${encodeURIComponent(redirectUrl)}` : '';
-    const checkoutUrl = `${SAFEPAY_CHECKOUT_BASE}/checkout/pay?beacon=${tracker}&order_id=${orderId}&source=${sourceParam}&webhooks=false&env=${SAFEPAY_ENV}${redirectParam}`;
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://skillsphere.com.pk').replace(/\/$/, '');
+    const redirectUrl = encodeURIComponent(`${frontendUrl}/student/payment?action=complete&courseId=${courseId}`);
+    const cancelUrl   = encodeURIComponent(`${frontendUrl}/student/payment?courseId=${courseId}`);
+    const checkoutUrl = `${SAFEPAY_CHECKOUT_BASE}/checkout/pay?beacon=${tracker}&order_id=${orderId}&source=woocommerce&webhooks=true&env=${SAFEPAY_ENV}&redirect_url=${redirectUrl}&cancel_url=${cancelUrl}`;
 
     res.json({ success: true, orderId, tracker, checkoutUrl, amount: CERT_PRICE_PKR });
   } catch (err) {

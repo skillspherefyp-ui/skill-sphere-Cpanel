@@ -139,11 +139,11 @@ const CourseDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { courseId } = route.params;
-  const { courses, updateCourse, deleteCourse } = useData();
+  const { courses, updateCourse, deleteCourse, isLoading } = useData();
   const { theme, isDark } = useTheme();
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
-  const course = courses.find(c => c.id === courseId);
+  const course = courses.find(c => String(c.id) === String(courseId));
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [expandedTopicId, setExpandedTopicId] = useState(null);
   const [topicPackages, setTopicPackages] = useState({});
@@ -229,6 +229,24 @@ const CourseDetailScreen = () => {
   };
 
   const styles = getStyles(theme, isDark, isLargeScreen, isTablet, isMobile);
+
+  if (isLoading && !course) {
+    return (
+      <MainLayout
+        showSidebar={true}
+        sidebarItems={sidebarItems}
+        activeRoute="Courses"
+        onNavigate={handleNavigate}
+        userInfo={{ name: user?.name, role: isSuperInstructor ? 'Admin' : 'Instructor', avatar: user?.avatar }}
+        onLogout={logout}
+        onSettings={() => navigation.navigate('Settings')}
+      >
+        <View style={styles.emptyWrapper}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      </MainLayout>
+    );
+  }
 
   if (!course) {
     return (

@@ -1,0 +1,39 @@
+# ─── YOUR CURRENT .htaccess SHOULD LOOK LIKE THIS AFTER THE CHANGE ───────────
+# (Only the === NEW === lines are what you add — everything else is already there)
+# ─────────────────────────────────────────────────────────────────────────────
+
+LimitRequestBody 52428800
+
+RewriteEngine On
+
+RewriteRule ^robots\.txt$ - [L,NC]
+RewriteRule ^sitemap\.xml$ - [L,NC]
+RewriteRule ^google.*\.html$ - [L,NC]
+
+AddType font/ttf .ttf
+AddType font/otf .otf
+AddType font/woff .woff
+AddType font/woff2 .woff2
+
+<FilesMatch "\.(ttf|otf|woff|woff2)$">
+  Header set Access-Control-Allow-Origin "*"
+</FilesMatch>
+
+RewriteCond %{REQUEST_URI} ^/api/ [NC]
+RewriteRule ^api/(.*)$ http://127.0.0.1:5000/api/$1 [P,L]
+
+RewriteCond %{REQUEST_URI} ^/uploads/ [NC]
+RewriteRule ^uploads/(.*)$ http://127.0.0.1:5000/uploads/$1 [P,L]
+
+# === NEW: Dynamic course sitemap ===
+RewriteRule ^sitemap-courses\.xml$ sitemap-courses.php [QSA,L]
+
+# === NEW: SEO injection for /explore pages ===
+RewriteCond %{REQUEST_URI} ^/explore(/|$)
+RewriteRule ^ seo.php [QSA,L]
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^ /index.html [L]

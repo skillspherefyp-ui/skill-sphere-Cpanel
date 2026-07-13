@@ -23,7 +23,7 @@ const getHost = () => {
     return process.env.REACT_APP_API_URL;
   }
 
-  if (Platform.OS === 'android') return `http://10.0.2.2:${DEFAULT_PORT}`;
+  if (Platform.OS === 'android') return 'https://skillsphere.com.pk';
   if (Platform.OS === 'web') {
     const fallbackHost = getWebFallbackHost();
     console.log('No REACT_APP_API_URL found, using browser host fallback:', fallbackHost);
@@ -457,7 +457,8 @@ export const aiChatAPI = {
 
 export const aiTutorAPI = {
   updateOutline: (topicId, outlineText) => put(`/ai-tutor/topics/${topicId}/outline`, { outlineText }),
-  generateTopicPackage: (topicId) => post(`/ai-tutor/topics/${topicId}/generate`, {}),
+  generateTopicPackage: (topicId, data) => post(`/ai-tutor/topics/${topicId}/generate`, data || {}),
+  createTopicsFromOutline: (courseId) => post(`/ai-tutor/courses/${courseId}/create-topics-from-outline`, {}),
   getTopicGenerationStatus: (topicId) => get(`/ai-tutor/topics/${topicId}/generate-status`),
   generateCoursePackage: (courseId) => post(`/ai-tutor/courses/${courseId}/generate`, {}),
   getGenerationStatus: (courseId) => get(`/ai-tutor/courses/${courseId}/generate-status`),

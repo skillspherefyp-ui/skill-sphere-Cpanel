@@ -6,7 +6,6 @@ def expoModulesCorePlugin = new File(["node", "--print", "require.resolve('expo-
 apply from: expoModulesCorePlugin
 applyKotlinExpoModulesCorePlugin()
 
-// Monorepo: react-native lives in root node_modules, not AppAndroidSS/node_modules
 project.ext.REACT_NATIVE_NODE_MODULES_DIR = file("../../../node_modules/react-native").absolutePath
 
 /**
@@ -15,11 +14,16 @@ project.ext.REACT_NATIVE_NODE_MODULES_DIR = file("../../../node_modules/react-na
  */
 react {
     /* Folders */
-    // Monorepo: node_modules live in the repo root, two levels above android/app/
     root = file("../../")
+    entryFile = file("../../index.js")
     reactNativeDir = file("../../../node_modules/react-native")
     codegenDir = file("../../../node_modules/@react-native/codegen")
     cliFile = file("../../../node_modules/react-native/cli.js")
+    hermesCommand = file("../../../node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe").absolutePath
+
+    /* Node memory — prevents OOM when bundling large JS */
+    nodeExecutableAndArgs = ["node", "--max-old-space-size=7168"]
+    extraPackagerArgs = ["--max-workers", "2"]
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
@@ -54,6 +58,9 @@ react {
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
 }
+
+// expo-updates createReleaseExpoManifest: patched scripts/createManifest.js to be a no-op
+// (writes empty app.manifest without launching Metro)
 
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
@@ -131,4 +138,8 @@ dependencies {
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+// Monorepo: node_modules is 3 levels up, not 2
+project.ext.vectoricons = [
+    iconFontsDir: file("../../../node_modules/react-native-vector-icons/Fonts").absolutePath
+]
 apply from: file("../../../node_modules/react-native-vector-icons/fonts.gradle")

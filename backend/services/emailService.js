@@ -354,8 +354,11 @@ const sendInstructorAccountCreatedEmail = async (email, name, password, role) =>
 };
 
 // ── Send Certificate Email ────────────────────────────────────────────────────
-const sendCertificateEmail = async (email, studentName, courseName, certificateNumber, pdfBuffer) => {
+const sendCertificateEmail = async (email, studentName, courseName, certificateNumber, pdfBuffer, safepayOrderId = null) => {
   const issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const orderRef = safepayOrderId
+    ? `#${safepayOrderId}`
+    : `#SS-${new Date().getFullYear()}-${(certificateNumber.split('-').pop() || '').toUpperCase() || certificateNumber.replace(/[^A-Z0-9]/gi, '').slice(-8).toUpperCase()}`;
 
   const content = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -400,6 +403,68 @@ const sendCertificateEmail = async (email, studentName, courseName, certificateN
         </td>
       </tr>
       <tr>
+        <td style="padding-bottom:28px;">
+          <!-- Payment Receipt -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.bgSection};border-radius:14px;border:1px solid ${BRAND.border};overflow:hidden;">
+            <tr>
+              <td style="padding:12px 20px;background:linear-gradient(135deg,${BRAND.navy},${BRAND.navyLight});border-bottom:1px solid ${BRAND.border};">
+                <p style="margin:0;font-size:10px;color:${BRAND.orange};font-weight:800;text-transform:uppercase;letter-spacing:2px;">&#128179; Payment &amp; Billing Receipt</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 20px;border-bottom:1px solid ${BRAND.border};">
+                <span style="color:${BRAND.textMuted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Order Reference ID</span><br>
+                <span style="color:${BRAND.navy};font-size:13px;font-weight:700;font-family:'SF Mono',Monaco,'Courier New',monospace;margin-top:4px;display:block;">${orderRef}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 20px;border-bottom:1px solid ${BRAND.border};">
+                <span style="color:${BRAND.textMuted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Transaction Date</span><br>
+                <span style="color:${BRAND.textDark};font-size:14px;font-weight:600;margin-top:4px;display:block;">${issueDate}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 20px;border-bottom:1px solid ${BRAND.border};">
+                <span style="color:${BRAND.textMuted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Payment Gateway</span><br>
+                <span style="color:${BRAND.textDark};font-size:14px;font-weight:600;margin-top:4px;display:block;">Safepay Secure Checkout (Pakistan)</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 20px;border-bottom:1px solid ${BRAND.border};">
+                <span style="color:${BRAND.textMuted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Payment Status</span><br>
+                <span style="color:${BRAND.green};font-size:14px;font-weight:700;margin-top:4px;display:block;">&#10003; SUCCESSFUL / PAID IN FULL</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 20px;border-bottom:1px solid ${BRAND.border};">
+                <span style="color:${BRAND.textMuted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Line Item</span><br>
+                <span style="color:${BRAND.textDark};font-size:13px;font-weight:600;margin-top:4px;display:block;">Verified Digital Completion Certificate &amp; ID Verification Fee</span>
+                <span style="color:${BRAND.textLight};font-size:12px;display:block;margin-top:2px;">Course: ${courseName}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 20px;background:${BRAND.orangePale};">
+                <span style="color:${BRAND.textMuted};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Total Amount Charged</span><br>
+                <span style="color:${BRAND.navy};font-size:18px;font-weight:900;margin-top:4px;display:block;">Rs. 2,000 <span style="font-size:12px;font-weight:600;color:${BRAND.textLight};">PKR</span></span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom:20px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.amberPale};border-radius:12px;border-left:4px solid ${BRAND.amber};">
+            <tr>
+              <td style="padding:13px 16px;">
+                <p style="color:#92400E;margin:0;font-size:12px;font-weight:500;line-height:1.6;">
+                  Because your digital certificate is dynamically generated and delivered instantly upon payment validation, this transaction is fully completed. Per our platform guidelines, this purchase is <strong>final and non-refundable</strong>.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
         <td align="center">
           <a href="${process.env.FRONTEND_URL || 'https://skillsphere.com.pk'}" style="text-decoration:none;display:inline-block;">
             <div style="display:inline-block;background:linear-gradient(135deg,${BRAND.green},#059669);border-radius:50px;padding:12px 28px;">
@@ -416,7 +481,7 @@ const sendCertificateEmail = async (email, studentName, courseName, certificateN
     toName: studentName,
     subject: `Your Course Completion Document — ${courseName} — SkillSphere`,
     html: generateEmailTemplate({ title: 'Certificate Earned!', subtitle: 'You\'ve achieved something great', content }),
-    text: `Well done, ${studentName}!\n\nYou have successfully completed: ${courseName}\n\nCertificate ID: ${certificateNumber}\nIssue Date: ${issueDate}\n\nYour certificate is attached to this email.\n\nSkillSphere`,
+    text: `Well done, ${studentName}!\n\nYou have successfully completed: ${courseName}\n\nCertificate ID: ${certificateNumber}\nIssue Date: ${issueDate}\n\nYour certificate is attached to this email.\n\n--------------------------------------------------\nPAYMENT & BILLING RECEIPT\n--------------------------------------------------\nOrder Reference ID: ${orderRef}\nTransaction Date:   ${issueDate}\nPayment Gateway:    Safepay Secure Checkout (Pakistan)\nPayment Status:     SUCCESSFUL / PAID IN FULL\n\nLine Item: Verified Digital Completion Certificate & ID Verification Fee\nCourse: ${courseName}\nPrice: Rs. 2,000\n\nTOTAL AMOUNT CHARGED: Rs. 2,000 (PKR)\n\nThis purchase is final and non-refundable.\n\nSkillSphere`,
     attachments: [{ filename: `Certificate_${certificateNumber}.pdf`, content: pdfBuffer }]
   });
 };

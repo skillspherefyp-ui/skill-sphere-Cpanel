@@ -92,6 +92,20 @@ const PrivacyPolicyScreen = ({ navigation }) => {
           {para('All third-party providers are bound by data processing agreements.')}
         </Section>
 
+        <Section title="Payment Processing & Financial Data Security">
+          {para('All financial transactions on SkillSphere are executed securely via our integrated third-party payment partner, Safepay, an SBP-regulated Payment Service Provider. When purchasing a certificate, you interact directly with Safepay\'s PCI-DSS compliant payment window.')}
+          {bullet('SkillSphere does not capture, store, or process your credit card numbers, bank account logins, or digital wallet pins on our local servers')}
+          {bullet('All billing communication is managed using cryptographic tokens transmitted via secure HTTPS protocol')}
+          {bullet('Payment data is handled exclusively by Safepay in accordance with PCI-DSS compliance standards')}
+          {bullet('Certificate purchases are final and non-refundable once the digital certificate has been generated and delivered')}
+          <View style={s.bulletRow}>
+            <View style={s.bulletDot} />
+            <Text style={[s.bulletText, { color: c.textSecondary }]}>
+              For payment-related queries, visit <Text style={{ fontWeight: '700' }}>getsafepay.pk</Text> or contact our support team at <Text style={{ fontWeight: '700' }}>support@skillsphere.com.pk</Text>, <Text style={{ fontWeight: '700' }}>skillspherefyp@gmail.com</Text>, or <Text style={{ fontWeight: '700' }}>talharizwan178@gmail.com</Text>
+            </Text>
+          </View>
+        </Section>
+
         <Section title="Cookies">
           {para('We use cookies and similar technologies to keep you logged in, remember your preferences, and understand how you use the platform. You can disable cookies in your browser settings, but some features may not work correctly.')}
         </Section>
@@ -105,7 +119,15 @@ const PrivacyPolicyScreen = ({ navigation }) => {
           {bullet('Correction — update inaccurate information via your profile settings')}
           {bullet('Deletion — request deletion of your account and data')}
           {bullet('Opt-out — unsubscribe from non-essential emails at any time')}
-          {para('To exercise any of these rights, contact us at support@skillsphere.com.pk or skillspherefyp@gmail.com.')}
+          <Text style={[s.para, { color: c.textSecondary }]}>
+            To exercise any of these rights, contact us at{' '}
+            <Text style={{ fontWeight: '700', color: c.textSecondary }}>support@skillsphere.com.pk</Text>
+            {', '}
+            <Text style={{ fontWeight: '700', color: c.textSecondary }}>skillspherefyp@gmail.com</Text>
+            {', or '}
+            <Text style={{ fontWeight: '700', color: c.textSecondary }}>talharizwan178@gmail.com</Text>
+            {'.'}
+          </Text>
         </Section>
 
         <Section title="Security">
@@ -123,7 +145,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
             borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
           }]}>
             <Icon name="mail-outline" size={16} color={ORANGE} />
-            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10 }]}>
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10, fontWeight: '700' }]}>
               support@skillsphere.com.pk
             </Text>
           </View>
@@ -133,8 +155,18 @@ const PrivacyPolicyScreen = ({ navigation }) => {
             marginTop: 8,
           }]}>
             <Icon name="mail-outline" size={16} color={ORANGE} />
-            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10 }]}>
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10, fontWeight: '700' }]}>
               skillspherefyp@gmail.com
+            </Text>
+          </View>
+          <View style={[s.contactRow, {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8F9FF',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
+            marginTop: 8,
+          }]}>
+            <Icon name="mail-outline" size={16} color={ORANGE} />
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10, fontWeight: '700' }]}>
+              talharizwan178@gmail.com
             </Text>
           </View>
         </Section>

@@ -24,8 +24,8 @@ const ORANGE = '#FF8C42';
 const GenerationLogsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { courseId, courseTitle: paramTitle, topicId, topicTitle: paramTopicTitle } = route.params;
-  const isSingleTopic = !!topicId;
+  const { courseId, courseTitle: paramTitle, topicId, topicTitle: paramTopicTitle, customPrompt, fromOutline } = route.params;
+  const isSingleTopic = !!topicId && !fromOutline;
   const { theme, isDark } = useTheme();
   const { user, logout } = useAuth();
   const { courses, fetchCourses } = useData();
@@ -88,18 +88,70 @@ const GenerationLogsScreen = () => {
   }, []);
 
   async function runGeneration() {
-    if (isSingleTopic) {
+    if (fromOutline) {
+      await runOutlineTopicsGeneration();
+    } else if (isSingleTopic) {
       await runSingleTopicGeneration();
     } else {
       await runCourseGeneration();
     }
   }
 
+  async function runOutlineTopicsGeneration() {
+    addLog('Reading course outline PDF...', 'info');
+    setStatus('running');
+    try {
+      addLog('Sending outline to AI for topic extraction...', 'info');
+      const response = await aiTutorAPI.createTopicsFromOutline(courseId);
+      if (!isMounted.current) return;
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create topics from outline');
+      }
+
+      const createdTopics = response.topics || [];
+      addLog('AI extracted ' + createdTopics.length + ' topics from outline.', 'success');
+
+      createdTopics.forEach((topic, i) => {
+        addLog('[' + (i + 1) + '] ' + topic.title + ' \u2713', 'success');
+      });
+
+      await fetchCourses();
+      if (!isMounted.current) return;
+      addLog('Course data refreshed.', 'info');
+
+      const items = createdTopics.map(t => ({
+        topicId: t.id,
+        topicTitle: t.title,
+        displayStatus: 'ready',
+        displayMessage: 'Topic created from course outline.',
+      }));
+
+      addLog('All ' + createdTopics.length + ' topics created successfully!', 'success');
+      setReportItems(items);
+      setSummary({ ready: createdTopics.length, fallback: 0, failed: 0, total: createdTopics.length });
+      setStatus('completed');
+      setShowReportModal(true);
+    } catch (err) {
+      if (!isMounted.current) return;
+      const msg = (err && err.message) ? err.message : 'Unknown error occurred';
+      addLog('Error: ' + msg, 'error');
+      setReportItems([{ topicId: 'error', topicTitle: courseTitle, displayStatus: 'failed', displayMessage: msg }]);
+      setSummary({ ready: 0, fallback: 0, failed: 1, total: 0 });
+      setStatus('failed');
+      setShowReportModal(true);
+    }
+  }
+
   async function runSingleTopicGeneration() {
     addLog('Starting AI lecture generation for topic "' + singleTopicTitle + '"...', 'info');
+    if (customPrompt) {
+      const preview = customPrompt.length > 100 ? customPrompt.slice(0, 100) + '…' : customPrompt;
+      addLog('Custom prompt applied: "' + preview + '"', 'success');
+    }
 
     try {
-      const response = await aiTutorAPI.generateTopicPackage(topicId);
+      const response = await aiTutorAPI.generateTopicPackage(topicId, customPrompt ? { customPrompt } : {});
       if (!isMounted.current) return;
 
       if (!response.success) {
@@ -310,7 +362,11 @@ const GenerationLogsScreen = () => {
 
   function handleDone() {
     setShowReportModal(false);
-    navigation.navigate('CourseDetail', { courseId, courseName: slugify(course?.name) });
+    if (fromOutline) {
+      navigation.navigate('AddTopics', { courseId, creationMode: 'ai' });
+    } else {
+      navigation.navigate('CourseDetail', { courseId, courseName: slugify(course?.name) });
+    }
   }
 
   function getLogColor(type) {
@@ -395,7 +451,7 @@ const GenerationLogsScreen = () => {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: theme.colors.textPrimary, fontSize: 20, fontWeight: '800' }}>
-              {isSingleTopic ? 'AI Topic Generation' : 'AI Lecture Generation'}
+              {fromOutline ? 'AI Topic Creation' : isSingleTopic ? 'AI Topic Generation' : 'AI Lecture Generation'}
             </Text>
             <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
               {isSingleTopic ? singleTopicTitle : courseTitle}
@@ -417,6 +473,31 @@ const GenerationLogsScreen = () => {
             </Text>
           </View>
         </View>
+
+        {/* Custom Prompt Strip */}
+        {isSingleTopic && !!customPrompt && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 10,
+            backgroundColor: isDark ? 'rgba(255,140,66,0.08)' : 'rgba(255,140,66,0.07)',
+            borderColor: 'rgba(255,140,66,0.3)',
+            borderWidth: 1,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 16,
+          }}>
+            <Icon name="create-outline" size={15} color="#FF8C42" style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FF8C42', fontSize: 11, fontWeight: '700', marginBottom: 3, letterSpacing: 0.3 }}>
+                CUSTOM PROMPT SUBMITTED
+              </Text>
+              <Text style={{ color: isDark ? '#FBD5B5' : '#92400E', fontSize: 12, lineHeight: 17 }} numberOfLines={3}>
+                {customPrompt}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Terminal */}
         <View style={[styles.terminal, { backgroundColor: terminalBg, borderColor: terminalBorder }]}>
@@ -530,7 +611,7 @@ const GenerationLogsScreen = () => {
 
             <TouchableOpacity style={styles.okButton} onPress={handleDone} activeOpacity={0.85}>
               <Icon name="arrow-forward-circle-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.okButtonText}>OK — Go to Course</Text>
+              <Text style={styles.okButtonText}>{fromOutline ? 'OK — View Topics' : 'OK — Go to Course'}</Text>
             </TouchableOpacity>
           </View>
         </View>

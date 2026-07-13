@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   Platform,
   useWindowDimensions,
   ScrollView,
@@ -43,6 +44,41 @@ const VM_INFO = {
 };
 const getVmInfo = (vm) =>
   VM_INFO[vm] || { label: vm || 'Slide', icon: 'albums-outline', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' };
+
+// Mirror the backend resolveClassroomMode logic so the instructor sees the
+// same visual the student will actually get during playback.
+const resolveStudentVisualMode = (chunk) => {
+  const stored = chunk.visualMode || 'none';
+  // Diagram: actual nodes present (highest signal)
+  if (chunk.diagramData?.nodes?.length) return 'diagram';
+  if (stored === 'diagram' || stored === 'mixed') return 'diagram';
+  // Code: explicit flag OR real snippet in visualData
+  const hasCode = chunk.visualData?.codeExample?.snippet || chunk.visualData?.snippetData?.codeSnippet;
+  if (stored === 'code' || hasCode) return 'code';
+  // Flowchart / comparison / whiteboard / slide — honour stored value
+  if (stored === 'flowchart') return 'flowchart';
+  if (stored === 'comparison_table') return 'comparison_table';
+  if (stored === 'whiteboard') return 'whiteboard';
+  if (stored === 'slide' || stored === 'slide_summary') return 'slide';
+  return stored || 'slide';
+};
+
+const formatDuration = (seconds) => {
+  if (!seconds || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m}m`;
+  return `${m}m ${s}s`;
+};
+
+// Calculate actual speech duration from word count (130 wpm) — more accurate than GPT's estimate
+const calcChunkDuration = (chunk) => {
+  const text = chunk.spokenExplanation || '';
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  if (words > 0) return Math.round(words / 130 * 60);
+  return chunk.estimatedDurationSeconds || 0;
+};
 
 // Color palette for topic cards
 const TOPIC_COLORS = [
@@ -98,8 +134,19 @@ const AddTopicsScreen = () => {
   const [chunkModalTopic, setChunkModalTopic] = useState(null);
   const [chunkModalPackage, setChunkModalPackage] = useState(null);
   const [chunkModalLoading, setChunkModalLoading] = useState(false);
+  const [topicPrompts, setTopicPrompts] = useState({});
+  const [topicChunkCounts, setTopicChunkCounts] = useState({});
+  const [topicChunkDurations, setTopicChunkDurations] = useState({});
+  const [topicPromptModalTopic, setTopicPromptModalTopic] = useState(null);
+  const [creatingFromOutline, setCreatingFromOutline] = useState(false);
+  const [showOutlineConfirmDialog, setShowOutlineConfirmDialog] = useState(false);
 
   const topics = course?.topics || [];
+
+  // Refresh course data on mount so extractedText (background PDF extraction) is up-to-date
+  useEffect(() => {
+    fetchCourses();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -390,11 +437,43 @@ const AddTopicsScreen = () => {
   };
 
   const handleGenerateTopic = (topic) => {
+    const parts = [];
+    const chunkCount = topicChunkCounts[topic.id];
+    const durationMin = topicChunkDurations[topic.id];
+    if (chunkCount) parts.push(`Generate exactly ${chunkCount} chunks total across all sections.`);
+    if (durationMin) parts.push(`Make each chunk ${durationMin} minute${durationMin !== 1 ? 's' : ''} long.`);
+    const extraText = topicPrompts[topic.id]?.trim();
+    if (extraText) parts.push(extraText);
+    const customPrompt = parts.length > 0 ? parts.join(' ') : null;
     navigation.navigate('GenerationLogs', {
       courseId,
       courseTitle: course?.name || 'Course',
       topicId: topic.id,
       topicTitle: topic.title,
+      customPrompt,
+    });
+  };
+
+  const handleGenerateWithPrompt = () => {
+    if (!topicPromptModalTopic) return;
+    const topic = topicPromptModalTopic;
+    setTopicPromptModalTopic(null);
+    handleGenerateTopic(topic);
+  };
+
+  const handleCreateTopicsFromOutline = () => {
+    if (topics.length > 0) {
+      setShowOutlineConfirmDialog(true);
+    } else {
+      runCreateTopicsFromOutline();
+    }
+  };
+
+  const runCreateTopicsFromOutline = () => {
+    navigation.navigate('GenerationLogs', {
+      courseId,
+      courseTitle: course?.name || 'Course',
+      fromOutline: true,
     });
   };
 
@@ -473,15 +552,32 @@ const AddTopicsScreen = () => {
             </Text>
           </View>
 
-          {/* Per-topic AI generate button */}
+          {/* Per-topic AI generate + prompt buttons */}
           {!isManualMode && canAddTopics && (
-            <TouchableOpacity
-              style={[styles.generateTopicBtn, { backgroundColor: color + '15', borderColor: color + '40' }]}
-              onPress={(e) => { e.stopPropagation?.(); handleGenerateTopic(topic); }}
-            >
-              <Icon name="sparkles-outline" size={14} color={color} />
-              <Text style={[styles.generateTopicBtnText, { color }]}>Generate Topic</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.generateTopicBtn, { flex: 1, marginTop: 0, backgroundColor: color + '15', borderColor: color + '40' }]}
+                onPress={(e) => { e.stopPropagation?.(); handleGenerateTopic(topic); }}
+              >
+                <Icon name="sparkles-outline" size={14} color={color} />
+                <Text style={[styles.generateTopicBtnText, { color }]}>Generate</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.generateTopicBtn,
+                  { marginTop: 0 },
+                  (topicPrompts[topic.id]?.trim() || topicChunkCounts[topic.id] || topicChunkDurations[topic.id])
+                    ? { backgroundColor: ORANGE, borderColor: ORANGE }
+                    : { backgroundColor: ORANGE + '18', borderColor: ORANGE + '50' },
+                ]}
+                onPress={(e) => { e.stopPropagation?.(); setTopicPromptModalTopic(topic); }}
+              >
+                <Icon name="chatbubble-ellipses-outline" size={14} color={(topicPrompts[topic.id]?.trim() || topicChunkCounts[topic.id] || topicChunkDurations[topic.id]) ? '#fff' : ORANGE} />
+                <Text style={[styles.generateTopicBtnText, { color: (topicPrompts[topic.id]?.trim() || topicChunkCounts[topic.id] || topicChunkDurations[topic.id]) ? '#fff' : ORANGE }]}>
+                  {(topicPrompts[topic.id]?.trim() || topicChunkCounts[topic.id] || topicChunkDurations[topic.id]) ? 'Prompt ✓' : 'Prompt'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
 
 
@@ -614,6 +710,60 @@ const AddTopicsScreen = () => {
           </Animated.View>
         )}
 
+        {/* Make Topics Automatically Banner */}
+        {canAddTopics && (() => {
+          const outlineMaterial = (course?.materials || []).find(m => !m.topicId && m.type === 'pdf' && m.extractedText);
+          if (!outlineMaterial) return null;
+          return (
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginBottom: 20 }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                backgroundColor: isDark ? 'rgba(99,102,241,0.10)' : 'rgba(99,102,241,0.07)',
+                borderColor: 'rgba(99,102,241,0.25)',
+                borderWidth: 1,
+                borderRadius: 14,
+                padding: 16,
+              }}>
+                <View style={{ backgroundColor: '#6366F120', borderRadius: 10, padding: 10 }}>
+                  <Icon name="document-text-outline" size={22} color="#6366F1" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.colors.textPrimary, fontSize: 14, fontWeight: '700' }}>
+                    Course outline detected
+                  </Text>
+                  <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                    AI can read your outline PDF and create all topics automatically
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#6366F1',
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    opacity: creatingFromOutline ? 0.7 : 1,
+                    ...(Platform.OS === 'web' && { boxShadow: '0 2px 10px rgba(99,102,241,0.4)' }),
+                  }}
+                  onPress={handleCreateTopicsFromOutline}
+                  disabled={creatingFromOutline}
+                >
+                  {creatingFromOutline
+                    ? <Icon name="hourglass-outline" size={16} color="#fff" />
+                    : <Icon name="sparkles-outline" size={16} color="#fff" />
+                  }
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                    {creatingFromOutline ? 'Creating...' : 'Make Topics'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          );
+        })()}
 
         {/* Stats Section */}
         <View style={styles.statsSection}>
@@ -1144,6 +1294,17 @@ const AddTopicsScreen = () => {
         }}
       />
 
+      {/* Outline Topic Creation Confirmation */}
+      <ConfirmDialog
+        visible={showOutlineConfirmDialog}
+        title="Replace Existing Topics?"
+        message={`This course already has ${topics.length} topic${topics.length !== 1 ? 's' : ''}. All existing topics and their AI-generated content will be permanently deleted and replaced with topics from the outline. This cannot be undone.`}
+        confirmText="Delete & Recreate"
+        confirmVariant="danger"
+        onConfirm={() => { setShowOutlineConfirmDialog(false); runCreateTopicsFromOutline(); }}
+        onCancel={() => setShowOutlineConfirmDialog(false)}
+      />
+
       {/* AI Generation Confirmation */}
       <ConfirmDialog
         visible={showConfirmDialog}
@@ -1297,6 +1458,23 @@ const AddTopicsScreen = () => {
               <Text style={{ color: theme.colors.textPrimary, fontSize: 15, fontWeight: '600', fontFamily: theme.typography.fontFamily.semiBold }}>
                 AI-Generated Chunks
               </Text>
+              {chunkModalPackage?.lecture && (() => {
+                const totalSecs = (chunkModalPackage.lecture.sections || []).reduce((sum, c) => sum + calcChunkDuration(c), 0);
+                const label = totalSecs > 0
+                  ? formatDuration(totalSecs)
+                  : chunkModalPackage.lecture.estimatedDurationMinutes
+                    ? `~${chunkModalPackage.lecture.estimatedDurationMinutes}m`
+                    : null;
+                if (!label) return null;
+                return (
+                  <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#8B5CF6' + '18', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Icon name="time-outline" size={12} color="#8B5CF6" />
+                    <Text style={{ color: '#8B5CF6', fontSize: 12, fontWeight: '700', fontFamily: theme.typography.fontFamily.semiBold }}>
+                      {label} total
+                    </Text>
+                  </View>
+                );
+              })()}
             </View>
 
             {/* Chunks Content */}
@@ -1360,7 +1538,9 @@ const AddTopicsScreen = () => {
               );
 
               return sections.map((chunk, ci) => {
-                const vm = getVmInfo(chunk.visualMode);
+                const resolvedMode = resolveStudentVisualMode(chunk);
+                const vm = getVmInfo(resolvedMode);
+                const storedModeOverridden = resolvedMode !== (chunk.visualMode || 'none');
                 const bullets = Array.isArray(chunk.slideBullets) ? chunk.slideBullets : [];
                 const hasDivider = bullets.length > 0 || chunk.spokenExplanation || chunk.summary;
                 return (
@@ -1399,6 +1579,12 @@ const AddTopicsScreen = () => {
                             <Icon name={vm.icon} size={9} color={vm.color} />
                             <Text style={{ color: vm.color, fontSize: 10, fontWeight: '700', fontFamily: theme.typography.fontFamily.semiBold }}>{vm.label}</Text>
                           </View>
+                          {storedModeOverridden && (
+                            <View style={{ backgroundColor: 'rgba(99,102,241,0.12)', borderWidth: 1, borderColor: 'rgba(99,102,241,0.25)', borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                              <Icon name="swap-horizontal-outline" size={9} color="#6366F1" />
+                              <Text style={{ color: '#6366F1', fontSize: 10, fontWeight: '600' }}>was {chunk.visualMode}</Text>
+                            </View>
+                          )}
                           {bullets.length > 0 && (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                               <Icon name="list-outline" size={11} color={theme.colors.textTertiary} />
@@ -1413,6 +1599,14 @@ const AddTopicsScreen = () => {
                               §{chunk.sectionIndex + 1} · {chunk.chunkIndex + 1}
                             </Text>
                           </View>
+                          {!!formatDuration(calcChunkDuration(chunk)) && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Icon name="time-outline" size={11} color={theme.colors.textTertiary} />
+                              <Text style={{ color: theme.colors.textTertiary, fontSize: 11, fontFamily: theme.typography.fontFamily.regular }}>
+                                {formatDuration(calcChunkDuration(chunk))}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                     </View>
@@ -1455,6 +1649,223 @@ const AddTopicsScreen = () => {
               });
             })()}
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Custom Prompt Modal */}
+      <Modal
+        visible={!!topicPromptModalTopic}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setTopicPromptModalTopic(null)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+          ...(Platform.OS === 'web' ? { backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } : {}),
+        }}>
+          <View style={{
+            width: '100%',
+            maxWidth: 480,
+            backgroundColor: isDark ? 'rgba(15,15,30,0.96)' : 'rgba(255,255,255,0.97)',
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(26,26,46,0.1)',
+            padding: 28,
+            ...(Platform.OS === 'web' ? { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } : {}),
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 20 },
+            shadowOpacity: isDark ? 0.5 : 0.15,
+            shadowRadius: 40,
+            elevation: 20,
+          }}>
+            {/* Header */}
+            <View style={[styles.modalHeader, { marginBottom: 20 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                <View style={{ backgroundColor: ORANGE + '20', borderRadius: 10, padding: 10 }}>
+                  <Icon name="sparkles-outline" size={20} color={ORANGE} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>
+                    Generate Topic
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                    {topicPromptModalTopic?.title || ''}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.06)',
+                  borderRadius: 10,
+                  padding: 8,
+                }}
+                onPress={() => setTopicPromptModalTopic(null)}
+              >
+                <Icon name="close" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Chunk Count */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: theme.colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>
+                Number of chunks <Text style={{ fontWeight: '400', color: theme.colors.textTertiary }}>(optional)</Text>
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!topicPromptModalTopic) return;
+                    const cur = topicChunkCounts[topicPromptModalTopic.id] || 0;
+                    setTopicChunkCounts(prev => ({ ...prev, [topicPromptModalTopic.id]: Math.max(0, cur - 1) || undefined }));
+                  }}
+                  style={{ width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(26,26,46,0.15)', alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.04)' }}
+                >
+                  <Icon name="remove" size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ color: theme.colors.textPrimary, fontSize: 20, fontWeight: '700' }}>
+                    {topicPromptModalTopic && topicChunkCounts[topicPromptModalTopic.id] ? topicChunkCounts[topicPromptModalTopic.id] : '—'}
+                  </Text>
+                  {topicPromptModalTopic && topicChunkCounts[topicPromptModalTopic.id] ? (
+                    <Text style={{ color: theme.colors.textTertiary, fontSize: 11 }}>chunks total</Text>
+                  ) : (
+                    <Text style={{ color: theme.colors.textTertiary, fontSize: 11 }}>AI decides</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!topicPromptModalTopic) return;
+                    const cur = topicChunkCounts[topicPromptModalTopic.id] || 0;
+                    setTopicChunkCounts(prev => ({ ...prev, [topicPromptModalTopic.id]: Math.min(20, cur + 1) }));
+                  }}
+                  style={{ width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: ORANGE + '60', alignItems: 'center', justifyContent: 'center', backgroundColor: ORANGE + '15' }}
+                >
+                  <Icon name="add" size={18} color={ORANGE} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Duration per Chunk */}
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                  Duration per chunk <Text style={{ fontWeight: '400', color: theme.colors.textTertiary }}>(optional)</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#10B98118', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Icon name="checkmark-circle-outline" size={11} color="#10B981" />
+                  <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '700' }}>Safe up to 5 min</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!topicPromptModalTopic) return;
+                    const cur = topicChunkDurations[topicPromptModalTopic.id] || 0;
+                    setTopicChunkDurations(prev => ({ ...prev, [topicPromptModalTopic.id]: Math.max(0, cur - 1) || undefined }));
+                  }}
+                  style={{ width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(26,26,46,0.15)', alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,26,46,0.04)' }}
+                >
+                  <Icon name="remove" size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  {topicPromptModalTopic && topicChunkDurations[topicPromptModalTopic.id] ? (
+                    <>
+                      <Text style={{ color: topicChunkDurations[topicPromptModalTopic.id] >= 5 ? '#F59E0B' : theme.colors.textPrimary, fontSize: 20, fontWeight: '700' }}>
+                        {topicChunkDurations[topicPromptModalTopic.id]} min
+                      </Text>
+                      {topicChunkDurations[topicPromptModalTopic.id] >= 5 && (
+                        <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '600' }}>at safe limit</Text>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Text style={{ color: theme.colors.textPrimary, fontSize: 20, fontWeight: '700' }}>—</Text>
+                      <Text style={{ color: theme.colors.textTertiary, fontSize: 11 }}>AI decides</Text>
+                    </>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!topicPromptModalTopic) return;
+                    const cur = topicChunkDurations[topicPromptModalTopic.id] || 0;
+                    setTopicChunkDurations(prev => ({ ...prev, [topicPromptModalTopic.id]: Math.min(5, cur + 1) }));
+                  }}
+                  style={{ width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: ORANGE + '60', alignItems: 'center', justifyContent: 'center', backgroundColor: ORANGE + '15' }}
+                >
+                  <Icon name="add" size={18} color={ORANGE} />
+                </TouchableOpacity>
+              </View>
+              {topicPromptModalTopic && topicChunkDurations[topicPromptModalTopic.id] >= 5 && (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 8, backgroundColor: '#F59E0B15', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#F59E0B30' }}>
+                  <Icon name="warning-outline" size={13} color="#F59E0B" style={{ marginTop: 1 }} />
+                  <Text style={{ color: '#F59E0B', fontSize: 11, flex: 1, lineHeight: 16 }}>
+                    5 min is the maximum. Higher values are automatically capped to avoid generation failures caused by GPT output limits.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Additional Instructions */}
+            <View style={{ marginBottom: 4 }}>
+              <Text style={{ color: theme.colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>
+                Additional instructions <Text style={{ fontWeight: '400', color: theme.colors.textTertiary }}>(optional)</Text>
+              </Text>
+              <TextInput
+                style={[styles.topicPromptInput, {
+                  color: theme.colors.textPrimary,
+                  borderColor: isDark ? 'rgba(255,140,66,0.35)' : 'rgba(255,140,66,0.3)',
+                  backgroundColor: isDark ? 'rgba(255,140,66,0.06)' : 'rgba(255,140,66,0.04)',
+                }]}
+                placeholder="e.g. Focus on practical examples, use simple language, include a real-world use case..."
+                placeholderTextColor={theme.colors.textSecondary}
+                value={topicPromptModalTopic ? (topicPrompts[topicPromptModalTopic.id] || '') : ''}
+                onChangeText={(text) => {
+                  if (!topicPromptModalTopic) return;
+                  setTopicPrompts(prev => ({ ...prev, [topicPromptModalTopic.id]: text }));
+                }}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Footer */}
+            <View style={[styles.modalFooter, { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(26,26,46,0.08)', marginTop: 20 }]}>
+              <TouchableOpacity
+                style={[styles.modalCancelButton, {
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(26,26,46,0.15)',
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }]}
+                onPress={() => setTopicPromptModalTopic(null)}
+              >
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: ORANGE,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+                onPress={handleGenerateWithPrompt}
+              >
+                <Icon name="sparkles-outline" size={16} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Generate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </MainLayout>
@@ -1656,6 +2067,15 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile, isManualMod
     generateTopicBtnText: {
       fontSize: 12,
       fontWeight: '600',
+    },
+    topicPromptInput: {
+      borderWidth: 1,
+      borderRadius: 10,
+      padding: 12,
+      fontSize: 13,
+      minHeight: 110,
+      textAlignVertical: 'top',
+      lineHeight: 20,
     },
 
     // Empty State

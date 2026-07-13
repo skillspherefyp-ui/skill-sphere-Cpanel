@@ -122,7 +122,8 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    const certificate = await issueCertificate(userId, courseId, req);
+    const safepayOrderId = response.body?.data?.order_id || response.body?.data?.tracker?.order_id || null;
+    const certificate = await issueCertificate(userId, courseId, req, safepayOrderId);
     res.json({ success: true, certificate });
   } catch (err) {
     console.error('Verify payment error:', err.message);
@@ -157,7 +158,7 @@ exports.webhook = async (req, res) => {
       if (parts.length >= 3) {
         const userId   = parts[1];
         const courseId = parts[2];
-        await issueCertificate(userId, courseId, null);
+        await issueCertificate(userId, courseId, null, orderId);
       }
     }
   } catch (err) {
@@ -166,7 +167,7 @@ exports.webhook = async (req, res) => {
 };
 
 // ── Shared: issue certificate after payment ─────────────────────────────────
-async function issueCertificate(userId, courseId, req) {
+async function issueCertificate(userId, courseId, req, safepayOrderId = null) {
   const { Certificate, Course, User, CertificateTemplate, TemplateCourse } = require('../models');
   const { generateAndSaveCertificate } = require('../services/certificateService');
   const { sendCertificateEmail } = require('../services/emailService');
@@ -235,7 +236,7 @@ async function issueCertificate(userId, courseId, req) {
       template
     );
     await certificate.update({ certificateUrl });
-    await sendCertificateEmail(user.email, user.name, course.name, certNumber, pdfBuffer);
+    await sendCertificateEmail(user.email, user.name, course.name, certNumber, pdfBuffer, safepayOrderId);
     console.log(`📧 Certificate emailed to ${user.email}`);
   } catch (err) {
     console.error('⚠️  Certificate PDF/email error:', err.message);

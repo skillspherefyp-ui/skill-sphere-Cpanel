@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const multer = require('multer');
-const { Topic, AILecture, AIOutline } = require('../models');
+const { Topic, AILecture, AIOutline, Course, Material } = require('../models');
 const aiTutorService = require('../services/aiTutorService');
 const openaiService = require('../services/openaiService');
 
@@ -71,6 +71,56 @@ exports.generateCoursePackage = async (req, res) => {
   }
 };
 
+exports.createTopicsFromOutline = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const course = await Course.findByPk(courseId, {
+      include: [{ model: Material, as: 'materials' }]
+    });
+    if (!course) return res.status(404).json({ error: 'Course not found' });
+
+    await aiTutorService.canManageCourse(req.user, courseId);
+
+    // Find course-level outline PDF with extracted text
+    const outlineMaterial = (course.materials || []).find(
+      m => !m.topicId && m.type === 'pdf' && m.extractedText
+    );
+    if (!outlineMaterial) {
+      return res.status(400).json({ error: 'No course outline PDF with extracted text found. Please upload a course outline PDF on the course creation page first.' });
+    }
+
+    const topicNames = await openaiService.extractTopicsFromOutline({
+      outlineText: outlineMaterial.extractedText,
+      courseName: course.name,
+      courseDescription: course.description
+    });
+
+    if (!topicNames.length) {
+      return res.status(400).json({ error: 'Could not extract any topics from the outline. Please check the PDF content.' });
+    }
+
+    // Delete all existing topics for this course (cascades to materials, AI content, etc.)
+    await Topic.destroy({ where: { courseId } });
+
+    // Create fresh topics from outline
+    const created = await Topic.bulkCreate(
+      topicNames.map((title, i) => ({
+        title,
+        courseId: parseInt(courseId, 10),
+        order: i,
+        status: 'locked'
+      })),
+      { returning: true }
+    );
+
+    res.json({ success: true, count: created.length, topics: created });
+  } catch (error) {
+    console.error('Create topics from outline error:', error);
+    res.status(error.message.includes('permission') ? 403 : 500).json({ error: error.message || 'Failed to create topics' });
+  }
+};
+
 exports.getGenerationStatus = async (req, res) => {
   try {
     await aiTutorService.canManageCourse(req.user, req.params.courseId);
@@ -84,7 +134,8 @@ exports.getGenerationStatus = async (req, res) => {
 
 exports.generateTopicPackage = async (req, res) => {
   try {
-    const generation = await aiTutorService.startTopicGeneration(req.params.topicId, req.user);
+    const customPrompt = req.body?.customPrompt || null;
+    const generation = await aiTutorService.startTopicGeneration(req.params.topicId, req.user, customPrompt);
 
     res.status(202).json({
       success: true,

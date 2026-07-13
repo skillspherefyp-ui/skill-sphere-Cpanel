@@ -252,9 +252,9 @@ const AILearningScreen = () => {
     }
   };
   const { courseId, topicId } = route.params || {};
-  const { courses, checkEnrollment, fetchCourses } = useData();
+  const { courses, checkEnrollment, fetchCourses, isLoading: coursesLoading } = useData();
   const course = courses.find((item) => String(item.id) === String(courseId));
-  const topic = course?.topics?.find((item) => item.id === topicId);
+  const topic = course?.topics?.find((item) => String(item.id) === String(topicId));
 
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
@@ -449,9 +449,15 @@ const AILearningScreen = () => {
   const confusionPoints = panelContent.likelyConfusionPoints || teachingPlan.likely_confusion_points || [];
   const teachingStyleLabel = currentDelivery?.teaching_style_label || panelContent.teachingStyleLabel || 'Brief explanation';
   const conceptTypeLabel = teachingPlan?.concept_type ? teachingPlan.concept_type.replace(/-/g, ' ') : 'conceptual';
-  const recommendedDurationMs = ((currentDelivery?.recommended_duration_seconds || currentChunk?.estimatedDurationSeconds || 0) > 0
-    ? (currentDelivery?.recommended_duration_seconds || currentChunk?.estimatedDurationSeconds) * 1000
-    : 0);
+  const recommendedDurationMs = (() => {
+    const plannerSecs = currentDelivery?.recommended_duration_seconds || 0;
+    if (plannerSecs > 0) return plannerSecs * 1000;
+    // Derive from actual narration word count (130 wpm) — more accurate than GPT's stored estimate
+    const narration = currentDelivery?.narration_text || currentChunk?.spokenExplanation || '';
+    const words = narration.trim().split(/\s+/).filter(Boolean).length;
+    if (words > 0) return Math.round(words / 130 * 60) * 1000;
+    return (currentChunk?.estimatedDurationSeconds || 0) * 1000;
+  })();
   const currentModeLabel = currentDelivery?.current_mode_label || (showQuestionPanel ? 'Answering your question' : voiceMode ? 'Explaining' : 'Teaching in text mode');
   const formatLectureDuration = (minutes) => {
     const value = Number(minutes);
@@ -520,6 +526,12 @@ const AILearningScreen = () => {
     if (voiceMode) pulse.start();
     return () => pulse.stop();
   }, [pulseAnim, voiceMode]);
+
+  // On a hard page refresh courses may not be loaded yet — fetch them so the
+  // topic lookup succeeds before loadLecture() runs.
+  useEffect(() => {
+    if (courses.length === 0) fetchCourses();
+  }, []);
 
   useEffect(() => {
     loadLecture();
@@ -2065,7 +2077,7 @@ const AILearningScreen = () => {
       <Text style={[styles.sidebarTitle, { color: theme.colors.textPrimary }]}>Course Progress</Text>
       <ScrollView>
         {(course?.topics || []).map((item) => {
-          const isCurrent = item.id === topicId;
+          const isCurrent = String(item.id) === String(topicId);
           return (
             <TouchableOpacity
               key={item.id}
@@ -3093,6 +3105,17 @@ const AILearningScreen = () => {
   };
 
   if (!course || !topic) {
+    // Courses are still being fetched after a page refresh — show loading instead of error
+    if (coursesLoading || courses.length === 0) {
+      return (
+        <MainLayout showSidebar={false} showHeader={true} showBack={true}>
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading lecture...</Text>
+          </View>
+        </MainLayout>
+      );
+    }
     return (
       <MainLayout showSidebar={false} showHeader={true} showBack={true}>
         <View style={styles.centered}>

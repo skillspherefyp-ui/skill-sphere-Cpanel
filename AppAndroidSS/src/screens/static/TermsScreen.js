@@ -121,8 +121,28 @@ const TermsScreen = ({ navigation }) => {
             borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
           }]}>
             <Icon name="mail-outline" size={16} color={ORANGE} />
-            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10 }]}>
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10, fontWeight: '700' }]}>
+              support@skillsphere.com.pk
+            </Text>
+          </View>
+          <View style={[s.contactRow, {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8F9FF',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
+            marginTop: 8,
+          }]}>
+            <Icon name="mail-outline" size={16} color={ORANGE} />
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10, fontWeight: '700' }]}>
               skillspherefyp@gmail.com
+            </Text>
+          </View>
+          <View style={[s.contactRow, {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8F9FF',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(26,26,46,0.08)',
+            marginTop: 8,
+          }]}>
+            <Icon name="mail-outline" size={16} color={ORANGE} />
+            <Text style={[{ color: c.textSecondary, fontSize: 14, marginLeft: 10, fontWeight: '700' }]}>
+              talharizwan178@gmail.com
             </Text>
           </View>
         </Section>

@@ -25,9 +25,12 @@ import { courseAPI, contactAPI, categoryAPI } from '../../services/apiClient';
 import { resolveFileUrl, slugify } from '../../utils/urlHelpers';
 import { Helmet } from 'react-helmet-async';
 
-const LOGO   = require('../../assets/images/skillsphere-logo.png');
+const LOGO              = require('../../assets/images/skillsphere-logo.png');
+const SAFEPAY_LOGO_BLUE  = require('../../assets/images/safepay-logo-blue.png');
+const SAFEPAY_LOGO_WHITE = require('../../assets/images/safepay-logo-white.png');
 const ORANGE = '#F68B3C';
 const NAVY   = '#1A1A2E';
+
 const NAVY2  = '#16213E';
 
 // ─── PULSING BLOB ─────────────────────────────────────────────────────────────
@@ -809,6 +812,7 @@ const HowItWorksSection = ({ theme, isDark, isMobile, onLayout }) => {
                 </View>
                 <Text style={[styles.stepTitle, { color: theme.colors.textPrimary }, isMobile && { fontSize:16 }]}>{step.title}</Text>
                 <Text style={[styles.stepDesc, { color: theme.colors.textSecondary }, isMobile && { fontSize:13 }]}>{step.desc}</Text>
+
               </View>
             </AnimatedReveal>
             {!isMobile && i < steps.length-1 && (
@@ -1075,6 +1079,52 @@ const StatisticsSection = ({ isMobile }) => {
   );
 };
 
+// ─── 9b. PAYMENT TRUST STRIP ─────────────────────────────────────────────────
+const PaymentTrustStrip = ({ isDark, isMobile }) => {
+  const items = [
+    { icon: 'shield-checkmark',   text: 'SBP-Regulated Gateway' },
+    { icon: 'ribbon',             text: 'Rs. 2,000 per Certificate' },
+    { icon: 'alert-circle',       text: 'All Certificate Purchases are Non-Refundable' },
+  ];
+  return (
+    <View style={{
+      backgroundColor: '#0F0F1E',
+      paddingVertical: isMobile ? 16 : 18,
+      paddingHorizontal: isMobile ? 20 : 40,
+    }}>
+      <View style={{
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        gap: isMobile ? 10 : 0,
+        maxWidth: 960, alignSelf: 'center', width: '100%',
+      }}>
+        {/* Safepay logo as first item */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: isMobile ? 0 : 20 }}>
+          <Icon name="lock-closed" size={14} color={ORANGE} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>Secured by</Text>
+          <Image source={SAFEPAY_LOGO_WHITE} style={{ width: 90, height: 27 }} resizeMode="contain" />
+        </View>
+        {!isMobile && <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 16 }}>|</Text>}
+        {items.map((item, i) => (
+          <React.Fragment key={item.text}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: isMobile ? 0 : 20 }}>
+              <Icon name={item.icon} size={14} color={ORANGE} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>
+                {item.text}
+              </Text>
+            </View>
+            {!isMobile && i < items.length - 1 && (
+              <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 16 }}>|</Text>
+            )}
+          </React.Fragment>
+        ))}
+      </View>
+    </View>
+  );
+};
+
 // ─── 10. FAQ ──────────────────────────────────────────────────────────────────
 const FAQSection = ({ theme, isDark, isMobile, onLayout }) => {
   const [openIndex, setOpenIndex] = useState(null);
@@ -1084,7 +1134,7 @@ const FAQSection = ({ theme, isDark, isMobile, onLayout }) => {
     { q:'Can I learn on mobile devices?', a:'Absolutely. SkillSphere works seamlessly on web, Android, and iOS. Your progress is synced across all platforms.' },
     { q:'What is the AI Assistant feature?', a:'Our AI Assistant is powered by an advanced language model inside each course. Ask questions about lesson content, get explanations, or request practice exercises.' },
     { q:'How do instructors apply to teach?', a:'Experts can register an account and apply to become an instructor. After instructor approval, you can create and publish courses.' },
-    { q:'Is my payment information secure?', a:'SkillSphere uses industry-standard encryption and trusted payment processors to ensure your financial data is always protected.' },
+    { q:'Is my payment information secure?', a:'Absolutely. All payments are processed by Safepay — an SBP-regulated, PCI-DSS compliant Payment Service Provider. You enter your card details directly on Safepay\'s secure checkout window. SkillSphere never sees, stores, or processes your card number, bank login, or wallet PIN. Transactions are protected by HTTPS encryption and cryptographic tokenisation.' },
   ];
   return (
     <View style={[styles.section, { backgroundColor: isDark ? NAVY : '#F8F9FF', paddingVertical: isMobile ? 48 : 72 }]} onLayout={onLayout}>
@@ -1264,9 +1314,11 @@ const Footer = ({ navigation, theme, isDark, isMobile, scrollToSection }) => {
       case 'Learn With Us':    navigation.navigate('Signup');         break;
       case 'Partners':         navigation.navigate('About');          break;
       case 'Help Center':      navigation.navigate('HelpCenter');     break;
-      case 'Privacy Policy':   navigation.navigate('PrivacyPolicy');  break;
-      case 'Terms of Service': navigation.navigate('Terms');          break;
-      case 'Cookie Policy':    navigation.navigate('PrivacyPolicy');  break;
+      case 'Privacy Policy':    navigation.navigate('PrivacyPolicy');  break;
+      case 'Terms of Service':  navigation.navigate('Terms');          break;
+      case 'Cookie Policy':     navigation.navigate('PrivacyPolicy');  break;
+      case 'Platform Ownership': navigation.navigate('Ownership');      break;
+      case 'Refund Policy':      navigation.navigate('RefundPolicy');   break;
       case 'Contact Us':       scrollToSection?.('contact');          break;
       case 'Community':        navigation.navigate('Community');      break;
       default:
@@ -1283,7 +1335,7 @@ const Footer = ({ navigation, theme, isDark, isMobile, scrollToSection }) => {
     { title:'Courses',  links: categoryLinks },
     { title:'Company',  links:['About Us','Blog','Learn With Us','Partners'] },
     { title:'Support',  links:['Help Center','Contact Us','Community'], actions:[{ label:'Verify Certificate', route:'CertificateVerify' }] },
-    { title:'Legal',    links:['Privacy Policy','Terms of Service','Cookie Policy'] },
+    { title:'Legal',    links:['Privacy Policy','Terms of Service','Cookie Policy','Refund Policy','Platform Ownership'] },
   ];
   const socials = [
     { icon:'x-twitter',      label:'X',         url: 'https://x.com/Skill___Sphere' },
@@ -1636,6 +1688,7 @@ const LandingScreen = ({ navigation }) => {
           <CoursesCarousel   navigation={navigation} theme={theme} isDark={isDark} isMobile={isMobile} />
         </View>
         <StatisticsSection isMobile={isMobile} />
+        <PaymentTrustStrip isDark={isDark} isMobile={isMobile} />
         <View nativeID="landing-faq" onLayout={registerSection('faq')}>
           <FAQSection        theme={theme} isDark={isDark} isMobile={isMobile} />
         </View>

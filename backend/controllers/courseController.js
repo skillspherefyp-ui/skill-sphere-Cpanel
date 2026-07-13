@@ -1,5 +1,35 @@
 const { Course, Category, Topic, Material, Enrollment, Quiz, Progress } = require('../models');
 const { Op } = require('sequelize');
+const { extractTextFromPdf } = require('../utils/pdfExtractor');
+
+// Trigger background PDF text extraction for an array of newly created Material instances
+// Retries up to 3 times so transient Cloudinary/network errors don't leave extractedText null
+async function extractWithRetry(m, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const text = await extractTextFromPdf(m.uri);
+      if (text) {
+        await m.update({ extractedText: text });
+        return;
+      }
+    } catch (err) {
+      if (attempt === retries) {
+        console.error(`PDF extraction failed for material ${m.id} after ${retries} attempts:`, err.message);
+      } else {
+        // Brief back-off before next retry
+        await new Promise(r => setTimeout(r, attempt * 1500));
+      }
+    }
+  }
+}
+
+function triggerPdfExtraction(createdMaterials) {
+  for (const m of createdMaterials) {
+    if (m.type === 'pdf' && m.uri) {
+      extractWithRetry(m);
+    }
+  }
+}
 
 function ensureCourseAuthoringAccess(user, course = null) {
   const isAdmin = user.role === 'admin';
@@ -100,7 +130,8 @@ exports.createCourse = async (req, res) => {
         ...material,
         courseId: course.id
       }));
-      await Material.bulkCreate(courseMaterials);
+      const createdMaterials = await Material.bulkCreate(courseMaterials, { returning: true });
+      triggerPdfExtraction(createdMaterials);
     }
 
     const createdCourse = await Course.findByPk(course.id, {
@@ -321,6 +352,22 @@ exports.updateCourse = async (req, res) => {
     if (lectureSettings !== undefined) course.lectureSettings = (lectureSettings && typeof lectureSettings === 'object') ? lectureSettings : null;
 
     await course.save();
+
+    // Replace course-level materials if provided in request
+    const { materials: incomingMaterials } = req.body;
+    if (incomingMaterials !== undefined && Array.isArray(incomingMaterials)) {
+      // Remove existing course-level materials (topicId is null)
+      await Material.destroy({ where: { courseId: id, topicId: null } });
+      if (incomingMaterials.length > 0) {
+        const courseMaterials = incomingMaterials.map(material => ({
+          ...material,
+          courseId: id,
+          topicId: null,
+        }));
+        const createdMaterials = await Material.bulkCreate(courseMaterials, { returning: true });
+        triggerPdfExtraction(createdMaterials);
+      }
+    }
 
     const { User } = require('../models');
     const updatedCourse = await Course.findByPk(id, {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, useWindowDimensions, Platform, Linking,
+  ActivityIndicator, useWindowDimensions, Platform, Linking, Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -15,6 +15,9 @@ import { getSidebarItems } from '../../utils/sidebarItems';
 
 const CERT_PRICE = 2000;
 const LS_KEY = 'safepay_pending';
+
+const SAFEPAY_LOGO_BLUE  = require('../../assets/images/safepay-logo-blue.png');
+const SAFEPAY_LOGO_WHITE = require('../../assets/images/safepay-logo-white.png');
 
 const PaymentScreen = () => {
   const navigation = useNavigation();
@@ -214,7 +217,14 @@ const PaymentScreen = () => {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.bannerTitle, { color: theme.colors.textPrimary }]}>Secure Payment</Text>
-            <Text style={[styles.bannerSub, { color: theme.colors.textSecondary }]}>Powered by Safepay</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 }}>
+              <Text style={[styles.bannerSub, { color: theme.colors.textSecondary }]}>Powered by</Text>
+              <Image
+                source={isDark ? SAFEPAY_LOGO_WHITE : SAFEPAY_LOGO_BLUE}
+                style={{ width: 72, height: 16 }}
+                resizeMode="contain"
+              />
+            </View>
           </View>
         </View>
 

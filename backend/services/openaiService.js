@@ -106,7 +106,8 @@ async function generateLecturePackage({
   outlineText,
   compactMode = false,
   minimalMode = false,
-  lectureSettings = null
+  lectureSettings = null,
+  customPrompt = null
 }) {
   const client = getClient();
   const model = process.env.OPENAI_MODEL_LECTURE;
@@ -188,6 +189,10 @@ async function generateLecturePackage({
     }
   };
 
+  // Parse duration requirement early so it can influence generationProfile chunk counts
+  const _durationMatch = customPrompt ? customPrompt.match(/(\d+(?:\.\d+)?)\s*[-–]?\s*min(?:ute)?s?/i) : null;
+  const rawChunkMinutes = _durationMatch ? parseFloat(_durationMatch[1]) : null;
+
   const generationProfile = minimalMode
     ? {
         sectionRange: '2',
@@ -214,6 +219,24 @@ async function generateLecturePackage({
           quizRange: '4 to 6',
           modelSuffix: ''
         };
+
+  // Long-chunk override: when each chunk must be several minutes long, reduce chunk count
+  // per section so the total JSON output stays within GPT's output token limit.
+  // Rule: target ≤ ~3000 words total spoken content → sections × chunks × minWords ≤ 3000
+  if (rawChunkMinutes && rawChunkMinutes > 1.5 && !minimalMode && !compactMode) {
+    if (rawChunkMinutes >= 4) {
+      // 4-5 min chunks: 1 chunk/section, 2-3 sections max → ~3-5 chunks × 520-650 words
+      generationProfile.chunkRange = '1';
+      generationProfile.sectionRange = '2 to 3';
+    } else if (rawChunkMinutes >= 2.5) {
+      // 2.5-3.5 min chunks: max 2 chunks/section
+      generationProfile.chunkRange = '1 to 2';
+      generationProfile.sectionRange = '2 to 4';
+    } else {
+      // 1.5-2.5 min chunks: max 2 chunks/section
+      generationProfile.chunkRange = '1 to 2';
+    }
+  }
 
   const trimmedOutlineText = `${outlineText || ''}`.trim().slice(0, minimalMode ? 1400 : compactMode ? 2200 : 3200);
   const summarizedMaterials = (materials || []).slice(0, minimalMode ? 4 : 6).map((material) => {
@@ -279,18 +302,25 @@ FAILURE MODE TO AVOID: Do NOT mix languages. "Next, let's make [Urdu title] clea
 
   const settingsInstructions = buildLectureSettingsInstructions(lectureSettings);
 
+  // Cap at 5 min per chunk — beyond that the full JSON exceeds GPT output limits and generation fails.
+  // Chunk count is already reduced above for long durations to keep total output manageable.
+  const chunkMinutes = rawChunkMinutes ? Math.min(rawChunkMinutes, 5) : null;
+  const minWords = chunkMinutes ? Math.round(chunkMinutes * 130) : null;
+
   const prompt = `
 You are preparing a production-ready stored lecture package for a tutoring system.
 Return valid JSON only. Do not wrap in markdown. Follow this schema exactly:
 ${JSON.stringify(schemaDescription, null, 2)}
 ${languageInstruction}${settingsInstructions}
+${customPrompt ? `\n⚠️ MANDATORY INSTRUCTOR OVERRIDE — APPLY THESE FIRST, BEFORE ALL OTHER RULES:\n${customPrompt.trim()}\nThese instructions take priority over every default constraint listed below. Honour them exactly.\n` : ''}
+${minWords ? `⚠️ WORD COUNT ENFORCEMENT: The instructor requires each chunk to be ${chunkMinutes} minute${chunkMinutes !== 1 ? 's' : ''} long. At 130 words/minute that means each chunk's spoken_explanation field MUST contain AT LEAST ${minWords} words. Count words before finalizing — do NOT submit a chunk with fewer than ${minWords} words in spoken_explanation. Write a full, detailed, teacher-like explanation that fills the time.\n` : ''}
 Constraints:
 - Produce a complete lecture package for one topic.
 - Make explanations clear, accurate, teacher-like, and directly tied to the topic.
 - Generate ${generationProfile.sectionRange} sections.
-- Generate ${generationProfile.chunkRange} chunks per section for incremental delivery.
+- Generate ${generationProfile.chunkRange} chunks per section for incremental delivery (unless overridden above).
 - Each chunk should be ${generationProfile.chunkDetail}.
-- Every chunk must contain a real spoken explanation in full sentences.
+- Every chunk must contain a real spoken explanation in full sentences. spoken_explanation word count determines estimated_duration_seconds — calibrate at 130 words per minute${minWords ? ` (MINIMUM ${minWords} words = ${chunkMinutes} min per chunk as required above)` : ' (e.g. 2-minute chunk = 260 words)'}. Set estimated_duration_seconds to match actual word count.
 - VISUAL MODE INTELLIGENCE — for EACH chunk, choose the ONE visual that teaches THAT specific concept best, the way a great teacher decides between live-coding, the whiteboard, a diagram, or slides. Match the medium to the idea, and VARY modes across the lecture so it feels like a real, dynamic class — never the same mode chunk after chunk. Decide using this tree, in order:
   1. CODE → visual_mode: "code" — the chunk explains syntax, a command, a script, a config file, an API call, SQL, or anything a student would type into a terminal/editor. You MUST include code_example (real snippet, language, one-line explanation).
   2. DIAGRAM → visual_mode: "diagram" — the chunk explains relationships, architecture, components, or how parts connect ("how X relates to Y"). You MUST include the diagram field with 3–6 nodes and 2–5 edges. Node/edge labels MUST always be short English concept names regardless of course language (e.g. "CPU", "Memory", "Trade Routes"). Colors: #3b82f6 primary, #8b5cf6 secondary, #10b981 outcome, #f59e0b decision.
@@ -323,12 +353,12 @@ ${JSON.stringify(compactTopicContext, null, 2)}
   const completion = await withOpenAITimeout(
     () => client.chat.completions.create({
       model,
-      temperature: 0.3,
+      temperature: customPrompt ? 0.5 : 0.3,
       response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
-          content: `You generate strict JSON lecture packages for an educational tutoring platform.${course.language === 'Urdu' ? ' STRICT RULE: Course language is Urdu (اردو). All text/explanation fields must be 100% Urdu script. EXCEPTIONS that must stay in English: code_example.snippet, code_example.language, diagram nodes[].id, diagram nodes[].label, diagram edges[].label, visual_query. NEVER mix English transition words into Urdu sentences.' : ''}`
+          content: `You generate strict JSON lecture packages for an educational tutoring platform.${course.language === 'Urdu' ? ' STRICT RULE: Course language is Urdu (اردو). All text/explanation fields must be 100% Urdu script. EXCEPTIONS that must stay in English: code_example.snippet, code_example.language, diagram nodes[].id, diagram nodes[].label, diagram edges[].label, visual_query. NEVER mix English transition words into Urdu sentences.' : ''}${customPrompt ? ' IMPORTANT: The user prompt contains mandatory instructor overrides marked with ⚠️ — you MUST follow them exactly, even if they conflict with other instructions.' : ''}`
         },
         {
           role: 'user',
@@ -786,6 +816,42 @@ async function evaluateCheckpointAnswer({ question, studentAnswer, chunkText, la
   return JSON.parse(raw);
 }
 
+async function extractTopicsFromOutline({ outlineText, courseName, courseDescription }) {
+  const client = getClient();
+  const model = process.env.OPENAI_MODEL_LECTURE;
+  if (!model) throw new Error('OPENAI_MODEL_LECTURE is not configured');
+
+  const completion = await withOpenAITimeout(
+    () => client.chat.completions.create({
+      model,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: 'You extract topic/chapter names from course outlines. Return a JSON object with a single key "topics" containing an ordered array of topic name strings. No numbering, no descriptions — clean topic names only.'
+        },
+        {
+          role: 'user',
+          content: `Course: "${courseName}"
+${courseDescription ? `Description: ${courseDescription.slice(0, 300)}\n` : ''}
+Course Outline:
+${outlineText.slice(0, 8000)}
+
+Extract all main topic/chapter names from this outline in order. Return only the topic names as a JSON array under the key "topics".`
+        }
+      ]
+    }),
+    'extract topics from outline',
+    60000,
+    60000
+  );
+
+  const raw = getJsonFromCompletion(completion);
+  const topics = Array.isArray(raw?.topics) ? raw.topics : (Array.isArray(raw) ? raw : []);
+  return topics.filter(t => typeof t === 'string' && t.trim().length > 0).map(t => t.trim());
+}
+
 module.exports = {
   generateLecturePackage,
   repairLecturePackage,
@@ -798,4 +864,5 @@ module.exports = {
   createAudioCacheKey,
   moderateContent,
   evaluateCheckpointAnswer,
+  extractTopicsFromOutline,
 };

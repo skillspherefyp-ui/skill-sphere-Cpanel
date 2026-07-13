@@ -2,27 +2,25 @@
   "name": "SkillSphere",
   "displayName": "SkillSphere",
   "slug": "skillsphere-fyp",
-  "owner": "skillspherefyps-organization",
-  "icon": "./assets/icon.png",
+  "icon": "./assets/app-icon.png",
   "android": {
+    "package": "com.skillsphere.app",
     "adaptiveIcon": {
-      "foregroundImage": "./assets/icon.png",
+      "foregroundImage": "./assets/app-icon.png",
       "backgroundColor": "#FFFFFF"
     },
     "runtimeVersion": "1.0.0"
   },
   "ios": {
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon.png",
     "runtimeVersion": {
       "policy": "appVersion"
     }
   },
   "extra": {
     "eas": {
-      "projectId": "0deb8d7b-c3ad-4ad4-865c-aba7984388a8"
+      "projectId": "eeae1c03-538c-4704-b597-c0bc962ea60c"
     }
   },
-  "updates": {
-    "url": "https://u.expo.dev/0deb8d7b-c3ad-4ad4-865c-aba7984388a8"
-  }
+  "owner": "talharizwan178"
 }

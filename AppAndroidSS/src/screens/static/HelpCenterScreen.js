@@ -71,6 +71,44 @@ const FAQS = [
     ],
   },
   {
+    category: 'Payments & Certificates',
+    icon: 'card-outline',
+    items: [
+      {
+        q: 'How much does a certificate cost?',
+        a: 'A verified digital completion certificate costs Rs. 2,000 (PKR). This is a one-time fee per course — once paid, your certificate is generated and emailed to you instantly.',
+      },
+      {
+        q: 'How do I pay for a certificate?',
+        a: 'After completing all course materials, go to the certificate section and tap "Get Certificate". You will be redirected to Safepay\'s secure checkout to complete payment. We accept debit cards, credit cards, and other methods supported by Safepay.',
+      },
+      {
+        q: 'Is my payment secure?',
+        a: 'Yes. All payments are processed by Safepay, an SBP-regulated Payment Service Provider. Your card details are entered directly on Safepay\'s PCI-DSS compliant checkout — SkillSphere never sees or stores your card information.',
+      },
+      {
+        q: 'What payment methods are accepted?',
+        a: 'Safepay supports major debit and credit cards (Visa, Mastercard) issued by Pakistani banks, as well as other methods available in the Safepay checkout.',
+      },
+      {
+        q: 'Will I get a receipt after paying?',
+        a: 'Yes. Once your payment is confirmed, you will receive an email with your certificate PDF attached along with a full billing receipt showing your order reference ID, transaction date, amount charged (Rs. 2,000 PKR), and Safepay as the payment gateway.',
+      },
+      {
+        q: 'Can I get a refund on a certificate?',
+        a: 'No. Because your digital certificate is dynamically generated and delivered instantly upon payment confirmation, all certificate purchases are final and non-refundable. Please make sure you have completed the course before initiating payment.',
+      },
+      {
+        q: 'I paid but did not receive my certificate email — what should I do?',
+        a: 'First check your spam or junk folder. If it\'s not there, contact us at support@skillsphere.com.pk or talharizwan178@gmail.com with your registered email and the course name. We will verify your payment and resend the certificate manually.',
+      },
+      {
+        q: 'My payment failed — was I charged?',
+        a: 'If Safepay shows a failed or cancelled transaction, you were not charged. If your bank shows a deduction but the payment failed on our end, please contact your bank first — it is usually a hold that is released automatically within 3–5 business days. You can also email us at support@skillsphere.com.pk or talharizwan178@gmail.com for assistance.',
+      },
+    ],
+  },
+  {
     category: 'AI Features',
     icon: 'sparkles-outline',
     items: [
@@ -128,6 +166,10 @@ const HelpCenterScreen = ({ navigation }) => {
         <Text style={[s.intro, { color: c.textSecondary }]}>
           Browse the frequently asked questions below or contact us at{' '}
           <Text style={{ color: ORANGE, fontWeight: '600' }}>skillspherefyp@gmail.com</Text>
+          {' '}or{' '}
+          <Text style={{ color: ORANGE, fontWeight: '600' }}>support@skillsphere.com.pk</Text>
+          {' '}or{' '}
+          <Text style={{ color: ORANGE, fontWeight: '600' }}>talharizwan178@gmail.com</Text>
         </Text>
 
         {FAQS.map((cat) => (
@@ -183,6 +225,8 @@ const HelpCenterScreen = ({ navigation }) => {
             Can't find the answer you're looking for? Send us a message through the contact form on our home page or email us directly.
           </Text>
           <Text style={[s.contactEmail, { color: ORANGE }]}>skillspherefyp@gmail.com</Text>
+          <Text style={[s.contactEmail, { color: ORANGE, marginTop: 4 }]}>support@skillsphere.com.pk</Text>
+          <Text style={[s.contactEmail, { color: ORANGE, marginTop: 4 }]}>talharizwan178@gmail.com</Text>
         </View>
 
       </ScrollView>

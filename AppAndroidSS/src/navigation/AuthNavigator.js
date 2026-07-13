@@ -15,6 +15,8 @@ import CertificateVerificationScreen from '../screens/auth/CertificateVerificati
 import AboutScreen from '../screens/static/AboutScreen';
 import PrivacyPolicyScreen from '../screens/static/PrivacyPolicyScreen';
 import TermsScreen from '../screens/static/TermsScreen';
+import OwnershipScreen from '../screens/static/OwnershipScreen';
+import RefundPolicyScreen from '../screens/static/RefundPolicyScreen';
 import HelpCenterScreen from '../screens/static/HelpCenterScreen';
 import BlogScreen from '../screens/static/BlogScreen';
 import BlogPostScreen from '../screens/static/BlogPostScreen';
@@ -71,6 +73,8 @@ const AuthNavigator = () => {
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="Terms" component={TermsScreen} />
+      <Stack.Screen name="Ownership" component={OwnershipScreen} />
+      <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="Blog" component={BlogScreen} />
       <Stack.Screen name="BlogPost" component={BlogPostScreen} />

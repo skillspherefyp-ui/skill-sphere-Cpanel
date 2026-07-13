@@ -7,14 +7,14 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "image": "latest",
+        "image": "ubuntu-22.04-jdk-17-ndk-r21e",
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
       }
     },
     "production": {
       "android": {
-        "image": "latest",
+        "image": "ubuntu-22.04-jdk-17-ndk-r21e",
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
       }

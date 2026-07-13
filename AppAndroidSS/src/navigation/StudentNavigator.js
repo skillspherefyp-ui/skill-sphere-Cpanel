@@ -24,6 +24,8 @@ import DiscussionThreadScreen from '../screens/auth/DiscussionThreadScreen';
 import BlogScreen from '../screens/static/BlogScreen';
 import BlogPostScreen from '../screens/static/BlogPostScreen';
 import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
+import OwnershipScreen from '../screens/static/OwnershipScreen';
+import RefundPolicyScreen from '../screens/static/RefundPolicyScreen';
 import AILearningProfileScreen from '../screens/student/AILearningProfileScreen';
 
 const Stack = createStackNavigator();
@@ -62,6 +64,8 @@ const StudentNavigator = () => {
       <Stack.Screen name="CertificateVerify" component={CertificateVerificationScreen} />
       <Stack.Screen name="Verify" component={CertificateVerificationScreen} />
       <Stack.Screen name="AILearningProfile" component={AILearningProfileScreen} />
+      <Stack.Screen name="Ownership" component={OwnershipScreen} />
+      <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
     </Stack.Navigator>
   );
 };

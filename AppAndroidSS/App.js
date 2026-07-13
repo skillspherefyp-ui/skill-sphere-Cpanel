@@ -103,6 +103,8 @@ const AUTH_SCREENS = {
   Blog:                 'blog',
   BlogPost:             'blog/:postId',
   Community:            'community',
+  Ownership:            'ownership',
+  RefundPolicy:         'refund-policy',
 };
 
 const ROLE_CONFIG = {

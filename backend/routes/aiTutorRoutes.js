@@ -12,6 +12,7 @@ router.post('/topics/:topicId/generate', aiTutorController.generateTopicPackage)
 router.get('/topics/:topicId/generate-status', aiTutorController.getTopicGenerationStatus);
 router.post('/courses/:courseId/generate', aiTutorController.generateCoursePackage);
 router.get('/courses/:courseId/generate-status', aiTutorController.getGenerationStatus);
+router.post('/courses/:courseId/create-topics-from-outline', aiTutorController.createTopicsFromOutline);
 router.get('/courses/:courseId/lectures', aiTutorController.listLectures);
 router.get('/topics/:topicId/package', aiTutorController.getLecturePackage);
 

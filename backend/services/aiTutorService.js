@@ -1367,7 +1367,7 @@ async function startCourseGeneration(courseId, instructorUser) {
   };
 }
 
-async function generateSingleTopicPackage(topicId, instructorUser) {
+async function generateSingleTopicPackage(topicId, instructorUser, customPrompt = null) {
   const topic = await Topic.findByPk(topicId, {
     include: [{ model: Material, as: 'materials' }]
   });
@@ -1437,7 +1437,7 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
     try {
       const generation = await openaiService.generateLecturePackage({
         course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText,
-        lectureSettings: course.lectureSettings || null
+        lectureSettings: course.lectureSettings || null, customPrompt
       });
 
       let rawPackage = generation.package;
@@ -1459,7 +1459,7 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
       try {
         const compactGeneration = await openaiService.generateLecturePackage({
           course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText, compactMode: true,
-          lectureSettings: course.lectureSettings || null
+          lectureSettings: course.lectureSettings || null, customPrompt
         });
 
         let compactRawPackage = compactGeneration.package;
@@ -1481,7 +1481,7 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
         try {
           const minimalGeneration = await openaiService.generateLecturePackage({
             course, topic, materials: sourceMaterials, priorTopics, nextTopicTitle, outlineText, compactMode: true, minimalMode: true,
-            lectureSettings: course.lectureSettings || null
+            lectureSettings: course.lectureSettings || null, customPrompt
           });
 
           let minimalRawPackage = minimalGeneration.package;
@@ -1534,7 +1534,7 @@ async function generateSingleTopicPackage(topicId, instructorUser) {
   }
 }
 
-async function startTopicGeneration(topicId, instructorUser) {
+async function startTopicGeneration(topicId, instructorUser, customPrompt = null) {
   const topic = await Topic.findByPk(topicId, { attributes: ['id', 'courseId'] });
   if (!topic) throw new Error('Topic not found');
 
@@ -1557,7 +1557,7 @@ async function startTopicGeneration(topicId, instructorUser) {
 
   setImmediate(async () => {
     try {
-      await generateSingleTopicPackage(topicId, instructorUser);
+      await generateSingleTopicPackage(topicId, instructorUser, customPrompt);
       jobState.status = 'completed';
       jobState.finishedAt = new Date().toISOString();
     } catch (error) {

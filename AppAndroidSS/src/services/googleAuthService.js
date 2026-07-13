@@ -2,10 +2,9 @@ import { Platform } from 'react-native';
 
 const WEB_CLIENT_ID = '1027771061-5gdm8g72cimck7bjpgknspaqkisfme4g.apps.googleusercontent.com';
 
-// Get redirect URI based on environment
+// Get redirect URI based on environment (web only)
 const getRedirectUri = () => {
-  if (typeof window !== 'undefined') {
-    // Use current origin in production, localhost in development
+  if (typeof window !== 'undefined' && window.location) {
     const origin = window.location.origin;
     return origin.includes('localhost') ? 'http://localhost:3000' : origin;
   }
@@ -14,8 +13,8 @@ const getRedirectUri = () => {
 
 // Configure Google Sign-In
 export const configureGoogleSignIn = () => {
+  // Native Google Sign-In not configured — requires @react-native-google-signin/google-signin
   console.log('Google Sign-In configured for platform:', Platform.OS);
-  console.log('Redirect URI:', getRedirectUri());
 };
 
 /**
@@ -115,17 +114,12 @@ const signInWithGoogleWeb = async () => {
 
 
 /**
- * Sign in with Google - Native Implementation placeholder
- * For native to work, you need to:
- * 1. npm install @react-native-google-signin/google-signin
- * 2. Follow setup: https://github.com/react-native-google-signin/google-signin
- * 3. Replace this function with actual implementation
+ * Sign in with Google - Native stub (Android/iOS)
  */
 const signInWithGoogleNative = async () => {
-  // Return message to setup the package
   return {
     success: false,
-    error: 'Google Sign-In requires setup. Install @react-native-google-signin/google-signin and configure it.',
+    error: 'Google Sign-In not available on this platform.',
   };
 };
 

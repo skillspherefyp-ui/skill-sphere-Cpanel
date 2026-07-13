@@ -125,7 +125,13 @@ const CreateCourseScreen = () => {
   }, [isEditMode, courseData]);
 
   const handleAddMaterial = (newMaterial) => {
-    setMaterials((prev) => [...prev, newMaterial]);
+    setMaterials((prev) => {
+      if (prev.some(m => m.type === 'pdf')) {
+        Toast.show({ type: 'error', text1: 'Only one outline PDF allowed', text2: 'Remove the existing PDF before adding a new one.' });
+        return prev;
+      }
+      return [...prev, newMaterial];
+    });
   };
 
   const handleRemoveMaterial = (id) => {
@@ -851,72 +857,82 @@ const CreateCourseScreen = () => {
               )}
             </View>
 
-            {/* Course Materials Section */}
+            {/* Course Outline Section */}
             <View style={styles.formCard}>
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIconWrap, { backgroundColor: '#06B6D4' + '18' }]}>
-                    <Icon name="folder-open" size={18} color="#06B6D4" />
+                  <View style={[styles.sectionIconWrap, { backgroundColor: '#EF4444' + '18' }]}>
+                    <Icon name="document-text" size={18} color="#EF4444" />
                   </View>
                   <View style={styles.sectionTitleBlock}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-                      Course Materials
+                      Course Outline
                     </Text>
                     <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-                      PDFs, images and files
+                      One PDF outline for the whole course
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
-                  style={[styles.addMaterialBtn, { backgroundColor: ORANGE + '18', borderColor: ORANGE + '30' }]}
-                  onPress={() => setShowAddMaterialModal(true)}
-                >
-                  <Icon name="add" size={18} color={ORANGE} />
-                </TouchableOpacity>
+                {!materials.some(m => m.type === 'pdf') && (
+                  <TouchableOpacity
+                    style={[styles.addMaterialBtn, { backgroundColor: ORANGE + '18', borderColor: ORANGE + '30' }]}
+                    onPress={() => setShowAddMaterialModal(true)}
+                  >
+                    <Icon name="add" size={18} color={ORANGE} />
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <View style={[styles.sectionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#06B6D4' + '12' }]} />
+              <View style={[styles.sectionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#EF4444' + '12' }]} />
 
               {materials.length === 0 ? (
-                <View style={[styles.emptyMaterials, { borderColor: isDark ? 'rgba(255,255,255,0.15)' : theme.colors.border }]}>
-                  <Icon name="folder-open-outline" size={28} color={theme.colors.textTertiary} />
+                <TouchableOpacity
+                  style={[styles.emptyMaterials, { borderColor: isDark ? 'rgba(255,255,255,0.15)' : theme.colors.border, borderStyle: 'dashed' }]}
+                  onPress={() => setShowAddMaterialModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="document-text-outline" size={28} color="#EF4444" style={{ opacity: 0.6 }} />
                   <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                    No materials added
+                    No outline uploaded
                   </Text>
                   <Text style={[styles.emptyHint, { color: theme.colors.textTertiary }]}>
-                    Tap + above to add files
+                    Tap to upload your course outline PDF
                   </Text>
-                </View>
+                </TouchableOpacity>
               ) : (
                 <View style={styles.materialsList}>
                   {materials.map((material) => {
-                    const matType = material.type || 'file';
-                    const matColor = matType === 'pdf' ? '#EF4444' : matType === 'image' ? '#EC4899' : '#06B6D4';
+                    const isPdf = material.type === 'pdf';
+                    const isLegacy = !isPdf;
+                    const matColor = isPdf ? '#EF4444' : material.type === 'image' ? '#EC4899' : '#06B6D4';
+                    const matIcon = isPdf ? 'document-text-outline' : material.type === 'image' ? 'image-outline' : 'link-outline';
                     return (
-                      <View
-                        key={material.id}
-                        style={[
-                          styles.materialItem,
-                          {
-                            backgroundColor: isDark ? theme.colors.backgroundSecondary : theme.colors.background,
-                            borderColor: theme.colors.border,
-                            borderLeftColor: matColor,
-                          },
-                        ]}
-                      >
-                        <View style={[styles.materialIconWrap, { backgroundColor: matColor + '18' }]}>
-                          <Icon
-                            name={matType === 'pdf' ? 'document-text-outline' : matType === 'image' ? 'image-outline' : 'code-slash-outline'}
-                            size={18}
-                            color={matColor}
-                          />
+                      <View key={material.id}>
+                        <View
+                          style={[
+                            styles.materialItem,
+                            {
+                              backgroundColor: isDark ? theme.colors.backgroundSecondary : theme.colors.background,
+                              borderColor: theme.colors.border,
+                              borderLeftColor: matColor,
+                            },
+                          ]}
+                        >
+                          <View style={[styles.materialIconWrap, { backgroundColor: matColor + '18' }]}>
+                            <Icon name={matIcon} size={18} color={matColor} />
+                          </View>
+                          <Text style={[styles.materialName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+                            {material.fileName || material.title || material.uri || (isPdf ? 'Course Outline' : 'File')}
+                          </Text>
+                          <TouchableOpacity onPress={() => handleRemoveMaterial(material.id)}>
+                            <Icon name="close-circle" size={20} color={theme.colors.error} />
+                          </TouchableOpacity>
                         </View>
-                        <Text style={[styles.materialName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                          {material.fileName || material.uri || 'Material'}
-                        </Text>
-                        <TouchableOpacity onPress={() => handleRemoveMaterial(material.id)}>
-                          <Icon name="close-circle" size={20} color={theme.colors.error} />
-                        </TouchableOpacity>
+                        {isLegacy && (
+                          <Text style={{ color: theme.colors.textTertiary, fontSize: 11, marginBottom: 6, marginLeft: 4 }}>
+                            Legacy file — remove it and upload a PDF outline instead
+                          </Text>
+                        )}
                       </View>
                     );
                   })}
@@ -948,6 +964,7 @@ const CreateCourseScreen = () => {
         visible={showAddMaterialModal}
         onClose={() => setShowAddMaterialModal(false)}
         onAddMaterial={handleAddMaterial}
+        pdfOnly={true}
       />
     </MainLayout>
   );

@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ThemeToggle from '../../components/ThemeToggle';
 import UserAvatar from '../../components/ui/UserAvatar';
+import PasswordStrengthChecker from '../../components/ui/PasswordStrengthChecker';
 
 const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
@@ -122,10 +123,23 @@ const SignupDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  const pwChecks = {
+    length:  password.length >= 8,
+    upper:   /[A-Z]/.test(password),
+    lower:   /[a-z]/.test(password),
+    number:  /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+  const pwStrong = Object.values(pwChecks).every(Boolean);
+
   const handleComplete = async () => {
     setError('');
-    if (!password)             return setError('Please enter a password');
-    if (password.length < 6)   return setError('Password must be at least 6 characters');
+    if (!password)              return setError('Please enter a password');
+    if (!pwChecks.length)       return setError('Password must be at least 8 characters');
+    if (!pwChecks.upper)        return setError('Password must contain at least one uppercase letter');
+    if (!pwChecks.lower)        return setError('Password must contain at least one lowercase letter');
+    if (!pwChecks.number)       return setError('Password must contain at least one number');
+    if (!pwChecks.special)      return setError('Password must contain at least one special character');
     if (password !== confirmPw) return setError('Passwords do not match');
     try {
       const result = await completeRegistration(email, password, name, phone || null, age ? parseInt(age, 10) : null, qualification || null, profilePicture || null);
@@ -216,13 +230,17 @@ const SignupDetailsScreen = ({ route, navigation }) => {
             <AuthInput C={C} icon="school-outline" placeholder="Qualification (optional)" value={qualification}
               onChangeText={setQualification} autoCapitalize="words" />
 
-            <AuthInput C={C} icon="lock-closed-outline" placeholder="Create password (min 6 characters)" value={password}
+            <AuthInput C={C} icon="lock-closed-outline" placeholder="Create password" value={password}
               onChangeText={t => { setPassword(t); setError(''); }} secureTextEntry={!showPw}
               right={
                 <TouchableOpacity onPress={() => setShowPw(!showPw)}>
                   <Icon name={showPw ? 'eye-off-outline' : 'eye-outline'} size={18} color={C.inputIcon} />
                 </TouchableOpacity>
               } />
+
+            {password.length > 0 && (
+              <PasswordStrengthChecker pwChecks={pwChecks} isDark={isDark} />
+            )}
 
             <AuthInput C={C} icon="lock-closed-outline" placeholder="Confirm password" value={confirmPw}
               onChangeText={t => { setConfirmPw(t); setError(''); }} secureTextEntry={!showPw} />

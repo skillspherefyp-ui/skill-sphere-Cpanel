@@ -14,6 +14,7 @@ import CategoryManagementScreen from '../screens/instructor/CategoryManagementSc
 import CertificateManagementScreen from '../screens/instructor/CertificateManagementScreen';
 import FeedbackScreen from '../screens/instructor/FeedbackScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
 import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
 import NotificationsScreen from '../screens/auth/NotificationsScreen';
 import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
@@ -49,6 +50,7 @@ const AdminNavigator = () => {
       <Stack.Screen name="CertificateManagement" component={CertificateManagementScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />

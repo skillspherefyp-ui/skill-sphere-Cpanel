@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authAPI } from '../services/apiClient';
+import { authAPI, setUnauthorizedHandler } from '../services/apiClient';
 
 const normalizeUser = (payload, fallbackRole) => {
   console.log('🔧 normalizeUser called with payload:', JSON.stringify(payload, null, 2));
@@ -136,6 +136,12 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     }
   };
+
+  // Register logout as the 401 handler so any expired-token API response
+  // automatically clears the session and sends the user back to login.
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+  }, []);
 
   const updateProfile = async (data) => {
     setIsLoading(true);

@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ThemeToggle from '../../components/ThemeToggle';
 import { resendOTP } from '../../services/emailOTPService';
+import PasswordStrengthChecker from '../../components/ui/PasswordStrengthChecker';
 
 const LOGO   = require('../../assets/images/skillsphere-logo.png');
 const ORANGE = '#F68B3C';
@@ -83,8 +84,8 @@ const inp = StyleSheet.create({
 });
 
 const OTPVerificationScreen = ({ route, navigation }) => {
-  const { email, isPasswordReset, isSignup } = route.params || {};
-  const { resetPassword, verifySignupOTP, isLoading } = useAuth();
+  const { email, isPasswordReset, isSignup, fromSettings } = route.params || {};
+  const { resetPassword, verifySignupOTP, isLoading, user } = useAuth();
   const { isDark } = useTheme();
   const C = getColors(isDark);
   const { width } = useWindowDimensions();
@@ -98,6 +99,15 @@ const OTPVerificationScreen = ({ route, navigation }) => {
   const [modalMsg, setModalMsg]         = useState('');
   const [error, setError]               = useState('');
   const refs = useRef([]);
+
+  const pwChecks = {
+    length:  newPassword.length >= 8,
+    upper:   /[A-Z]/.test(newPassword),
+    lower:   /[a-z]/.test(newPassword),
+    number:  /[0-9]/.test(newPassword),
+    special: /[^A-Za-z0-9]/.test(newPassword),
+  };
+  const allPwValid = Object.values(pwChecks).every(Boolean);
 
   const isWeb = Platform.OS === 'web';
 
@@ -123,12 +133,18 @@ const OTPVerificationScreen = ({ route, navigation }) => {
 
     if (isPasswordReset) {
       if (!newPassword || !confirmPw) return setError('Please enter your new password');
-      if (newPassword !== confirmPw)   return setError('Passwords do not match');
-      if (newPassword.length < 6)      return setError('Password must be at least 6 characters');
+      if (!pwChecks.length)   return setError('Password must be at least 8 characters');
+      if (!pwChecks.upper)    return setError('Password must contain at least one uppercase letter');
+      if (!pwChecks.lower)    return setError('Password must contain at least one lowercase letter');
+      if (!pwChecks.number)   return setError('Password must contain at least one number');
+      if (!pwChecks.special)  return setError('Password must contain at least one special character');
+      if (newPassword !== confirmPw) return setError('Passwords do not match');
       const result = await resetPassword(email, code, newPassword);
       if (result.success) {
         setModalTitle('Password Changed!');
-        setModalMsg('Your password has been reset successfully. You can now log in with your new password.');
+        setModalMsg(fromSettings
+          ? 'Your password has been updated successfully.'
+          : 'Your password has been reset successfully. You can now log in with your new password.');
         setShowModal(true);
       } else {
         setError(result.error || 'Invalid code. Please try again.');
@@ -151,7 +167,10 @@ const OTPVerificationScreen = ({ route, navigation }) => {
 
   const handleModalClose = () => {
     setShowModal(false);
-    if (isPasswordReset) navigation.navigate('Login');
+    if (isPasswordReset) {
+      if (fromSettings) navigation.navigate('Settings');
+      else navigation.navigate('Login');
+    }
     else if (isSignup) navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     else navigation.goBack();
   };
@@ -194,7 +213,9 @@ const OTPVerificationScreen = ({ route, navigation }) => {
             </Animated.View>
             <Animated.View entering={FadeInUp.duration(400).delay(600)} style={{ width: '100%', marginTop: 28 }}>
               <TouchableOpacity style={s.modalBtn} onPress={handleModalClose} activeOpacity={0.85}>
-                <Text style={s.modalBtnText}>{isPasswordReset ? 'Go to Login' : 'Continue'}</Text>
+                <Text style={s.modalBtnText}>
+                  {isPasswordReset ? (fromSettings || user ? 'Back to Settings' : 'Go to Login') : 'Continue'}
+                </Text>
                 <Icon name="arrow-forward" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </Animated.View>
@@ -259,9 +280,12 @@ const OTPVerificationScreen = ({ route, navigation }) => {
             {isPasswordReset && (
               <>
                 <Text style={[s.sectionLabel, { color: C.sectionLabel }]}>New Password</Text>
-                <AuthInput C={C} icon="lock-closed-outline" placeholder="Create new password (min 6 chars)"
+                <AuthInput C={C} icon="lock-closed-outline" placeholder="Create new password"
                   value={newPassword} onChangeText={t => { setNewPassword(t); setError(''); }} secureTextEntry />
-                <Text style={[s.sectionLabel, { color: C.sectionLabel }]}>Confirm Password</Text>
+                {newPassword.length > 0 && (
+                  <PasswordStrengthChecker pwChecks={pwChecks} isDark={isDark} />
+                )}
+                <Text style={[s.sectionLabel, { color: C.sectionLabel, marginTop: 8 }]}>Confirm Password</Text>
                 <AuthInput C={C} icon="lock-closed-outline" placeholder="Confirm new password"
                   value={confirmPw} onChangeText={t => { setConfirmPw(t); setError(''); }} secureTextEntry onSubmit={handleVerify} />
               </>

@@ -81,6 +81,9 @@ module.exports = {
             plugins: [
               '@babel/plugin-transform-flow-strip-types',
               'react-native-reanimated/plugin',
+              ['@babel/plugin-transform-class-properties',             { loose: true }],
+              ['@babel/plugin-transform-private-methods',              { loose: true }],
+              ['@babel/plugin-transform-private-property-in-object',   { loose: true }],
             ],
           },
         },
@@ -153,8 +156,13 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: path.dirname(resolveModule('react-native-vector-icons/package.json')) + '/Fonts',
-          to: path.resolve(__dirname, 'web-build/assets/fonts'),
+          from: path.dirname(resolveModule('react-native-vector-icons/package.json')) + '/Fonts/Ionicons.ttf',
+          to: path.resolve(__dirname, 'web-build/assets/fonts/Ionicons.ttf'),
+          noErrorOnMissing: true,
+        },
+        {
+          from: path.dirname(resolveModule('react-native-vector-icons/package.json')) + '/Fonts/MaterialCommunityIcons.ttf',
+          to: path.resolve(__dirname, 'web-build/assets/fonts/MaterialCommunityIcons.ttf'),
           noErrorOnMissing: true,
         },
         {
@@ -173,13 +181,15 @@ module.exports = {
     new webpack.DefinePlugin({
       __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
       DEV: JSON.stringify(process.env.NODE_ENV !== 'production'),
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
       'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL),
     }),
     new webpack.ProvidePlugin({
       process: 'process/browser',
     }),
   ],
+  performance: {
+    hints: false,
+  },
   devServer: {
     static: {
       directory: path.join(__dirname, 'web-build'),

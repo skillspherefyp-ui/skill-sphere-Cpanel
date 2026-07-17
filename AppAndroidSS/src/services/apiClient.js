@@ -43,7 +43,19 @@ const getAuthToken = async () => {
   }
 };
 
+// AuthContext registers its logout function here so the API client can
+// trigger an automatic logout whenever the server returns 401 (expired token).
+let _unauthorizedHandler = null;
+export function setUnauthorizedHandler(fn) {
+  _unauthorizedHandler = fn;
+}
+
 const handleResponse = async (response) => {
+  // Expired or invalid token — clear session and redirect to login
+  if (response.status === 401) {
+    if (_unauthorizedHandler) _unauthorizedHandler();
+    throw new Error('Session expired. Please log in again.');
+  }
   try {
     const data = await response.json();
     if (!response.ok) {

@@ -94,7 +94,7 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Please enter a valid email address');
     const result = await forgotPassword(email.trim().toLowerCase());
     if (result.success) {
-      navigation.navigate('OTPVerification', { email: email.trim().toLowerCase(), isPasswordReset: true });
+      navigation.navigate('OTPVerification', { email: email.trim().toLowerCase(), isPasswordReset: true, fromSettings: isFromSettings });
     } else {
       setError(result.error || 'Failed to send reset code. Please try again.');
     }
@@ -164,12 +164,19 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
               </Text>
             </View>
 
-            <View style={s.footer}>
-              <Text style={[s.footerText, { color: C.footerText }]}>Remember your password? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={s.footerLink}>Sign In</Text>
+            {isFromSettings ? (
+              <TouchableOpacity style={s.footer} onPress={() => navigation.goBack()}>
+                <Icon name="arrow-back" size={14} color={ORANGE} />
+                <Text style={[s.footerLink, { marginLeft: 4 }]}>Back to Settings</Text>
               </TouchableOpacity>
-            </View>
+            ) : (
+              <View style={s.footer}>
+                <Text style={[s.footerText, { color: C.footerText }]}>Remember your password? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                  <Text style={s.footerLink}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={{ height: 40 }} />

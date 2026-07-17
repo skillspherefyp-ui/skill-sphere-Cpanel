@@ -24,7 +24,7 @@ import { getSidebarItems } from '../../utils/sidebarItems';
 const ORANGE = '#FF8C42';
 
 const SettingsScreen = () => {
-  const { logout, user, updateProfile, changePassword } = useAuth();
+  const { logout, user, updateProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
@@ -45,13 +45,6 @@ const SettingsScreen = () => {
   const isStudent = user?.role === 'student';
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // Password state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
 
   const sidebarItems = getSidebarItems(user?.role);
   const isSuperInstructor = user?.role === 'admin';
@@ -153,39 +146,6 @@ const SettingsScreen = () => {
       Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to update profile.' });
     } finally {
       setSavingProfile(false);
-    }
-  };
-
-  // ── Change password ──────────────────────────────────────────────────────────
-
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Please fill all fields.' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'New passwords do not match.' });
-      return;
-    }
-    if (newPassword.length < 6) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Password must be at least 6 characters.' });
-      return;
-    }
-    setSavingPassword(true);
-    try {
-      const result = await changePassword(currentPassword, newPassword);
-      if (result.success) {
-        Toast.show({ type: 'success', text1: 'Password Updated', text2: 'Your password has been changed.' });
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        Toast.show({ type: 'error', text1: 'Error', text2: result.error || 'Failed to change password.' });
-      }
-    } catch (err) {
-      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to change password.' });
-    } finally {
-      setSavingPassword(false);
     }
   };
 
@@ -361,68 +321,18 @@ const SettingsScreen = () => {
 
           <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(26,26,46,0.07)' }]} />
 
-          <View style={styles.inputGroup}>
-            <View style={styles.inputLabelRow}>
-              <Icon name="lock-closed-outline" size={14} color={theme.colors.textTertiary} />
-              <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Current Password</Text>
-            </View>
-            <AppInput
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry={!showCurrentPassword}
-              placeholder="Enter current password"
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowCurrentPassword(v => !v)} activeOpacity={0.7}>
-                  <Icon name={showCurrentPassword ? 'eye-off' : 'eye'} size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              }
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.inputLabelRow}>
-              <Icon name="key-outline" size={14} color={theme.colors.textTertiary} />
-              <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>New Password</Text>
-            </View>
-            <AppInput
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry={!showNewPassword}
-              placeholder="Enter new password"
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowNewPassword(v => !v)} activeOpacity={0.7}>
-                  <Icon name={showNewPassword ? 'eye-off' : 'eye'} size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              }
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.inputLabelRow}>
-              <Icon name="checkmark-circle-outline" size={14} color={theme.colors.textTertiary} />
-              <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Confirm New Password</Text>
-            </View>
-            <AppInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showNewPassword}
-              placeholder="Confirm new password"
-            />
-          </View>
+          <Text style={[styles.passwordDescription, { color: theme.colors.textSecondary }]}>
+            We'll send a verification code to your email address to confirm it's you before setting a new password.
+          </Text>
 
           <AppButton
-            title={savingPassword ? 'Updating…' : 'Update Password'}
-            onPress={handleChangePassword}
+            title="Change Password"
+            onPress={handleForgotPassword}
             variant="primary"
             style={styles.actionButton}
-            disabled={savingPassword}
             icon={<Icon name="key" size={14} color="#fff" />}
             iconPosition="left"
           />
-
-          <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordLink}>
-            <Text style={[styles.forgotPasswordText, { color: ORANGE }]}>Forgot Password?</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Logout */}
@@ -509,8 +419,7 @@ const getStyles = (theme, isDark, isLargeScreen, isTablet, isMobile) =>
     inputLabel: { fontSize: 13, fontWeight: '500' },
 
     actionButton: { marginTop: 8, marginBottom: 4 },
-    forgotPasswordLink: { alignSelf: 'center', marginTop: 14, paddingVertical: 4 },
-    forgotPasswordText: { fontSize: 14, fontWeight: '600' },
+    passwordDescription: { fontSize: 13, lineHeight: 20, marginBottom: 16 },
 
     logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 14, borderRadius: 12, borderWidth: 1 },
     logoutButtonText: { color: '#EF4444', fontSize: 15, fontWeight: '600' },

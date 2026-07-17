@@ -6,6 +6,7 @@ import ExpertCourseDetailScreen from '../screens/expert/ExpertCourseDetailScreen
 import FeedbackFormScreen from '../screens/expert/FeedbackFormScreen';
 import SettingsScreen from '../screens/auth/SettingsScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
 import CertificateVerificationScreen from '../screens/auth/CertificateVerificationScreen';
 import NotificationsScreen from '../screens/auth/NotificationsScreen';
 import NotificationDetailScreen from '../screens/auth/NotificationDetailScreen';
@@ -28,6 +29,7 @@ const ExpertNavigator = () => {
       <Stack.Screen name="FeedbackForm" component={FeedbackFormScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
       <Stack.Screen name="Discussion" component={DiscussionScreen} />
